@@ -428,3 +428,16 @@ Every ZOAU call in this project is deliberately isolated to
 each call `mvscmd.execute_authorized()` directly to run one MVS program),
 so that adapting to your installed version's exact API only means editing
 those files — nothing else in the pipeline needs to change.
+
+
+#### Basic Env requirements
+PATH=/shrd/zoautil//bin:/shrd/cyp/pyz/bin/:/bin
+_BPXK_AUTOCVT=ON
+ZOAU_ROOT=/shrd/zoautil/
+_CEE_RUNOPTS=FILETAG(AUTOCVT,AUTOTAG) POSIX(ON)
+CLASSPATH=/shrd/zoautil//lib/*:
+STEPLIB=none
+LANG=C
+LIBPATH=/shrd/zoautil/lib:/shrd/cyp/pyz/lib:/lib:/usr/lib:.
+TERM=xterm
+PYTHONPATH=/shrd/zoautil//lib/:
