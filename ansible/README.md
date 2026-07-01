@@ -169,6 +169,14 @@ inventory/group_vars/zos.yml  # shared ZOAU/Python env + local output path
 playbooks/site.yml         # entry point; sets the ZOAU env at the play level
 playbooks/interactive.yml  # same, but prompts for connection details for a
                             # one-off system instead of reading hosts.yml
+playbooks/roles            # symlink to ../roles -- ansible.cfg's roles_path
+                            # setting only applies when a tool's cwd is this
+                            # ansible/ directory (so it finds ansible.cfg at
+                            # all); this symlink makes the role discoverable
+                            # via Ansible's own default playbook-relative
+                            # search too, so e.g. an IDE's ansible-lint
+                            # integration running from the repo root still
+                            # finds roles/zos_extract. Don't delete it.
 roles/zos_extract/
   defaults/main.yml        # per-step defaults (member filters, HLQs, ...)
   tasks/
