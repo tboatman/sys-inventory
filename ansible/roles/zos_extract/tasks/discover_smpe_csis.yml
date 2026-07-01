@@ -22,10 +22,16 @@
 # that needs an unrestricted IDCAMS LISTCAT ALL scan plus a client-side
 # filter instead, which is real overkill once there's a literal prefix
 # to anchor on like this one.
+#
+# zos_extract_smpe_csi_excludes filters out each CSI's own DATA/INDEX
+# component clusters (this site names them e.g. EDUC.SOME.CSI.D/
+# EDUC.SOME.CSI.I) -- those aren't usable as an SMPCSI themselves, just
+# noise that'd otherwise show up alongside the actual CSI cluster names.
 
 - name: Find VSAM clusters matching the configured CSI naming patterns
   ibm.ibm_zos_core.zos_find:
     patterns: "{{ zos_extract_smpe_csi_search_patterns }}"
+    excludes: "{{ zos_extract_smpe_csi_excludes }}"
     resource_type: [cluster]
   register: zos_extract_smpe_csi_find
   when: zos_extract_smpe_csi_search_patterns | length > 0

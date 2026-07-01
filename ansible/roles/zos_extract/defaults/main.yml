@@ -24,6 +24,11 @@ zos_extract_smpe_workhlq: "{{ ansible_user | upper }}.SMPLIST"
 # a full scan) can find them directly -- any CSIs outside that
 # convention are stragglers to track down by hand.
 zos_extract_smpe_csi_search_patterns: ["EDUC.**.CSI"]
+# EDUC.**.CSI also picks up each CSI's own DATA/INDEX component clusters
+# (named e.g. EDUC.SOME.CSI.D/EDUC.SOME.CSI.I at this site) -- these are
+# real full-name regexes (zos_find's own excludes rules), not the
+# */**/? dsname-wildcard syntax patterns uses.
+zos_extract_smpe_csi_excludes: ['^.*\.CSI\.[ID]$']
 zos_extract_smpe_csi_candidates_outfile: "smpe_csi_candidates.txt"
 
 zos_extract_catalog_patterns: []
