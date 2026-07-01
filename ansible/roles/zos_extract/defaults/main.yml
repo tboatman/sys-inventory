@@ -20,12 +20,18 @@ zos_extract_smpe_workhlq: "{{ ansible_user | upper }}.SMPLIST"
 # Candidate search for zos_extract_smpe_csi -- see discover_smpe_csis.yml.
 # Only runs when the smpe_csi_discovery tag is selected, so this default
 # is safe to leave in place for every run. "**.CSI" is this site's actual
-# naming convention (every CSI ends in .CSI, no shared prefix), so a
-# leading-wildcard, full-catalog-scan search is unavoidable here -- see
-# that file's CPU note for what that costs relative to a prefix-anchored
-# pattern. Override with a narrower pattern in hosts.yml if your site's
-# convention allows it.
+# naming convention (every CSI ends in .CSI, no shared prefix) -- a
+# leading-wildcard/suffix-only search like this has no catalog-search
+# primitive on z/OS, so discover_smpe_csis.yml does a full LISTCAT
+# CLUSTER scan and filters client-side rather than using zos_find (which
+# doesn't support leading wildcards at all -- confirmed against a real
+# run, see that file). If your site's CSI names DO share a prefix, use a
+# narrower pattern (e.g. "SMPE.*.CSI") instead -- cheaper, and zos_find
+# can handle it directly.
 zos_extract_smpe_csi_search_patterns: ["**.CSI"]
+# LISTCAT with no CATALOG() override only searches the connected default
+# catalog -- name any additional user catalogs here to also search them.
+zos_extract_smpe_csi_search_catalogs: []
 zos_extract_smpe_csi_candidates_outfile: "smpe_csi_candidates.txt"
 
 zos_extract_catalog_patterns: []

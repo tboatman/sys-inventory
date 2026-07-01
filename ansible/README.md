@@ -180,21 +180,36 @@ chooses to use as one). If you don't know its name yet, run:
 ansible-playbook playbooks/site.yml --tags smpe_csi_discovery --limit lpar1
 ```
 
-This searches the catalog (`zos_find`, `resource_type: cluster`) for VSAM
-clusters matching `zos_extract_smpe_csi_search_patterns` and writes
-candidates to `smpe_csi_candidates.txt` -- a naming-heuristic list, not a
-verified one. Confirm a candidate is really usable as an `SMPCSI` (e.g. by
-pointing `smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
+This runs an unrestricted IDCAMS `LISTCAT CLUSTER` (every VSAM cluster in the
+connected catalog, no `LEVEL`/name filter) and matches the results locally
+against `zos_extract_smpe_csi_search_patterns`, writing candidates to
+`smpe_csi_candidates.txt` -- a naming-heuristic list, not a verified one.
+Confirm a candidate is really usable as an `SMPCSI` (e.g. by pointing
+`smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
+
+It does **not** use `zos_find` (unlike `catalog.yml`): that module's own docs
+say it "does not support wildcards for high level qualifiers" -- e.g.
+`SOME.*.DATA.SET` is valid but `*.DATA.SET` is not. That was confirmed the
+hard way first: a real run against this site's `**.CSI` convention silently
+returned nothing, no error, because the leading wildcard isn't a supported
+position at all. A suffix-only naming convention has no catalog-search
+primitive on z/OS, full stop -- the only way to find "every cluster ending
+in `.CSI`" is to list everything and filter client-side, which is what
+`discover_smpe_csis.yml` does instead.
 
 `zos_extract_smpe_csi_search_patterns` defaults to `["**.CSI"]`
 (`roles/zos_extract/defaults/main.yml`) since that's this site's actual
 convention -- every CSI ends in `.CSI` with no shared prefix. If yours does
 have a shared prefix, override it in `hosts.yml` with something
-prefix-anchored (e.g. `SMPE.*.CSI`) instead: catalog search is an ordered
-index (BCS) lookup, so a fixed prefix lets it do a narrow scan, while a
-leading wildcard like `**.CSI` forces it to walk every catalog entry on the
-system looking for a match at the end of the name -- the actual CPU cost
-driver, not the volume of data stored under any of those entries.
+prefix-anchored (e.g. `SMPE.*.CSI`) instead and it'll go through `zos_find`
+in `catalog.yml`'s style via a narrow, indexed `LEVEL()` lookup rather than
+this full-catalog scan -- much cheaper. There's no way around the full scan
+for a genuinely suffix-only convention like `**.CSI`, though.
+
+By default this only searches the catalog connected by default -- `LISTCAT`
+without an explicit `CATALOG()` doesn't descend into other user catalogs
+reachable via alias. If your CSIs live in a separate user catalog, list its
+name in `zos_extract_smpe_csi_search_catalogs` to also search it.
 
 ### RACF (step 10) is opt-in on purpose
 
@@ -271,9 +286,10 @@ roles/zos_extract/
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)
-    discover_smpe_csis.yml     # opt-in catalog search for CSI candidates
-                                # by naming pattern (zos_find, cluster) --
-                                # not authoritative, see above
+    discover_smpe_csis.yml     # opt-in full LISTCAT CLUSTER scan + local
+                                # naming-pattern filter for CSI candidates
+                                # (not zos_find -- not authoritative, see
+                                # above)
     catalog.yml                # zos_find + zos_stat (non-VSAM) and
                                 # zos_mvs_raw/IDCAMS (VSAM) combined
     racf.yml                   # zos_mvs_raw (IRRDBU00), implementation
