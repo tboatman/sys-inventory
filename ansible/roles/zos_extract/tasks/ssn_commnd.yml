@@ -1,24 +1,45 @@
 ---
+# Same zos_find + zos_fetch approach as proclib.yml (see _member_dump.yml),
+# scoped to the IEFSSNxx/COMMNDxx member filters. zos_find's member
+# patterns are regex, while zos_extract_ssn_member_filter/
+# zos_extract_commnd_member_filter are fnmatch-style ('IEFSSN*') to stay
+# consistent with the rest of this role's user-facing filter vars, so
+# each is converted to an equivalent anchored regex first.
+
+- name: Build a regex from the IEFSSNxx member filter
+  ansible.builtin.set_fact:
+    zos_extract_ssn_regex: >-
+      {{ '^' ~ (zos_extract_ssn_member_filter
+         | regex_replace('([.^$+{}\[\]|()])', '\\\1')
+         | regex_replace('\*', '.*')
+         | regex_replace('\?', '.')) ~ '$' }}
+
+- name: Build a regex from the COMMNDxx member filter
+  ansible.builtin.set_fact:
+    zos_extract_commnd_regex: >-
+      {{ '^' ~ (zos_extract_commnd_member_filter
+         | regex_replace('([.^$+{}\[\]|()])', '\\\1')
+         | regex_replace('\*', '.*')
+         | regex_replace('\?', '.')) ~ '$' }}
+
 - name: Dump subsystem (IEFSSNxx) definitions
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
-    --indsn {{ item.dsn }}
-    --members {{ zos_extract_ssn_member_filter }}
-    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_ssn.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+  ansible.builtin.include_tasks: _member_dump.yml
   loop: "{{ zos_extract_parmlibs }}"
   loop_control:
     label: "{{ item.dsn }}"
+  vars:
+    zos_extract_dsn: "{{ item.dsn }}"
+    zos_extract_member_regex: "{{ zos_extract_ssn_regex }}"
+    zos_extract_outfile: "{{ item.prefix }}_ssn.txt"
+    zos_extract_warn_if_empty: true
 
 - name: Dump started-task (COMMNDxx) definitions
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
-    --indsn {{ item.dsn }}
-    --members {{ zos_extract_commnd_member_filter }}
-    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_commnd.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+  ansible.builtin.include_tasks: _member_dump.yml
   loop: "{{ zos_extract_parmlibs }}"
   loop_control:
     label: "{{ item.dsn }}"
+  vars:
+    zos_extract_dsn: "{{ item.dsn }}"
+    zos_extract_member_regex: "{{ zos_extract_commnd_regex }}"
+    zos_extract_outfile: "{{ item.prefix }}_commnd.txt"
+    zos_extract_warn_if_empty: true

@@ -4,11 +4,40 @@
 # Requires READ access to a COPY of the RACF database (never the live
 # primary/backup); this is a materially harder authorization ask than every
 # other step and needs your security team's direct involvement.
-- name: Run RACF database unload (IRRDBU00) against a read-accessible copy
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrracf.py
-    --racf-database {{ zos_extract_racf_database_dsn }}
-    --workhlq {{ zos_extract_racf_workhlq }}
-    --outfile {{ zos_extract_remote_output_dir }}/racf.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+#
+# Direct analog for extrracf.py: zos_mvs_raw runs IRRDBU00 the same way
+# extrracf.py did by hand via mvscmd.execute_authorized(), but OUTDD is a
+# dd_output (return_content) instead of extrracf.py's manual
+# datasets.tmp_name()+create()+read()+delete() of a temp unload data set --
+# zos_mvs_raw provisions and cleans that up automatically. PARM=NOLOCKINPUT
+# and SYSPRINT=DUMMY are kept for the same reasons documented in
+# extrracf.py: --racf-database always points at a read-only copy (never
+# the live primary), so there's no concurrent-update lock risk, and
+# SYSPRINT is IRRDBU00's informational message output, not the unload
+# itself. IRRDBU00 returns rc=0 for a clean unload (zos_mvs_raw's default
+# max_rc=0 already matches that; anything higher fails the task).
+
+- name: Run IRRDBU00 against the configured RACF database copy
+  ibm.ibm_zos_core.zos_mvs_raw:
+    program_name: IRRDBU00
+    auth: true
+    parm: NOLOCKINPUT
+    dds:
+      - dd_data_set:
+          dd_name: INDD1
+          data_set_name: "{{ zos_extract_racf_database_dsn }}"
+          disposition: shr
+      - dd_output:
+          dd_name: OUTDD
+          return_content:
+            type: text
+      - dd_dummy:
+          dd_name: SYSPRINT
+  register: zos_extract_racf_result
+
+- name: Write racf.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/racf.txt"
+    mode: "0644"
+    content: "{{ ((zos_extract_racf_result.dd_names | selectattr('dd_name', 'equalto', 'OUTDD') | first).content | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

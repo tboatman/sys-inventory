@@ -1,7 +1,25 @@
 ---
-- name: Dump the APF-authorized library list (D PROG,APF)
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrapf.py
-    --outfile {{ zos_extract_remote_output_dir }}/apf.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Direct, purpose-built analog for extrapf.py: zos_apf's operation=list
+# queries the live APF list directly (same underlying ZOAU apfadm call
+# extrapf.py's 'D PROG,APF' console command approximated by hand) and
+# returns it as structured JSON instead of console text to regex-parse.
+# With no library/volume/sms filter, zos_apf returns
+# {"datasets": [{"vol": ..., "ds": ...}, ...]} as a JSON string in
+# `stdout` -- parsed here and reduced to the same "one DSN per line"
+# apf.txt format extrapf.py used to write.
+
+- name: List current APF entries
+  ibm.ibm_zos_core.zos_apf:
+    operation: list
+  register: zos_extract_apf_result
+
+- name: Extract APF data set names from the result
+  ansible.builtin.set_fact:
+    zos_extract_apf_dsns: "{{ (zos_extract_apf_result.stdout | from_json).datasets | map(attribute='ds') | list }}"
+
+- name: Write apf.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/apf.txt"
+    mode: "0644"
+    content: "{{ (zos_extract_apf_dsns | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

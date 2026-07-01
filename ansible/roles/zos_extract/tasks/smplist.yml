@@ -1,15 +1,30 @@
 ---
-- name: Run SMP/E LIST DDDEF/MOD/SYSMOD against each target zone
-  ansible.builtin.command:
-    argv: >-
-      {{
-        ['python3', zos_extract_remote_script_dir ~ '/smplist.py',
-         '--csi', zos_extract_smpe_csi,
-         '--zone', item,
-         '--workhlq', zos_extract_smpe_workhlq,
-         '--outfile', zos_extract_remote_output_dir ~ '/' ~ (item | lower) ~ '.smplist.txt']
-        + (['--steplib', zos_extract_smpe_steplib] if zos_extract_smpe_steplib else [])
-      }}
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Direct analog for smplist.py: zos_mvs_raw runs GIMSMP the same way
+# smplist.py did by hand via ZOAU's mvscmd.execute_authorized(), but the
+# DD statements (and their allocate/read-back/delete lifecycle) are
+# declarative instead of hand-rolled Python:
+#   - SMPCSI/STEPLIB: existing data sets, shr (same as before).
+#   - SMPLOG/SMPLOGA: dd_dummy (same DUMMY DDs as before).
+#   - SMPWRK6: still a real scratch PDS GIMSMP needs to write into, so
+#     it's a dd_data_set with disposition=new + disposition_normal/
+#     abnormal=delete -- zos_mvs_raw deletes it after the step the same
+#     way smplist.py's own try/finally did, just declaratively.
+#   - SMPLIST: dd_output with return_content -- this is the part that
+#     most directly replaces smplist.py's manual
+#     datasets.tmp_name()+create()+read()+delete() dance: zos_mvs_raw
+#     provisions the backing data set, returns its content in the
+#     result, and cleans it up automatically.
+# rc<=4 is informational for SMP/E LIST (e.g. an empty LIST FILE
+# section); max_rc: 4 tells zos_mvs_raw not to fail the task for that,
+# matching smplist.py's own "rc > 4 is a real error" check.
+#
+# See _smplist_zone.yml for the actual per-zone task sequence -- included
+# dynamically (rather than a block+loop, which this ansible-core version
+# doesn't support at all) since state is threaded across its three tasks.
+
+- name: Run SMP/E LIST DDDEF/MOD/SYSMOD for each target zone
+  ansible.builtin.include_tasks: _smplist_zone.yml
   loop: "{{ zos_extract_smpe_zones }}"
+  loop_control:
+    loop_var: zos_extract_zone
+    label: "{{ zos_extract_zone }}"

@@ -1,6 +1,9 @@
 ---
-- name: Run zos-extract on each inventoried LPAR and fetch results locally
+- name: Run zos-extract-equivalent native Ansible modules on each inventoried LPAR
   hosts: zos
   gather_facts: false
+  # ibm.ibm_zos_core's modules still rely on ZOAU/zoautil_py on the target,
+  # so this env is needed for module execution too, not just raw commands.
+  environment: "{{ zos_extract_env }}"
   roles:
     - zos_extract

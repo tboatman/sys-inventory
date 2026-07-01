@@ -1,14 +1,49 @@
 ---
-- name: Snapshot active jobs/started tasks
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrjobs.py
-    --outfile {{ zos_extract_remote_output_dir }}/active_jobs.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Jobs: direct analog for extrjobs.py. zos_job_query is ibm_zos_core's
+# higher-level wrapper around the same job-listing ZOAU API
+# jobs.fetch_multiple() used directly -- per zos_job_query's own source
+# (parsing_jobs() in its module file), it sets ret_code to None
+# specifically when the raw JES status contains "AC" (active), so
+# `ret_code is none` here is the exact equivalent of extrjobs.py's
+# `entry.status == "AC"` filter, just expressed against the wrapper's
+# normalized field instead of ZOAU's raw one.
+#
+# Processes: there's no ibm.ibm_zos_core module for USS process listing
+# (it's plain USS, no ZOAU/MVS concept involved, same as extrprocs.py
+# itself only ever shelled out to `ps -ef` directly) -- so this still
+# runs `ps -ef` via the command module, but the column-skipping parse
+# extrprocs.py did in Python is reproduced in Jinja below instead of
+# needing the script staged on the target.
+
+- name: Query all active jobs and started tasks
+  ibm.ibm_zos_core.zos_job_query:
+    job_name: "*"
+  register: zos_extract_jobs_result
+
+- name: Write active_jobs.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/active_jobs.txt"
+    mode: "0644"
+    content: |-
+      {% for job in zos_extract_jobs_result.jobs | default([]) | selectattr('ret_code', 'none') | list %}
+      {{ job.job_id }} {{ job.job_name }} {{ job.content_type | default('?') }} {{ job.asid }}
+      {% endfor %}
+  delegate_to: localhost
 
 - name: Snapshot USS processes
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrprocs.py
-    --outfile {{ zos_extract_remote_output_dir }}/processes.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+  ansible.builtin.command: ps -ef
+  register: zos_extract_ps_result
+  changed_when: false
+
+- name: Write processes.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/processes.txt"
+    mode: "0644"
+    content: |-
+      {% for line in zos_extract_ps_result.stdout_lines[1:] %}
+      {% set fields = line.split(None, 7) %}
+      {% if fields | length > 7 %}
+      {{ fields[7] }}
+      {% endif %}
+      {% endfor %}
+  delegate_to: localhost

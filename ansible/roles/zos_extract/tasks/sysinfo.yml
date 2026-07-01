@@ -1,7 +1,42 @@
 ---
-- name: Capture LPAR/sysplex identity (D SYMBOLS + D IPLINFO)
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrsys.py
-    --outfile {{ zos_extract_remote_output_dir }}/sysinfo.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Direct analog for extrsys.py: zos_operator issues the same 'D SYMBOLS'
+# and 'D IPLINFO' console commands extrsys.py used
+# zos_common.run_opercmd() for. ibm.ibm_zos_core also ships
+# zos_gather_facts, which collects LPAR/sysplex identity as structured
+# JSON (lpar_name, sysplex_name, ipl_volume, ...) -- a "nicer" result in
+# isolation, but inventory/inventory/sysinfo_parser.py is written to parse
+# the raw 'D SYMBOLS'/'D IPLINFO' console text under the ##SYMBOLS/
+# ##IPLINFO sentinels, so zos_operator is used here instead to keep that
+# output format byte-for-byte compatible without also having to rewrite
+# sysinfo_parser.py.
+
+- name: Issue D SYMBOLS
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D SYMBOLS"
+  register: zos_extract_symbols_reply
+
+- name: Issue D IPLINFO
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D IPLINFO"
+  register: zos_extract_iplinfo_reply
+
+- name: Join the D SYMBOLS/D IPLINFO reply lines into plain text
+  # Deliberately double-quoted scalars, not block scalars: YAML resolves
+  # the \n escape below to a real newline before Jinja sees it. A block
+  # scalar leaves it as literal backslash-n text instead (confirmed by
+  # testing both forms), which would corrupt the ##SYMBOLS/##IPLINFO
+  # sentinel format sysinfo_parser.py expects.
+  ansible.builtin.set_fact:
+    zos_extract_symbols_text: "{{ zos_extract_symbols_reply.content | join('\n') }}"
+    zos_extract_iplinfo_text: "{{ zos_extract_iplinfo_reply.content | join('\n') }}"
+
+- name: Write sysinfo.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/sysinfo.txt"
+    mode: "0644"
+    content: |-
+      ##SYMBOLS
+      {{ zos_extract_symbols_text }}
+      ##IPLINFO
+      {{ zos_extract_iplinfo_text }}
+  delegate_to: localhost

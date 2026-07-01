@@ -1,0 +1,76 @@
+---
+# Shared worker for proclib.yml/ssn_commnd.yml/ifaprd.yml: given
+# zos_extract_dsn (a PDS/PDSE), zos_extract_member_regex (a regex over
+# member names -- '.*' for "every member"), and zos_extract_outfile,
+# fetches every matching member and reassembles the same ##MEMBER
+# sentinel-delimited format extrproc.py used to produce.
+#
+# Included via include_tasks (dynamic), not import_tasks, because it's
+# invoked in a loop with per-iteration state (scratch dir, member list)
+# threaded across several tasks -- import_tasks can't do that since it's
+# resolved once at parse time, before any loop variable exists. This is
+# safe under --tags filtering as tested: the vanishing-children issue
+# documented in main.yml only bit an include_tasks statement that itself
+# carried a `tags:` attribute conflicting with the selected --tags: this
+# include has none, and simply inherits whatever tags its caller's own
+# (statically imported) task already resolved to.
+#
+# No try/finally around the scratch dir cleanup at the end: if an earlier
+# step here fails, the scratch directory is left behind under the system
+# temp dir rather than being guaranteed-removed. Given this is a read-only
+# extraction pipeline (not a mutating operation), that's an acceptable
+# trade for not reintroducing block+loop, which this ansible-core version
+# doesn't support at all (confirmed: 'loop' is not a valid attribute for a
+# Block, with or without always/rescue).
+
+- name: Create a scratch directory for {{ zos_extract_dsn }}
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_scratch
+  delegate_to: localhost
+
+- name: List members matching the configured filter in {{ zos_extract_dsn }}
+  ibm.ibm_zos_core.zos_find:
+    pds_patterns: ["{{ zos_extract_dsn }}"]
+    patterns: ["{{ zos_extract_member_regex }}"]
+  register: zos_extract_members
+
+- name: Set the member name list for {{ zos_extract_dsn }}
+  ansible.builtin.set_fact:
+    zos_extract_member_names: "{{ (zos_extract_members.data_sets[0].members | default({})).keys() | list | sort }}"
+
+- name: Fetch each matching member of {{ zos_extract_dsn }}
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_dsn }}({{ zos_extract_member_item }})"
+    dest: "{{ zos_extract_scratch.path }}/"
+    flat: true
+  loop: "{{ zos_extract_member_names }}"
+  loop_control:
+    loop_var: zos_extract_member_item
+    label: "{{ zos_extract_member_item }}"
+
+- name: Assemble {{ zos_extract_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_outfile }}"
+    mode: "0644"
+    content: |-
+      {% for name in zos_extract_member_names %}
+      ##MEMBER {{ name }}
+      {{ lookup('ansible.builtin.file', zos_extract_scratch.path ~ '/' ~ name) }}
+      {% endfor %}
+  delegate_to: localhost
+  when: zos_extract_member_names | length > 0
+
+- name: Note if no members matched the filter
+  ansible.builtin.debug:
+    msg: "No members matching the configured filter were found in {{ zos_extract_dsn }}."
+  when:
+    - zos_extract_member_names | length == 0
+    - zos_extract_warn_if_empty | default(false)
+
+- name: Remove scratch directory for {{ zos_extract_dsn }}
+  ansible.builtin.file:
+    path: "{{ zos_extract_scratch.path }}"
+    state: absent
+  delegate_to: localhost

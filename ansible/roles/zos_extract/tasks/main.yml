@@ -1,7 +1,11 @@
 ---
 # Each import below corresponds to one numbered step in
-# zos-extract/README.md's "What to run" section. Tags let you run a subset,
-# e.g. `ansible-playbook playbooks/site.yml --tags lnklst,apf`.
+# zos-extract/README.md's "What to run" section, but runs it via a direct
+# ibm.ibm_zos_core module instead of staging and shelling out to the
+# zos-extract/python/*.py script for that step -- see each task file's own
+# header comment for exactly which module replaces which script/ZOAU call.
+# Tags let you run a subset, e.g.
+# `ansible-playbook playbooks/site.yml --tags lnklst,apf`.
 #
 # These use import_tasks (static), not include_tasks (dynamic), on purpose:
 # with a dynamic include, tags placed on the include statement don't
@@ -12,8 +16,8 @@
 # visibly. Static import_tasks resolves at playbook-parse time, so tags
 # apply the traditional, documented way.
 
-- name: Stage zos-extract scripts on target
-  ansible.builtin.import_tasks: stage.yml
+- name: Ensure local output directory exists
+  ansible.builtin.import_tasks: local_prep.yml
   tags: always
 
 - name: PROCLIB/PARMLIB dumps (step 1)
@@ -58,7 +62,3 @@
   ansible.builtin.import_tasks: racf.yml
   tags: [racf, never]
   when: zos_extract_racf_database_dsn | length > 0
-
-- name: Fetch results back to the control node
-  ansible.builtin.import_tasks: fetch.yml
-  tags: [always, fetch]

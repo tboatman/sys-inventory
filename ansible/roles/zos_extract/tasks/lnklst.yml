@@ -1,7 +1,28 @@
 ---
-- name: Dump the LNKLST concatenation (D PROG,LNKLST)
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrlnk.py
-    --outfile {{ zos_extract_remote_output_dir }}/lnklst.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Direct analog for extrlnk.py: zos_operator issues the same 'D PROG,LNKLST'
+# console command extrlnk.py used zos_common.run_opercmd() for, returning
+# each reply line already split in `content` (a list) instead of raw
+# stdout text. The DSN-per-row extraction (same shape zos_common.
+# parse_numbered_dsn_list() used: ENTRY APF VOLUME DSNAME, 4 whitespace-
+# separated fields, ENTRY numeric) is reproduced as a regex below so the
+# output format lnklst.txt/inventory's ssn_parser stays identical.
+
+- name: Issue D PROG,LNKLST
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D PROG,LNKLST"
+  register: zos_extract_lnklst_reply
+
+- name: Extract LNKLST data set names from the console reply
+  ansible.builtin.set_fact:
+    zos_extract_lnklst_dsns: >-
+      {{ zos_extract_lnklst_reply.content
+         | select('match', '^\s*[0-9]+\s+\S+\s+\S+\s+\S+\s*$')
+         | map('regex_replace', '^\s*[0-9]+\s+\S+\s+\S+\s+(\S+)\s*$', '\1')
+         | list }}
+
+- name: Write lnklst.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/lnklst.txt"
+    mode: "0644"
+    content: "{{ (zos_extract_lnklst_dsns | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

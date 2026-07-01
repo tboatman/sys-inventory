@@ -1,6 +1,9 @@
 ---
 # Environment ZOAU/IBM Open Enterprise Python need on the target LPAR,
 # straight from zos-extract/README.md's "Basic Env requirements" section.
+# ibm.ibm_zos_core's modules still shell out to ZOAU/zoautil_py on the
+# target under the hood, so this is applied at the play level (see
+# playbooks/site.yml) to every task, not just raw commands.
 # Adjust paths if your site installs ZOAU/Python somewhere else --
 # ask your systems programmer if unsure.
 zos_extract_env:
@@ -15,13 +18,10 @@ zos_extract_env:
   TERM: "xterm"
   PYTHONPATH: "/shrd/zoautil/lib/:"
 
-# Where the zos-extract/python scripts get staged on the target, and where
-# they write their output files, before being fetched back to the control
-# node. Both are plain OMVS paths under the target user's own home.
-zos_extract_remote_script_dir: "/u/{{ ansible_user }}/zos-extract-ansible"
-zos_extract_remote_output_dir: "/u/{{ ansible_user }}/inventory"
-
-# Where fetched output lands on the control node -- one subdirectory per
-# inventoried host, ready to hand straight to `inventory ingest` (see
-# ../../inventory/README.md).
+# Where the role writes its output -- one subdirectory per inventoried
+# host, ready to hand straight to `inventory ingest` (see
+# ../../inventory/README.md). Every task writes here directly (via
+# delegate_to: localhost); there's no separate remote-output/fetch-back
+# step since the ibm.ibm_zos_core modules used here return their results
+# straight to the control node.
 zos_extract_local_output_dir: "{{ playbook_dir }}/../output/{{ inventory_hostname }}"

@@ -1,9 +1,76 @@
 ---
-- name: Catalog datasets matching configured HLQ/patterns
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrcat.py
-    {{ zos_extract_catalog_patterns | map('regex_replace', '^(.*)$', '--pattern \1') | join(' ') }}
-    --workhlq {{ zos_extract_catalog_workhlq }}
-    --outfile {{ zos_extract_remote_output_dir }}/{{ zos_extract_catalog_outfile }}
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Two direct analogs replace extrcat.py's two extraction paths:
+#   - Non-VSAM attributes: extrcat.py used ZOAU's datasets.list_datasets()
+#     directly. zos_find is the purpose-built "find matching data sets"
+#     module, but only returns {name, type} -- not DSORG/RECFM/LRECL/
+#     BLKSIZE/VOLSER -- so each match is queried individually with
+#     zos_stat (which does return those attributes) to reconstruct the
+#     same "dsn volser dsorg recfm lrecl blksize" line format
+#     catalog_parser.py expects. This means one extra module call per
+#     matched data set, so (per extrcat.py's own long-standing advice)
+#     keep zos_extract_catalog_patterns scoped narrowly, not to a broad
+#     shared HLQ.
+#   - VSAM cluster/component detail: zos_mvs_raw runs IDCAMS LISTCAT ALL
+#     the same way extrcat.py did by hand via
+#     mvscmd.execute_authorized(pgm="IDCAMS", ...) -- dd_output captures
+#     SYSPRINT directly instead of extrcat.py's manual
+#     datasets.create()+read()+delete() of a temp output data set. Output
+#     format is identical raw LISTCAT text, so catalog_parser.py's LISTCAT
+#     parsing needs no changes.
+
+- name: Enumerate non-VSAM data sets matching the configured patterns
+  ibm.ibm_zos_core.zos_find:
+    patterns: "{{ zos_extract_catalog_patterns }}"
+    resource_type: [nonvsam]
+  register: zos_extract_catalog_find
+
+- name: Query attributes for each matched non-VSAM data set
+  ibm.ibm_zos_core.zos_stat:
+    name: "{{ item.name }}"
+    type: data_set
+    get_checksum: false
+    get_mime: false
+  register: zos_extract_catalog_stat_result
+  loop: "{{ zos_extract_catalog_find.data_sets | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Run IDCAMS LISTCAT for the configured patterns
+  ibm.ibm_zos_core.zos_mvs_raw:
+    program_name: IDCAMS
+    auth: true
+    max_rc: 4
+    dds:
+      - dd_output:
+          dd_name: SYSPRINT
+          return_content:
+            type: text
+      - dd_input:
+          dd_name: SYSIN
+          content: >-
+            {{ zos_extract_catalog_patterns
+               | map('regex_replace', '\.?\*+$', '')
+               | unique | sort
+               | map('regex_replace', '^(.*)$', ' LISTCAT LEVEL(\1) ALL .')
+               | list }}
+  register: zos_extract_listcat_result
+
+- name: Extract the LISTCAT report text
+  ansible.builtin.set_fact:
+    zos_extract_listcat_content: "{{ (zos_extract_listcat_result.dd_names | selectattr('dd_name', 'equalto', 'SYSPRINT') | first).content | join('\n') }}"
+
+- name: Write {{ zos_extract_catalog_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_catalog_outfile }}"
+    mode: "0644"
+    content: |-
+      ##NONVSAM
+      {% for r in zos_extract_catalog_stat_result.results %}
+      {% set a = r.stat.attributes %}
+      {{ [r.stat.name, a.volser | default('?'), a.dsorg | default('?'),
+          a.record_format | default('?'), a.record_length | default('?'),
+          a.block_size | default('?')] | join(' ') }}
+      {% endfor %}
+      ##LISTCAT
+      {{ zos_extract_listcat_content }}
+  delegate_to: localhost

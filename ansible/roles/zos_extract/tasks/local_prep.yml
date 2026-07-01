@@ -1,0 +1,7 @@
+---
+- name: Ensure local output directory exists
+  ansible.builtin.file:
+    path: "{{ zos_extract_local_output_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost

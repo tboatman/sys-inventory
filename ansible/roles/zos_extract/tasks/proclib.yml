@@ -1,22 +1,29 @@
 ---
-- name: Dump PROCLIB concatenation entries
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
-    --indsn {{ item.dsn }}
-    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_proclib.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+# Direct ibm.ibm_zos_core analogs for extrproc.py's full-library dump:
+# zos_find enumerates every member (a regex over member names -- '.*'
+# matches everything), then zos_fetch pulls each matched member down
+# individually. See _member_dump.yml for why single-member fetch is used
+# instead of zos_fetch's whole-PDS mode, and why include_tasks is safe
+# here despite main.yml's note about --tags and dynamic includes.
+
+- name: Dump every member of each PROCLIB concatenation entry
+  ansible.builtin.include_tasks: _member_dump.yml
   loop: "{{ zos_extract_proclibs }}"
   loop_control:
     label: "{{ item.dsn }}"
+  vars:
+    zos_extract_dsn: "{{ item.dsn }}"
+    zos_extract_member_regex: '.*'
+    zos_extract_outfile: "{{ item.prefix }}_proclib.txt"
+    zos_extract_warn_if_empty: false
 
-- name: Dump PARMLIB concatenation entries
-  ansible.builtin.command: >
-    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
-    --indsn {{ item.dsn }}
-    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_parmlib.txt
-  environment: "{{ zos_extract_env }}"
-  changed_when: true
+- name: Dump every member of each PARMLIB concatenation entry
+  ansible.builtin.include_tasks: _member_dump.yml
   loop: "{{ zos_extract_parmlibs }}"
   loop_control:
     label: "{{ item.dsn }}"
+  vars:
+    zos_extract_dsn: "{{ item.dsn }}"
+    zos_extract_member_regex: '.*'
+    zos_extract_outfile: "{{ item.prefix }}_parmlib.txt"
+    zos_extract_warn_if_empty: false
