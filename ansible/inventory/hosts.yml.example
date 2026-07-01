@@ -14,7 +14,12 @@ all:
         # zos-extract/README.md's "Before you start" section covers what
         # each of these needs and how to get it from your admin.
         ansible_user: youruserid
-        ansible_connection: ibm.ibm_zos_core.zos_ssh
+        # Plain ssh -- ibm.ibm_zos_core shipped a zos_ssh connection plugin
+        # in older releases, but it was removed (per its own CHANGELOG:
+        # "you must remove all playbook references to connection
+        # ibm.ibm_zos_core.zos_ssh"); its modules work over a normal ssh
+        # connection now.
+        ansible_connection: ssh
         ansible_ssh_common_args: ""
         # Path to IBM Open Enterprise Python on the target LPAR (the same
         # one `python3 --version` resolves to in your OMVS shell).

@@ -13,6 +13,11 @@
 # installed on the control node, same as any Ansible password-based SSH
 # connection. Leave the password prompt blank to use key-based auth
 # instead (whatever your normal `ssh` config/agent already provides).
+#
+# Uses plain ssh, not ibm.ibm_zos_core.zos_ssh -- that connection plugin
+# was removed from the collection (per its own CHANGELOG: "you must
+# remove all playbook references to connection ibm.ibm_zos_core.zos_ssh"),
+# its modules work over a normal ssh connection now.
 
 - name: Prompt for connection details and register the target system
   hosts: localhost
@@ -46,7 +51,7 @@
         ansible_port: "{{ zos_extract_target_port }}"
         ansible_user: "{{ zos_extract_target_user }}"
         ansible_password: "{{ zos_extract_target_password }}"
-        ansible_connection: ibm.ibm_zos_core.zos_ssh
+        ansible_connection: ssh
         ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
       no_log: true
       tags: always
@@ -59,7 +64,7 @@
         ansible_host: "{{ zos_extract_target_host }}"
         ansible_port: "{{ zos_extract_target_port }}"
         ansible_user: "{{ zos_extract_target_user }}"
-        ansible_connection: ibm.ibm_zos_core.zos_ssh
+        ansible_connection: ssh
         ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
       tags: always
       when: zos_extract_target_password | length == 0
