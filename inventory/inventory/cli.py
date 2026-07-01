@@ -1,4 +1,5 @@
-"""CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`."""
+"""CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`,
+`inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`."""
 from __future__ import annotations
 
 import argparse
@@ -6,7 +7,7 @@ import csv
 import sys
 from pathlib import Path
 
-from . import jcl_parser, smpe_parser, store
+from . import jcl_parser, smpe_parser, ssn_parser, store, sysinfo_parser
 from .resolver import resolve_all
 
 DEFAULT_DB = Path("inventory.db")
@@ -17,6 +18,13 @@ def _read_lnklst(input_dir: Path) -> list[str]:
     if not lnklst_file.exists():
         return []
     return [line.strip() for line in lnklst_file.read_text().splitlines() if line.strip()]
+
+
+def _read_apf(input_dir: Path) -> set[str] | None:
+    apf_file = input_dir / "apf.txt"
+    if not apf_file.exists():
+        return None
+    return {line.strip() for line in apf_file.read_text().splitlines() if line.strip()}
 
 
 def cmd_ingest(args: argparse.Namespace) -> int:
@@ -33,17 +41,37 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     zones = smpe_parser.merge_zones(*zone_maps) if zone_maps else {}
 
     lnklst = _read_lnklst(input_dir)
+    apf = _read_apf(input_dir)
 
-    lineage = resolve_all(members, zones, lnklst)
+    lineage = resolve_all(members, zones, lnklst, apf)
+
+    subsystems = [s for p in sorted(input_dir.glob("*ssn*.txt")) for s in ssn_parser.parse_subsystems(p)]
+    started_tasks = [t for p in sorted(input_dir.glob("*commnd*.txt")) for t in ssn_parser.parse_started_tasks(p)]
+
+    sysinfo_files = sorted(input_dir.glob("*sysinfo*.txt"))
+    if len(sysinfo_files) > 1:
+        print(f"inventory: {len(sysinfo_files)} sysinfo files found, using {sysinfo_files[0]}",
+              file=sys.stderr)
+    system_info = sysinfo_parser.parse_sysinfo(sysinfo_files[0]) if sysinfo_files else None
 
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
+    store.save_subsystems(conn, subsystems)
+    store.save_started_tasks(conn, started_tasks)
+    store.save_system_info(conn, system_info)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
     print(f"inventory: ingested {len(members)} members, {len(zones)} zones, "
-          f"{total_steps} resolved steps -> {args.db}")
+          f"{total_steps} resolved steps, {len(subsystems)} subsystems, "
+          f"{len(started_tasks)} started tasks -> {args.db}")
     return 0
+
+
+def _apf_str(apf_authorized) -> str:
+    if apf_authorized is None:
+        return "APF=?"
+    return "APF" if apf_authorized else "non-APF"
 
 
 def cmd_lineage(args: argparse.Namespace) -> int:
@@ -61,8 +89,9 @@ def cmd_lineage(args: argparse.Namespace) -> int:
         zone = row["zone"] or "?"
         fmid = row["fmid"] or "?"
         dataset = row["dataset"] or "?"
+        apf = _apf_str(row["apf_authorized"])
         print(f"  step {row['step_name']}: PGM={pgm} dataset={dataset} zone={zone} "
-              f"FMID={fmid}  [{row['resolution']}]")
+              f"FMID={fmid} [{apf}]  [{row['resolution']}]")
     return 0
 
 
@@ -71,7 +100,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     rows = store.all_lineage(conn)
     conn.close()
 
-    fieldnames = ["member", "step_name", "pgm", "dataset", "zone", "fmid", "resolution"]
+    fieldnames = ["member", "step_name", "pgm", "dataset", "zone", "fmid", "resolution", "apf_authorized"]
     out = sys.stdout if args.output == "-" else open(args.output, "w", newline="")
     try:
         writer = csv.DictWriter(out, fieldnames=fieldnames)
@@ -81,6 +110,46 @@ def cmd_report(args: argparse.Namespace) -> int:
     finally:
         if out is not sys.stdout:
             out.close()
+    return 0
+
+
+def cmd_subsystems(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_subsystems(conn)
+    conn.close()
+
+    for row in rows:
+        initrtn = row["initrtn"] or "?"
+        initparm = row["initparm"] or ""
+        print(f"{row['name']}: INITRTN={initrtn} INITPARM='{initparm}' [{row['source_member']}]")
+    return 0
+
+
+def cmd_started_tasks(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_started_tasks(conn)
+    conn.close()
+
+    for row in rows:
+        ident = f".{row['identifier']}" if row["identifier"] else ""
+        print(f"S {row['task_name']}{ident}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_sysinfo(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    row = store.get_system_info(conn)
+    conn.close()
+
+    if row is None:
+        print("inventory: no system info ingested", file=sys.stderr)
+        return 1
+
+    print(f"SYSNAME:  {row['sysname'] or '?'}")
+    print(f"SYSCLONE: {row['sysclone'] or '?'}")
+    print(f"SYSPLEX:  {row['sysplex'] or '?'}")
+    print(f"IPL VOLUME: {row['ipl_volume'] or '?'}")
+    print(f"IPL PARM MEMBER: {row['ipl_parm_member'] or '?'}")
     return 0
 
 
@@ -100,6 +169,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_report = sub.add_parser("report", help="dump the full resolved inventory as CSV")
     p_report.add_argument("--output", default="-", help="output file, or '-' for stdout")
     p_report.set_defaults(func=cmd_report)
+
+    p_subsystems = sub.add_parser("subsystems", help="list defined subsystems (IEFSSNxx)")
+    p_subsystems.set_defaults(func=cmd_subsystems)
+
+    p_started = sub.add_parser("started-tasks", help="list auto-start started tasks (COMMNDxx)")
+    p_started.set_defaults(func=cmd_started_tasks)
+
+    p_sysinfo = sub.add_parser("sysinfo", help="show captured LPAR/sysplex identity")
+    p_sysinfo.set_defaults(func=cmd_sysinfo)
 
     return parser
 

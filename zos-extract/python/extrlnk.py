@@ -15,20 +15,21 @@ Run this from an OMVS shell:
 
   python3 extrlnk.py --outfile /u/me/inventory/lnklst.txt
 
-Implementation: shells out to the `opercmd` USS utility to issue the MVS
-console command 'D PROG,LNKLST' and parses its reply. This needs the same
-console-command authority the original REXX needed via the TSO CONSOLE
-service (most installations restrict MVS commands from general users). If
-`opercmd` is unavailable or unauthorized at your site, capture
-'D PROG,LNKLST' from SDSF/console manually and save it as one DSN per line
-in the same --outfile.
+Implementation: issues the MVS console command 'D PROG,LNKLST' via ZOAU's
+operator-command API (zos_common.run_opercmd) and parses its reply. This
+needs the same console-command authority the original REXX needed via the
+TSO CONSOLE service (most installations restrict MVS commands from general
+users). If console-command access is unavailable or unauthorized at your
+site, capture 'D PROG,LNKLST' from SDSF/console manually and save it as one
+DSN per line in the same --outfile.
+
+Requires ZOAU; if `zoautil_py` imports fail, check zos_common.py's wrapper
+functions against your ZOAU version's API.
 """
 
 import argparse
-import subprocess
-import sys
 
-from zos_common import die
+from zos_common import die, parse_numbered_dsn_list, run_opercmd
 
 # CSV470I 'D PROG,LNKLST' reply looks like:
 #   LNKLST SET LNKLST00   LNKAUTH=LNKLST
@@ -46,33 +47,14 @@ def main():
                    help="USS output text file path, e.g. /u/me/inventory/lnklst.txt")
     args = p.parse_args()
 
-    try:
-        result = subprocess.run(
-            ["opercmd", "D PROG,LNKLST"],
-            capture_output=True, text=True, timeout=30,
-        )
-    except FileNotFoundError:
-        die("'opercmd' is not available on this system; capture "
-            "'D PROG,LNKLST' from SDSF/console manually instead.")
-    except subprocess.TimeoutExpired:
-        die("opercmd timed out waiting for the console reply")
+    stdout_text, rc = run_opercmd("D PROG,LNKLST")
+    if rc != 0:
+        die("opercmd failed with rc={}".format(rc))
 
-    if result.returncode != 0:
-        sys.stderr.write(result.stderr)
-        die("opercmd failed with rc={}".format(result.returncode))
-
-    dsns = []
-    for line in result.stdout.splitlines():
-        fields = line.split()
-        if len(fields) != 4:
-            continue
-        entry, _apf, _volume, dsname = fields
-        if not entry.isdigit():
-            continue
-        dsns.append(dsname)
+    dsns = parse_numbered_dsn_list(stdout_text, expected_fields=4)
 
     if not dsns:
-        die("no LNKLST entries parsed from console reply:\n" + result.stdout)
+        die("no LNKLST entries parsed from console reply:\n" + stdout_text)
 
     with open(args.outfile, "w", encoding="utf-8") as out:
         for dsn in dsns:

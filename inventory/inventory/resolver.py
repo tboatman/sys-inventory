@@ -35,9 +35,14 @@ def resolve_member(
     all_members: dict[str, ProcMember],
     zones: dict[str, Zone],
     lnklst: list[str],
+    apf: set[str] | None = None,
 ) -> list[LineageStep]:
     """Build the full lineage for one top-level ProcMember, following nested
-    PROC calls and resolving each PGM= back to a Dataset/Zone/FMID."""
+    PROC calls and resolving each PGM= back to a Dataset/Zone/FMID.
+
+    `apf`, if given, is the set of APF-authorized dataset names (from
+    apf.txt); each resolved hop's `apf_authorized` is True/False when `apf`
+    is provided and the hop has a dataset, else None (unknown)."""
     flat_steps = inline_nested_procs(member, all_members)
     lineage: list[LineageStep] = []
 
@@ -52,6 +57,7 @@ def resolve_member(
                     zone=None,
                     fmid=None,
                     resolution=f"unresolved PROC reference: {step.proc}",
+                    apf_authorized=None,
                 )
             )
             continue
@@ -85,6 +91,8 @@ def resolve_member(
             status = zones[zone_name].fmid_status.get(fmid, "")
             resolution = f"resolved via {how}" + (f" ({status})" if status else "")
 
+        apf_authorized = None if dataset is None or apf is None else dataset in apf
+
         lineage.append(
             LineageStep(
                 member=member.name,
@@ -94,6 +102,7 @@ def resolve_member(
                 zone=zone_name,
                 fmid=fmid,
                 resolution=resolution,
+                apf_authorized=apf_authorized,
             )
         )
 
@@ -101,7 +110,10 @@ def resolve_member(
 
 
 def resolve_all(
-    members: list[ProcMember], zones: dict[str, Zone], lnklst: list[str]
+    members: list[ProcMember],
+    zones: dict[str, Zone],
+    lnklst: list[str],
+    apf: set[str] | None = None,
 ) -> dict[str, list[LineageStep]]:
     by_name = {m.name: m for m in members}
-    return {m.name: resolve_member(m, by_name, zones, lnklst) for m in members}
+    return {m.name: resolve_member(m, by_name, zones, lnklst, apf) for m in members}

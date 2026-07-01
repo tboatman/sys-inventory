@@ -1,40 +1,86 @@
 # sys-inventory
 
-Inventories a z/OS system's PROCLIB/PARMLIB members by tracing their full
-execution path — including nested PROCs and STEPLIB/JOBLIB/LNKLST-resolved
-load modules — back to the SMP/E target zone and FMID that owns each
-program.
+**In plain English:** this tool answers "if I run PROCLIB member `MYPROC`,
+what actual program code executes, which load library does it come from,
+and which installed software product owns that code?" — across an entire
+PROCLIB/PARMLIB, automatically, instead of you tracing STEPLIB/JOBLIB/PROC
+chains and SMP/E LIST output by hand. It also separately catalogs what
+subsystems and started tasks are defined, whether each load library it
+finds is APF-authorized, and which LPAR/sysplex the data came from.
 
-## Architecture
+If you're new to any of the z/OS terms used below (PROCLIB, PARMLIB,
+SMP/E, APF, LPAR, ...), see the [Glossary](zos-extract/README.md#glossary)
+in `zos-extract/README.md` — it's written for exactly that.
+
+## Why this exists / who it's for
+
+Tracing "what does this started task actually run, and is it patched"
+by hand means: open the PROCLIB member, follow any nested `EXEC
+PROCNAME` steps, find the `STEPLIB` (or fall back to the LNKLST search
+order if there isn't one), then cross-reference that load library against
+SMP/E's zone/FMID catalog to find out what product and patch level owns
+it. That's slow and error-prone to do for more than a handful of members.
+This tool automates the whole chain and gives you a queryable database of
+the result — useful for change-impact analysis ("what uses this load
+library"), audits ("which of our load libraries are APF-authorized"), and
+plain documentation ("what does this environment actually consist of").
+
+## How it works, in two steps
+
+This is a two-part pipeline because step 1 has to run *on* the mainframe
+(it needs to read mainframe datasets and issue mainframe console
+commands), while step 2 is ordinary Python that can run anywhere —
+your laptop, a CI runner, wherever.
+
+1. **`zos-extract/`** runs on z/OS, in an OMVS (UNIX) shell, using ZOAU (Z
+   Open Automation Utilities). It reads PROCLIB/PARMLIB members, subsystem
+   and started-task definitions, the LNKLST and APF-authorized library
+   lists, basic system identity, and SMP/E's catalog — and writes what it
+   finds out as plain text files. See
+   [`zos-extract/README.md`](zos-extract/README.md) for exactly what to
+   run and in what order; it's written assuming no prior familiarity with
+   any of this.
+2. You copy those text files off the mainframe (plain `scp`/`sftp`/FTP —
+   no binary or VSAM transfer needed, it's all text).
+3. **`inventory/`** runs anywhere with Python 3.9+. It parses those text
+   files, resolves the full PROCLIB → program → load library → SMP/E
+   zone/FMID chain for every member, and loads the result into a small
+   SQLite database you can query from the command line. See
+   [`inventory/README.md`](inventory/README.md) for install and usage.
 
 ```
-  z/OS system                          off-host
+  z/OS system                          your computer (anywhere)
  ┌─────────────────┐   flat text   ┌──────────────────────┐
  │  zos-extract/    │ ───────────► │  inventory/           │
- │  REXX + JCL      │  (FTP/Zowe)   │  Python parser +      │
+ │  Python + ZOAU   │  (scp/sftp)   │  Python parser +      │
  │  - PROCLIB dump  │               │  SQLite store + CLI   │
  │  - PARMLIB dump  │               │                        │
- │  - LNKLST dump   │               │  jcl_parser  → ProcMember/JclStep
- │  - SMP/E LIST    │               │  smpe_parser → Zone (DDDEF, FMID)
- │    (DDDEF/FILE/  │               │  resolver    → joins them into
- │     SYSMOD/ZONES)│               │                full lineage chains
+ │  - IEFSSNxx/     │               │  jcl_parser     → ProcMember/JclStep
+ │    COMMNDxx dump │               │  ssn_parser     → Subsystem/StartedTask
+ │  - LNKLST dump   │               │  sysinfo_parser → SystemInfo
+ │  - APF dump      │               │  smpe_parser    → Zone (DDDEF, FMID)
+ │  - D SYMBOLS/    │               │  resolver       → joins PROCLIB/LNKLST/
+ │    D IPLINFO dump│               │                   APF/SMP/E into full
+ │  - SMP/E LIST    │               │                   lineage chains
+ │    (DDDEF/FILE/  │               │                        │
+ │     SYSMOD/ZONES)│               │                        │
  └─────────────────┘               └──────────────────────┘
 ```
 
-`zos-extract/` runs on the mainframe and only produces plain text (no
-binary/VSAM transfer needed). `inventory/` runs anywhere with Python 3.9+
-and turns that text into a queryable inventory:
+The core resolution chain, for every PROCLIB/PARMLIB member:
 
 ```
 ProcMember → JclStep (PGM=) → Dataset (STEPLIB/JOBLIB/LNKLST) → SMP/E Zone → FMID
+                                  │
+                                  └→ APF-authorized? (from the live D PROG,APF list)
 ```
 
-## Quick start (using the bundled fixtures, no z/OS access required)
+## Try it right now (no mainframe access needed)
 
-`ingest` expects an input directory with files matching `*proclib*.txt`,
-`*parmlib*.txt`, `*smplist*.txt`, and `lnklst.txt` (the naming convention
-documented in `zos-extract/README.md`). The test fixtures aren't named that
-way, so for a quick manual demo, copy them into that shape first:
+The repo ships small synthetic sample files so you can see the whole
+pipeline work end-to-end without touching a real z/OS system first. This
+is the fastest way to understand what the tool actually produces before
+you go run the real extraction steps.
 
 ```
 cd inventory
@@ -42,25 +88,56 @@ pip install -e .
 mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_proclib.txt   /tmp/demo/00_proclib.txt && \
   cp tests/fixtures/sample_smpe_list.txt /tmp/demo/tzone1.smplist.txt && \
-  cp tests/fixtures/sample_lnklst.txt    /tmp/demo/lnklst.txt
+  cp tests/fixtures/sample_lnklst.txt    /tmp/demo/lnklst.txt && \
+  cp tests/fixtures/sample_apf.txt       /tmp/demo/apf.txt && \
+  cp tests/fixtures/sample_ssn.txt       /tmp/demo/00_ssn.txt && \
+  cp tests/fixtures/sample_commnd.txt    /tmp/demo/00_commnd.txt && \
+  cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 inventory --db /tmp/demo/demo.db lineage MYPROC
+inventory --db /tmp/demo/demo.db subsystems
+inventory --db /tmp/demo/demo.db started-tasks
+inventory --db /tmp/demo/demo.db sysinfo
 ```
 
-For a real system: run `zos-extract/` first (see its README), download the
-output, then point `inventory ingest` at the download directory.
+`inventory lineage MYPROC` should print something like:
+
+```
+MYPROC
+  step STEP1: PGM=IEFBR14 dataset=MY.SITE.LINKLIB zone=TZONE2 FMID=? [APF]  [module IEFBR14 not found in zone TZONE2's FILE list]
+  step NSTEP1: PGM=IGYCRCTL dataset=SYS1.LINKLIB zone=TZONE1 FMID=HLA2280 [non-APF]  [resolved via STEPLIB (APPLIED)]
+```
+
+— one line per resolved execution step, with the load library, owning
+SMP/E zone/FMID, and APF status. `inventory report` dumps the same
+information as CSV for every member at once, for spreadsheet/scripting
+use.
+
+## Running it against a real system
+
+1. Read [`zos-extract/README.md`](zos-extract/README.md) and run those
+   scripts on your z/OS system (needs an OMVS shell, ZOAU, and read
+   access to the datasets you're inventorying — all covered there).
+2. Copy the resulting directory of text files to your own machine.
+3. Follow [`inventory/README.md`](inventory/README.md): `pip install -e .`
+   then `inventory ingest path/to/that/directory/`.
+4. Query it with `inventory lineage`/`report`/`subsystems`/
+   `started-tasks`/`sysinfo` as shown above.
 
 ## Status
 
-First working slice: one PROCLIB/PARMLIB concatenation entry + one SMP/E
-target zone, proven end-to-end against the test fixtures in
+Core slice: one PROCLIB/PARMLIB concatenation entry + one SMP/E target
+zone, plus subsystems/started tasks, APF authorization, and system
+identity, proven end-to-end against the test fixtures in
 `inventory/tests/fixtures/`. The design scales to multiple concatenation
 entries and multiple zones (Global + every target zone) without code
 changes — see "Scaling" in `inventory/README.md`.
 
 ## Sub-project docs
 
-- [`zos-extract/README.md`](zos-extract/README.md) — what to run on z/OS,
-  parameters, output format, download instructions.
-- [`inventory/README.md`](inventory/README.md) — install, CLI usage,
-  resolution algorithm, test suite.
+- [`zos-extract/README.md`](zos-extract/README.md) — beginner-friendly
+  walkthrough of what to run on z/OS, a glossary of z/OS terms, exact
+  parameters, output format, download instructions, and troubleshooting.
+- [`inventory/README.md`](inventory/README.md) — install, CLI usage
+  (with example output for every command), resolution algorithm, test
+  suite, and troubleshooting.

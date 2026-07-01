@@ -14,7 +14,12 @@ def load_all():
         for line in (FIXTURES / "sample_lnklst.txt").read_text().splitlines()
         if line.strip()
     ]
-    return resolve_all(members, zones, lnklst)
+    apf = {
+        line.strip()
+        for line in (FIXTURES / "sample_apf.txt").read_text().splitlines()
+        if line.strip()
+    }
+    return resolve_all(members, zones, lnklst, apf)
 
 
 def test_full_chain_member_to_fmid_via_steplib_and_nested_proc():
@@ -27,6 +32,7 @@ def test_full_chain_member_to_fmid_via_steplib_and_nested_proc():
     assert direct_steplib_hop.dataset == "MY.SITE.LINKLIB"
     assert direct_steplib_hop.zone == "TZONE2"
     assert direct_steplib_hop.fmid is None  # IEFBR14 isn't in TZONE2's FILE list
+    assert direct_steplib_hop.apf_authorized is True
 
     nested_hop = chain[1]
     assert nested_hop.pgm == "IGYCRCTL"
@@ -34,6 +40,7 @@ def test_full_chain_member_to_fmid_via_steplib_and_nested_proc():
     assert nested_hop.zone == "TZONE1"
     assert nested_hop.fmid == "HLA2280"
     assert "APPLIED" in nested_hop.resolution
+    assert nested_hop.apf_authorized is False
 
 
 def test_lnklst_fallback_resolution():
@@ -64,3 +71,17 @@ def test_unresolved_proc_reference_reported():
     hop = chain[0]
     assert hop.pgm == ""
     assert "unresolved PROC reference: NOTFOUND" in hop.resolution
+
+
+def test_apf_authorized_none_when_apf_not_ingested():
+    members = jcl_parser.parse_dump(FIXTURES / "sample_proclib.txt", library="proclib")
+    zones = smpe_parser.parse_smplist(FIXTURES / "sample_smpe_list.txt")
+    lnklst = [
+        line.strip()
+        for line in (FIXTURES / "sample_lnklst.txt").read_text().splitlines()
+        if line.strip()
+    ]
+    lineage = resolve_all(members, zones, lnklst)
+    for chain in lineage.values():
+        for hop in chain:
+            assert hop.apf_authorized is None

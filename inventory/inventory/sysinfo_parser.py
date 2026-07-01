@@ -1,0 +1,84 @@
+"""Parse the sysinfo.txt dump produced by zos-extract/python/extrsys.py
+('D SYMBOLS' + 'D IPLINFO' console replies) into a single SystemInfo
+record.
+
+Like smpe_parser.py, this anchors on the keyword tokens that identify each
+field (SYSNAME, SYSCLONE, SYSPLEX, VOLUME, IPL PARM) and is tolerant of
+surrounding whitespace/noise -- but unlike SMP/E's LIST report format
+(documented in the SMP/E Reference and fairly stable), 'D SYMBOLS'/
+'D IPLINFO' reply formatting is known to vary more by release and by which
+symbols a shop has defined, and there was no real system available to
+calibrate these regexes against. Treat the patterns below as a starting
+point: run extrsys.py against a real system, diff the actual reply text
+against what's expected here, and tune the regexes accordingly before
+relying on this in production. Any field whose pattern doesn't match is
+left None -- a partially-populated SystemInfo is normal, not an error.
+
+Dump format: two blocks, each introduced by a "##BLOCKNAME" sentinel line
+(e.g. "##SYMBOLS", "##IPLINFO") followed by that command's raw reply text,
+unchanged, up to the next sentinel or end of file. This is a different
+sentinel vocabulary from jcl_parser's "##MEMBER name" (a bare block label,
+not a keyword+name pair), so it uses its own small splitter here rather
+than reusing jcl_parser.split_members().
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+from .models import SystemInfo
+
+_BLOCK_HDR = re.compile(r"^##(\S+)\s*$")
+
+# 'D SYMBOLS' reply (abbreviated, real output has many more &SYSxxx lines):
+#   SYSTEM SYMBOL LIST
+#   SYSNAME  = &SYSNAME.  = "SYS1"
+#   SYSCLONE = &SYSCLONE. = "S1"
+#   SYSPLEX  = &SYSPLEX.  = "PLEX1"
+_SYSNAME = re.compile(r"\bSYSNAME\s*=.*?\"([A-Za-z0-9$#@]+)\"", re.IGNORECASE)
+_SYSCLONE = re.compile(r"\bSYSCLONE\s*=.*?\"([A-Za-z0-9$#@]+)\"", re.IGNORECASE)
+_SYSPLEX = re.compile(r"\bSYSPLEX\s*=.*?\"([A-Za-z0-9$#@]+)\"", re.IGNORECASE)
+
+# 'D IPLINFO' reply (abbreviated):
+#   SYSTEM IPLED AT 08.00.00 ON 07/01/2026  RELEASE z/OS 02.05.00
+#   SYSTEM IPLED FROM 01A0  IPL PARM 00
+#   IPL DEVICE: 01A0  VOLUME: RES0S1
+_IPL_VOLUME = re.compile(r"\bVOLUME:\s*([A-Za-z0-9$#@]+)", re.IGNORECASE)
+_IPL_PARM = re.compile(r"\bIPL\s+PARM\s+([A-Za-z0-9$#@]+)", re.IGNORECASE)
+
+
+def _split_blocks(text: str) -> dict[str, list[str]]:
+    """Split a raw extrsys.py dump into {block_name: [raw lines]}."""
+    blocks: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in text.splitlines():
+        m = _BLOCK_HDR.match(line)
+        if m:
+            current = m.group(1)
+            blocks[current] = []
+            continue
+        if current is not None:
+            blocks[current].append(line)
+    return blocks
+
+
+def _first_match(pattern: re.Pattern, text: str) -> str | None:
+    m = pattern.search(text)
+    return m.group(1) if m else None
+
+
+def parse_sysinfo(path: Path) -> SystemInfo:
+    """Parse one extrsys.py dump into a single SystemInfo record."""
+    text = path.read_text(errors="replace")
+    blocks = _split_blocks(text)
+
+    symbols_text = "\n".join(blocks.get("SYMBOLS", []))
+    iplinfo_text = "\n".join(blocks.get("IPLINFO", []))
+
+    return SystemInfo(
+        sysname=_first_match(_SYSNAME, symbols_text),
+        sysclone=_first_match(_SYSCLONE, symbols_text),
+        sysplex=_first_match(_SYSPLEX, symbols_text),
+        ipl_volume=_first_match(_IPL_VOLUME, iplinfo_text),
+        ipl_parm_member=_first_match(_IPL_PARM, iplinfo_text),
+    )

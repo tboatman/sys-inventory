@@ -38,7 +38,7 @@ def split_members(text: str) -> dict[str, list[str]]:
     return members
 
 
-def _join_continuations(lines: list[str]) -> list[str]:
+def join_continuations(lines: list[str]) -> list[str]:
     """Join JCL continuation records (a statement ending in ',') into one
     logical line so the regexes above don't have to deal with line breaks
     inside an operand list."""
@@ -68,7 +68,7 @@ def _join_continuations(lines: list[str]) -> list[str]:
 
 def parse_member(name: str, library: str, raw_lines: list[str]) -> ProcMember:
     member = ProcMember(name=name, library=library, raw_text=list(raw_lines))
-    logical_lines = _join_continuations(raw_lines)
+    logical_lines = join_continuations(raw_lines)
 
     steps: list[JclStep] = []
     current_step: JclStep | None = None

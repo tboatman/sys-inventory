@@ -79,3 +79,41 @@ class LineageStep:
     fmid: str | None
     resolution: str   # human-readable note on how the dataset was found,
                        # or why resolution failed at this hop
+    apf_authorized: bool | None = None   # True/False if apf.txt was ingested
+                                          # and `dataset` was/wasn't in it;
+                                          # None if apf.txt wasn't ingested or
+                                          # `dataset` is None
+
+
+@dataclass
+class Subsystem:
+    """One SUBSYS() definition from an IEFSSNxx PARMLIB member."""
+
+    name: str
+    initrtn: str | None = None
+    initparm: str | None = None
+    source_member: str = ""   # IEFSSNxx member name it came from, e.g. "IEFSSN00"
+
+
+@dataclass
+class StartedTask:
+    """One 'S taskname[.identifier]' auto-start command from a COMMNDxx
+    PARMLIB member."""
+
+    task_name: str
+    identifier: str | None = None
+    source_member: str = ""   # COMMNDxx member name it came from, e.g. "COMMND00"
+
+
+@dataclass
+class SystemInfo:
+    """Single-record system/LPAR identity, as dumped by
+    zos-extract/python/extrsys.py ('D SYMBOLS' + 'D IPLINFO'). Exists so a
+    future multi-system merge can tag each ingested inventory with the
+    system it came from."""
+
+    sysname: str | None = None          # LPAR name (&SYSNAME.)
+    sysclone: str | None = None         # SYSCLONE symbol
+    sysplex: str | None = None          # sysplex name (&SYSPLEX.)
+    ipl_volume: str | None = None       # SYSRES IPL volume
+    ipl_parm_member: str | None = None  # IEASYSxx/IPL parm member suffix
