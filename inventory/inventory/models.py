@@ -157,3 +157,32 @@ class UssProcess:
     zos-extract/python/extrprocs.py via the z/OS UNIX `ps -ef` command."""
 
     command: str
+
+
+@dataclass
+class CatalogDataset:
+    """One non-VSAM dataset under an operator-supplied HLQ/pattern, as
+    dumped by zos-extract/python/extrcat.py via ZOAU's
+    datasets.list_datasets()."""
+
+    dsn: str
+    volser: str | None = None
+    dsorg: str | None = None    # e.g. PS, PO
+    recfm: str | None = None
+    lrecl: int | None = None
+    blksize: int | None = None
+
+
+@dataclass
+class VsamCluster:
+    """One VSAM cluster and its DATA/INDEX components, under an
+    operator-supplied HLQ/pattern, as dumped by
+    zos-extract/python/extrcat.py via IDCAMS LISTCAT ... ALL."""
+
+    name: str
+    cluster_type: str | None = None   # KSDS / ESDS / RRDS / LINEAR
+    volser: str | None = None
+    key_length: int | None = None
+    key_offset: int | None = None
+    data_component: str | None = None
+    index_component: str | None = None

@@ -1,6 +1,7 @@
 """CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`,
 `inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`,
-`inventory products`, `inventory active`, `inventory processes`."""
+`inventory products`, `inventory active`, `inventory processes`,
+`inventory catalog`, `inventory vsam`."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,16 @@ import csv
 import sys
 from pathlib import Path
 
-from . import activity_parser, ifaprd_parser, jcl_parser, smpe_parser, ssn_parser, store, sysinfo_parser
+from . import (
+    activity_parser,
+    catalog_parser,
+    ifaprd_parser,
+    jcl_parser,
+    smpe_parser,
+    ssn_parser,
+    store,
+    sysinfo_parser,
+)
 from .resolver import resolve_all
 
 DEFAULT_DB = Path("inventory.db")
@@ -64,6 +74,13 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     processes_file = input_dir / "processes.txt"
     processes = activity_parser.parse_processes(processes_file) if processes_file.exists() else []
 
+    catalog_datasets = []
+    vsam_clusters = []
+    for path in sorted(input_dir.glob("*catalog*.txt")):
+        ds, clusters = catalog_parser.parse_catalog(path)
+        catalog_datasets.extend(ds)
+        vsam_clusters.extend(clusters)
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -72,13 +89,17 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_products(conn, products)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
+    store.save_catalog_datasets(conn, catalog_datasets)
+    store.save_vsam_clusters(conn, vsam_clusters)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
     print(f"inventory: ingested {len(members)} members, {len(zones)} zones, "
           f"{total_steps} resolved steps, {len(subsystems)} subsystems, "
           f"{len(started_tasks)} started tasks, {len(products)} products, "
-          f"{len(active_jobs)} active jobs, {len(processes)} processes -> {args.db}")
+          f"{len(active_jobs)} active jobs, {len(processes)} processes, "
+          f"{len(catalog_datasets)} cataloged datasets, "
+          f"{len(vsam_clusters)} VSAM clusters -> {args.db}")
     return 0
 
 
@@ -206,6 +227,39 @@ def cmd_processes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_catalog(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_catalog_datasets(conn)
+    conn.close()
+
+    for row in rows:
+        volser = row["volser"] or "?"
+        dsorg = row["dsorg"] or "?"
+        recfm = row["recfm"] or "?"
+        lrecl = row["lrecl"] if row["lrecl"] is not None else "?"
+        blksize = row["blksize"] if row["blksize"] is not None else "?"
+        print(f"{row['dsn']}  VOLSER={volser} DSORG={dsorg} RECFM={recfm} "
+              f"LRECL={lrecl} BLKSIZE={blksize}")
+    return 0
+
+
+def cmd_vsam(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_vsam_clusters(conn)
+    conn.close()
+
+    for row in rows:
+        cluster_type = row["cluster_type"] or "?"
+        volser = row["volser"] or "?"
+        key_length = row["key_length"] if row["key_length"] is not None else "?"
+        key_offset = row["key_offset"] if row["key_offset"] is not None else "?"
+        data = row["data_component"] or "?"
+        index = row["index_component"] or "?"
+        print(f"{row['name']}  TYPE={cluster_type} VOLSER={volser} "
+              f"KEYLEN={key_length} RKP={key_offset} DATA={data} INDEX={index}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -240,6 +294,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_processes = sub.add_parser("processes", help="list currently-running USS processes (live snapshot)")
     p_processes.set_defaults(func=cmd_processes)
+
+    p_catalog = sub.add_parser("catalog", help="list cataloged non-VSAM datasets (HLQ/pattern-scoped)")
+    p_catalog.set_defaults(func=cmd_catalog)
+
+    p_vsam = sub.add_parser("vsam", help="list VSAM clusters and their DATA/INDEX components (HLQ/pattern-scoped)")
+    p_vsam.set_defaults(func=cmd_vsam)
 
     return parser
 

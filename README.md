@@ -8,9 +8,11 @@ chains and SMP/E LIST output by hand. It also separately catalogs what
 subsystems and started tasks are defined, whether each load library it
 finds is APF-authorized, which LPAR/sysplex the data came from, which
 priced/optional products are actually licensed and enabled (as opposed to
-merely installed), and — unlike everything else here, which is
-configuration/definition data — a live snapshot of what's actually
-running right now (active jobs/tasks and USS processes).
+merely installed), what's cataloged (non-VSAM attributes and VSAM
+cluster/component detail) under whatever HLQs/patterns you point it at,
+and — unlike everything else here, which is configuration/definition
+data — a live snapshot of what's actually running right now (active
+jobs/tasks and USS processes).
 
 If you're new to any of the z/OS terms used below (PROCLIB, PARMLIB,
 SMP/E, APF, LPAR, ...), see the [Glossary](zos-extract/README.md#glossary)
@@ -39,9 +41,9 @@ your laptop, a CI runner, wherever.
 1. **`zos-extract/`** runs on z/OS, in an OMVS (UNIX) shell, using ZOAU (Z
    Open Automation Utilities). It reads PROCLIB/PARMLIB members, subsystem
    and started-task definitions, product enablement, the LNKLST and
-   APF-authorized library lists, basic system identity, SMP/E's catalog,
-   and a live snapshot of what's currently running — and writes what it
-   finds out as plain text files. See
+   APF-authorized library lists, basic system identity, SMP/E's catalog, an
+   HLQ/pattern-scoped dataset catalog, and a live snapshot of what's
+   currently running — and writes what it finds out as plain text files. See
    [`zos-extract/README.md`](zos-extract/README.md) for exactly what to
    run and in what order; it's written assuming no prior familiarity with
    any of this.
@@ -70,8 +72,10 @@ your laptop, a CI runner, wherever.
  │  - SMP/E LIST    │               │                   APF/SMP/E into full
  │    (DDDEF/FILE/  │               │                   lineage chains
  │     SYSMOD/ZONES)│               │                        │
- │  - active jobs/  │               │                        │
- │    processes     │               │                        │
+ │  - active jobs/  │               │  catalog_parser → CatalogDataset/
+ │    processes     │               │                   VsamCluster
+ │  - dataset       │               │                        │
+ │    catalog       │               │                        │
  └─────────────────┘               └──────────────────────┘
 ```
 
@@ -103,7 +107,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt && \
   cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt && \
   cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
-  cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt
+  cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt && \
+  cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 inventory --db /tmp/demo/demo.db lineage MYPROC
 inventory --db /tmp/demo/demo.db subsystems
@@ -112,6 +117,8 @@ inventory --db /tmp/demo/demo.db sysinfo
 inventory --db /tmp/demo/demo.db products
 inventory --db /tmp/demo/demo.db active
 inventory --db /tmp/demo/demo.db processes
+inventory --db /tmp/demo/demo.db catalog
+inventory --db /tmp/demo/demo.db vsam
 ```
 
 `inventory lineage MYPROC` should print something like:
@@ -136,17 +143,18 @@ use.
 3. Follow [`inventory/README.md`](inventory/README.md): `pip install -e .`
    then `inventory ingest path/to/that/directory/`.
 4. Query it with `inventory lineage`/`report`/`subsystems`/
-   `started-tasks`/`sysinfo`/`products`/`active`/`processes` as shown
-   above.
+   `started-tasks`/`sysinfo`/`products`/`active`/`processes`/`catalog`/
+   `vsam` as shown above.
 
 ## Status
 
 Core slice: one PROCLIB/PARMLIB concatenation entry + one SMP/E target
 zone, plus subsystems/started tasks, APF authorization, system identity,
-product enablement, and a live active-jobs/processes snapshot, proven
-end-to-end against the test fixtures in `inventory/tests/fixtures/`. The
-design scales to multiple concatenation entries and multiple zones
-(Global + every target zone) without code changes — see "Scaling" in
+product enablement, a live active-jobs/processes snapshot, and an
+HLQ/pattern-scoped dataset catalog (non-VSAM + VSAM), proven end-to-end
+against the test fixtures in `inventory/tests/fixtures/`. The design
+scales to multiple concatenation entries and multiple zones (Global +
+every target zone) without code changes — see "Scaling" in
 `inventory/README.md`.
 
 ## Sub-project docs

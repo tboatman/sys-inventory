@@ -5,7 +5,17 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from .models import ActiveJob, LineageStep, Product, StartedTask, Subsystem, SystemInfo, UssProcess
+from .models import (
+    ActiveJob,
+    CatalogDataset,
+    LineageStep,
+    Product,
+    StartedTask,
+    Subsystem,
+    SystemInfo,
+    UssProcess,
+    VsamCluster,
+)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS lineage (
@@ -69,6 +79,27 @@ CREATE INDEX IF NOT EXISTS idx_active_jobs_name ON active_jobs(name);
 CREATE TABLE IF NOT EXISTS uss_processes (
     command TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS catalog_datasets (
+    dsn      TEXT NOT NULL,
+    volser   TEXT,
+    dsorg    TEXT,
+    recfm    TEXT,
+    lrecl    INTEGER,
+    blksize  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_datasets_dsn ON catalog_datasets(dsn);
+
+CREATE TABLE IF NOT EXISTS vsam_clusters (
+    name             TEXT NOT NULL,
+    cluster_type     TEXT,
+    volser           TEXT,
+    key_length       INTEGER,
+    key_offset       INTEGER,
+    data_component   TEXT,
+    index_component  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_vsam_clusters_name ON vsam_clusters(name);
 """
 
 
@@ -204,4 +235,42 @@ def save_processes(conn: sqlite3.Connection, processes: list[UssProcess]) -> Non
 def all_processes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM uss_processes ORDER BY command")
+    return cur.fetchall()
+
+
+def save_catalog_datasets(conn: sqlite3.Connection, catalog_datasets: list[CatalogDataset]) -> None:
+    conn.execute("DELETE FROM catalog_datasets")
+    rows = [(d.dsn, d.volser, d.dsorg, d.recfm, d.lrecl, d.blksize) for d in catalog_datasets]
+    conn.executemany(
+        "INSERT INTO catalog_datasets (dsn, volser, dsorg, recfm, lrecl, blksize) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_catalog_datasets(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM catalog_datasets ORDER BY dsn")
+    return cur.fetchall()
+
+
+def save_vsam_clusters(conn: sqlite3.Connection, vsam_clusters: list[VsamCluster]) -> None:
+    conn.execute("DELETE FROM vsam_clusters")
+    rows = [
+        (c.name, c.cluster_type, c.volser, c.key_length, c.key_offset,
+         c.data_component, c.index_component)
+        for c in vsam_clusters
+    ]
+    conn.executemany(
+        "INSERT INTO vsam_clusters (name, cluster_type, volser, key_length, key_offset, "
+        "data_component, index_component) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_vsam_clusters(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM vsam_clusters ORDER BY name")
     return cur.fetchall()

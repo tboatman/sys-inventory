@@ -1,0 +1,22 @@
+##NONVSAM
+MY.SITE.LOADLIB VOL001 PO FB 80 27920
+MY.SITE.SEQFILE VOL002 PS FB 133 1330
+##LISTCAT
+CLUSTER ------- MY.VSAM.KSDS1
+      IN-CAT --- CATALOG.NAME
+  DATA ------- MY.VSAM.KSDS1.DATA
+      IN-CAT --- CATALOG.NAME
+      ATTRIBUTES
+        KEYLEN----------------20    AVGLRECL-------------100
+        RKP--------------------0    MAXLRECL--------------200
+        INDEXED                  NOERASE
+      VOLUMES
+        VOLSER-----------VOL001    PHYREC-SIZE------------4096
+  INDEX ------ MY.VSAM.KSDS1.INDEX
+      IN-CAT --- CATALOG.NAME
+CLUSTER ------- MY.VSAM.ESDS1
+      IN-CAT --- CATALOG.NAME
+  DATA ------- MY.VSAM.ESDS1.DATA
+      IN-CAT --- CATALOG.NAME
+      ATTRIBUTES
+        NONINDEXED                NOERASE

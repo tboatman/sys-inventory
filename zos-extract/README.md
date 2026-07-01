@@ -80,6 +80,11 @@ script names and flags below assume you know what these mean.
 | **Sysplex** | A cluster of LPARs (possibly across physical boxes) configured to work together as one logical system. |
 | **IPL** | Initial Program Load — z/OS's term for "boot"/"reboot." |
 | **ZOAU** | Z Open Automation Utilities — IBM's toolkit (CLI commands + a Python API called `zoautil_py`) for scripting z/OS tasks like dataset access and issuing console commands, without hand-rolling JCL. |
+| **ICF catalog** | Integrated Catalog Facility catalog — the system-wide directory mapping dataset names to the volumes/details where they actually live. |
+| **VSAM** | Virtual Storage Access Method — a mainframe dataset access method for structured, indexed, or keyed data (as opposed to plain sequential/partitioned datasets). |
+| **VSAM cluster** | One logical VSAM dataset, made up of a DATA component (the actual records) and, for keyed clusters, an INDEX component. |
+| **KSDS / ESDS / RRDS** | The three main VSAM cluster types: Key-Sequenced (indexed by a key), Entry-Sequenced (append-only, accessed by position), and Relative-Record (accessed by record number). |
+| **IDCAMS** | The standard MVS utility program for VSAM/catalog management commands like `LISTCAT` (list catalog entries) — this pipeline only ever issues the read-only `LISTCAT` command, never anything that modifies a dataset or catalog. |
 
 ## What to run
 
@@ -256,6 +261,39 @@ picture of what's running.
 See each script's `--help` output (or open the `.py` file — the top
 comment has the same information) for full parameter details.
 
+### 9. Dataset catalog (HLQ/pattern-scoped)
+
+Script: `python/extrcat.py`. Catalogs non-VSAM dataset attributes
+(DSORG/RECFM/LRECL/BLKSIZE/VOLSER) and VSAM cluster/component detail
+(KSDS/ESDS/RRDS/LINEAR type, DATA/INDEX component names) — but only for
+datasets matching one or more HLQ/name patterns you supply. This is
+deliberately **not** a full-catalog dump: a real ICF catalog can hold
+hundreds of thousands of entries, so scope `--pattern` to the HLQs actually
+relevant to the inventory you're building (e.g. your applications' HLQs,
+not a shared top-level qualifier used by many unrelated things):
+
+```
+python3 /path/to/zos-extract/python/extrcat.py --pattern 'SYS1.*' --pattern 'PROD.**' \
+    --workhlq YOURID.CATALOG --outfile prod_catalog.txt
+```
+
+- `--pattern` is repeatable and required (at least one) — TSO-style
+  wildcards are supported (e.g. `HLQ.*` for one level, `HLQ.**` for
+  everything under `HLQ`), the same as `datasets.list_datasets()` accepts.
+- `--workhlq` is a high-level-qualifier prefix for one small temporary work
+  dataset used to capture the IDCAMS `LISTCAT` report, deleted
+  automatically once the command finishes.
+
+Non-VSAM attributes come straight from ZOAU's dataset-listing API (no
+console command or MVS program call needed for that part). VSAM detail
+comes from running IDCAMS's `LISTCAT ... ALL` command — this only needs
+READ access to the catalog(s) in the standard search order, the same
+read-only kind of authority as everything else in this pipeline.
+
+Run this once per HLQ/pattern group you care about, same idea as step 7's
+"once per zone" — each run's `--outfile` becomes one more input file for
+`inventory ingest`.
+
 ## Getting the output off-host
 
 Once the files above exist under a USS directory (e.g.
@@ -289,6 +327,7 @@ list of what it looks for in the directory you point it at:
 | SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per zone |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
+| Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |
 
 When you scale beyond one PROCLIB/PARMLIB library, name each additional
 `extrproc.py` output file `NN_libname.txt`, where `NN` is that library's
@@ -330,6 +369,7 @@ capitalized API instead — `from zoautil_py import Datasets`,
 `from zoautil_py import ...` line, that mismatch is the most likely cause.
 Every ZOAU call in this project is deliberately isolated to
 `python/zos_common.py` (plus the DD-statement construction local to
-`python/smplist.py`), specifically so that adapting to your installed
-version's exact API only means editing those two files — nothing else in
-the pipeline needs to change.
+`python/smplist.py` and `python/extrcat.py`, which both call
+`mvscmd.execute_authorized()` directly to run one MVS program), so that
+adapting to your installed version's exact API only means editing those
+files — nothing else in the pipeline needs to change.

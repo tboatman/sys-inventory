@@ -5,9 +5,11 @@ resolves each PROCLIB/PARMLIB member's full execution path back to the
 SMP/E FMID that owns each program it runs, flags whether each resolved
 load library is APF-authorized, and separately inventories defined
 subsystems, auto-started tasks, the LPAR/sysplex identity of the system
-the dump came from, product enablement status (IFAPRDxx), and a live
-snapshot of currently-running jobs/tasks and USS processes. Everything
-lands in one small SQLite database you query from the command line.
+the dump came from, product enablement status (IFAPRDxx), a live
+snapshot of currently-running jobs/tasks and USS processes, and an
+HLQ/pattern-scoped dataset catalog (non-VSAM attributes + VSAM cluster/
+component detail). Everything lands in one small SQLite database you query
+from the command line.
 
 This half runs on any ordinary computer — Mac, Linux, Windows (WSL),
 CI runner — nothing here needs to touch a mainframe. If you just want to
@@ -56,7 +58,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt && \
   cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt && \
   cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
-  cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt
+  cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt && \
+  cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -70,7 +73,8 @@ just renaming them into that shape for a quick demo.)
 1. Run `zos-extract/` on the target z/OS system and download its output
    (PROCLIB/PARMLIB dumps, IEFSSNxx/COMMNDxx dumps, IFAPRDxx dumps,
    LNKLST list, APF list, system identity dump, SMP/E LIST reports, active
-   jobs/processes snapshot) into one local directory — see
+   jobs/processes snapshot, dataset catalog dumps) into one local
+   directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
    file naming and how to produce each file.
 
@@ -87,7 +91,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -210,6 +214,33 @@ $ inventory processes
 python3
 ```
 
+### `inventory catalog`
+
+Non-VSAM datasets matching whatever `--pattern`(s) you gave `extrcat.py`,
+if you ingested a `*catalog*.txt` file:
+
+```
+$ inventory catalog
+MY.SITE.LOADLIB  VOLSER=VOL001 DSORG=PO RECFM=FB LRECL=80 BLKSIZE=27920
+MY.SITE.SEQFILE  VOLSER=VOL002 DSORG=PS RECFM=FB LRECL=133 BLKSIZE=1330
+```
+
+### `inventory vsam`
+
+VSAM clusters (and their DATA/INDEX components) matching those same
+patterns:
+
+```
+$ inventory vsam
+MY.VSAM.KSDS1  TYPE=KSDS VOLSER=VOL001 KEYLEN=20 RKP=0 DATA=MY.VSAM.KSDS1.DATA INDEX=MY.VSAM.KSDS1.INDEX
+MY.VSAM.ESDS1  TYPE=ESDS VOLSER=? KEYLEN=? RKP=? DATA=MY.VSAM.ESDS1.DATA INDEX=?
+```
+
+Both are HLQ/pattern-scoped, not a full catalog — see
+[`../zos-extract/README.md`](../zos-extract/README.md#9-dataset-catalog-hlqpattern-scoped)
+for how to run `extrcat.py`. `?` means that field didn't match anything in
+the captured `LISTCAT` report (see "How resolution works" below).
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -241,7 +272,12 @@ single record per ingest, not a list. Active jobs and USS processes
 (`activity_parser.parse_active_jobs`/`parse_processes`) are also
 independent of the lineage chain and, unlike every other dimension, are a
 live snapshot rather than configuration — see "Scaling" below on what
-that means for re-ingesting.
+that means for re-ingesting. Cataloged datasets and VSAM clusters
+(`catalog_parser.parse_catalog`) are likewise independent of the lineage
+chain — they're not currently cross-referenced against `lineage`/`apf`/
+`lnklst` (e.g. flagging which cataloged dataset is also a load library in
+some member's execution path), though that's a natural follow-up once
+this dimension has real-world data to check it against.
 
 ## Tests
 
@@ -261,16 +297,19 @@ deliberately missing from the fixture, to prove tolerant partial matching),
 and product parsing (an enabled product with wildcard VERSION/RELEASE/
 MOD/FEATURENAME, and a disabled product with a named feature). Also
 active-job and USS-process parsing (`sample_active_jobs.txt`/
-`sample_processes.txt`).
+`sample_processes.txt`), and dataset catalog parsing
+(`sample_catalog.txt`, covering non-VSAM attributes, a fully-populated
+VSAM KSDS cluster, and a VSAM ESDS cluster with several fields
+deliberately absent to prove tolerant partial matching).
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
-  `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` files in
-  the input directory — just keep adding files as you extract more
-  PROCLIB/PARMLIB concatenation entries and more SMP/E zones; `ingest`
-  merges them all into one inventory. `lnklst.txt` and `apf.txt` are each
-  a single flat list.
+  `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
+  `*catalog*.txt` files in the input directory — just keep adding files as
+  you extract more PROCLIB/PARMLIB concatenation entries, more SMP/E
+  zones, or more HLQ/pattern groups; `ingest` merges them all into one
+  inventory. `lnklst.txt` and `apf.txt` are each a single flat list.
 - `system_info` (from `sysinfo.txt`), `active_jobs` (from
   `active_jobs.txt`), and `uss_processes` (from `processes.txt`) are the
   exceptions: each is deliberately *not* additive like the tables above.
@@ -286,7 +325,11 @@ active-job and USS-process parsing (`sample_active_jobs.txt`/
   your shop's SMP/E LIST report formatting differs from the fixture; the
   `sysinfo_parser` module's docstring has the same guidance for `D
   SYMBOLS`/`D IPLINFO` output, which varies more by release/site than
-  SMP/E's LIST format does.
+  SMP/E's LIST format does. `catalog_parser`'s `##LISTCAT`-block regexes
+  carry the same caveat — IDCAMS `LISTCAT ALL` report layout is documented
+  but wasn't calibrated against a real system's actual output while
+  writing this; the `##NONVSAM` block (from ZOAU's `datasets` API
+  directly, not a parsed report) doesn't need this caveat.
 
 ## Upgrading from an older `inventory.db`
 
@@ -325,3 +368,12 @@ input directory, this loses no information beyond needing to re-run
   you didn't ingest `active_jobs.txt`/`processes.txt` (they're optional,
   same as `apf.txt`/`sysinfo.txt`); double check the filenames are exact
   if you did generate them.
+- **`inventory catalog`/`vsam` come back empty** — this is expected if you
+  didn't ingest any `*catalog*.txt` file (it's optional, and always
+  HLQ/pattern-scoped rather than a full dump — see
+  [`../zos-extract/README.md`](../zos-extract/README.md#9-dataset-catalog-hlqpattern-scoped)).
+- **`inventory vsam` shows a cluster but every field is `?`** — the
+  `##LISTCAT` block's regexes didn't match your site's actual IDCAMS
+  `LISTCAT ALL` report formatting; compare your `*catalog*.txt` file by eye
+  against the patterns documented in `catalog_parser.py`'s module
+  docstring and `tests/fixtures/sample_catalog.txt`.
