@@ -17,6 +17,13 @@ zos_extract_env:
   LIBPATH: "/shrd/zoautil/lib:/shrd/cyp/pyz/lib:/lib:/usr/lib:."
   TERM: "xterm"
   PYTHONPATH: "/shrd/zoautil/lib/:"
+  # Without this, importing zoautil_py tries to write compiled bytecode
+  # into /shrd/zoautil/lib/zoautil_py/__pycache__ -- a shared, read-only
+  # install most userids can't write to (ICH408I INSUFFICIENT AUTHORITY
+  # TO MKDIR). This is the standard CPython switch to never write .pyc
+  # cache files at all, so it just re-compiles from source every run
+  # instead (harmless -- ZOAU import isn't a hot path here).
+  PYTHONDONTWRITEBYTECODE: "1"
 
 # Where the role writes its output -- one subdirectory per inventoried
 # host, ready to hand straight to `inventory ingest` (see
