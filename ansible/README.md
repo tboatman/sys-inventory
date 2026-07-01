@@ -212,9 +212,10 @@ there's a literal prefix to anchor on instead.
 There's no `ibm.ibm_zos_core` module for CICS, and reaching real CICS
 resource definitions (transactions, programs, files, regions defined in a
 CSD) needs IBM's separate `ibm.ibm_zos_cics` collection talking to
-CICSplex SM's CMCI -- not available at this site. So `cics.yml` (tag
-`cics`) sticks to the same "what's running right now" scope as
-`activity.yml`'s `active_jobs.txt`, in fact reusing the exact same
+CICSplex SM's CMCI -- not available at this site. `requirements.yml` pins
+`ibm.ibm_zos_cics` anyway, for whenever that changes; no task uses it yet.
+So `cics.yml` (tag `cics`) sticks to the same "what's running right now"
+scope as `activity.yml`'s `active_jobs.txt`, in fact reusing the exact same
 `zos_job_query` call:
 
 ```
@@ -258,7 +259,9 @@ that advice matters even more here.
 
 ```
 ansible.cfg
-requirements.yml           # ibm.ibm_zos_core collection pin
+requirements.yml           # ibm.ibm_zos_core collection pin, plus
+                            # ibm.ibm_zos_cics for future CMCI-based
+                            # CICS discovery (unused today)
 inventory/hosts.yml.example
 inventory/group_vars/zos.yml  # shared ZOAU/Python env + local output path
                                # (must live beside the inventory file --
