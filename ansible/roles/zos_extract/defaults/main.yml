@@ -36,10 +36,14 @@ zos_extract_catalog_outfile: "catalog.txt"
 
 zos_extract_racf_database_dsn: ""
 
-# Opt-in live "what's running" CICS discovery -- see cics.yml. Matches
-# active STCs by job-name pattern (this site's actual CICS region
-# conventions) OR'd with the executing program being DFHSIP. No
-# CMCI/CICSplex SM at this site, so this can't reach real CICS resource
-# definitions -- just which regions are up right now.
+# Opt-in live "what's running" CICS/DB2 discovery -- see
+# discover_active_address_spaces.yml, cics.yml, db2.yml. Matches active
+# address spaces by PROCSTEP ("CICS"/"DB2PROC", confirmed against a
+# real reply) OR'd with a job-name pattern (this site's actual
+# conventions). No CMCI/CICSplex SM at this site, so CICS discovery
+# can't reach real resource definitions -- just which regions/address
+# spaces are up right now.
 zos_extract_cics_job_patterns: ["CTS*", "ECB2*", "MTSEDUC*"]
 zos_extract_cics_outfile: "cics.txt"
+zos_extract_db2_job_patterns: ["DB2*"]
+zos_extract_db2_outfile: "db2.txt"

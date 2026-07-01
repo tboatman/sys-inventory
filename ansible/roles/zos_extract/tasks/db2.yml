@@ -1,0 +1,43 @@
+---
+# Live "what's running" DB2 discovery -- same idea and same caveats as
+# cics.yml: strictly a snapshot of which DB2 address spaces (MSTR/
+# IRLM/DBM1/DIST per subsystem) are up right now, not a real DB2
+# resource/subsystem configuration inventory. Consumes
+# zos_extract_active_as_entries from discover_active_address_spaces.yml
+# (see that file for why 'D A,L' is used instead of zos_job_query).
+#
+# An address space counts as DB2 if either its PROCSTEP is literally
+# "DB2PROC" (true for every DB2 address space across all 4 subsystems
+# in a real reply from this site) or its job name matches one of
+# zos_extract_db2_job_patterns (this site's convention: every DB2
+# address space name starts with DB2, e.g. DB2GMSTR/DB2SIRLM/
+# DB2ADBM1/DB2BDIST) -- OR'd together as a fallback in case some
+# address space uses a PROCSTEP other than "DB2PROC".
+#
+# Opt-in: skipped entirely unless zos_extract_db2_job_patterns is
+# configured (same convention as zos_extract_catalog_patterns/racf).
+
+- name: Build a combined regex from the configured DB2 job-name patterns
+  ansible.builtin.set_fact:
+    zos_extract_db2_job_regex: >-
+      {{
+        '^(' ~ (zos_extract_db2_job_patterns
+           | map('regex_replace', '([.^$+{}\[\]|()])', '\\\1')
+           | map('regex_replace', '\*', '.*')
+           | map('regex_replace', '\?', '.')
+           | join('|')) ~ ')$'
+      }}
+  when: zos_extract_db2_job_patterns | length > 0
+
+- name: Write db2.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_db2_outfile }}"
+    mode: "0644"
+    content: |-
+      {% for entry in zos_extract_active_as_entries | default([]) %}
+      {% if entry[2] == 'DB2PROC' or (entry[0] is match(zos_extract_db2_job_regex)) %}
+      {{ entry[0] }} {{ entry[1] }} {{ entry[2] }} {{ entry[3] }} {{ entry[4] }}
+      {% endif %}
+      {% endfor %}
+  delegate_to: localhost
+  when: zos_extract_db2_job_patterns | length > 0

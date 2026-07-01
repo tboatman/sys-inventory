@@ -2,37 +2,29 @@
 # Live "what's running" CICS discovery -- no CMCI/CICSplex SM at this
 # site, so there's no way to reach actual CICS resource definitions
 # (transactions, programs, files, regions defined in a CSD); this is
-# strictly a snapshot of which CICS regions are up right now, same
-# "what's running" scope as activity.yml's active_jobs.txt.
+# strictly a snapshot of which CICS regions are up right now. Consumes
+# zos_extract_active_as_entries from discover_active_address_spaces.yml
+# (see that file for why 'D A,L' is used instead of zos_job_query).
 #
-# Issues one zos_job_query per configured job-name pattern (see
-# _cics_job_query.yml) rather than a single job_name: "*" query for
-# every active job/STC on the system -- a real run of the "*" form
-# crashed ZOAU's own jls utility here:
-#   CEE3209S The system detected a fixed-point divide exception
-#   (System Completion Code=0C9) ... at entry point parseSMFRecord
-# a bug in ZOAU's SMF-record parsing, not this playbook's logic.
-# job_name is the only filter zos_job_query exposes, so narrowing to
-# the three configured patterns individually is the only lever
-# available to avoid whatever job was tripping it -- and it's cheaper
-# besides (server-side name filtering vs a full scan).
-#
-# Trade-off: this drops the "catch a region whose name doesn't follow
-# the configured convention via its executing program being DFHSIP"
-# fallback an earlier version of this file had -- that needed a
-# system-wide "*" query, which isn't safe to issue here anymore.
-# program_name is still recorded per matched job in cics.txt for
-# visibility, just not used as an inclusion filter on its own.
+# A region counts as CICS if either its PROCSTEP is literally "CICS"
+# (true for every actual CICS region in a real reply from this site) or
+# its job name matches one of zos_extract_cics_job_patterns (this
+# site's conventions: CTS*, ECB2*, MTSEDUC*) -- OR'd together as a
+# fallback in case some region uses a PROCSTEP other than "CICS".
 #
 # Opt-in: skipped entirely unless zos_extract_cics_job_patterns is
 # configured (same convention as zos_extract_catalog_patterns/racf).
 
-- name: Query active jobs/STCs for each configured CICS job-name pattern
-  ansible.builtin.include_tasks: _cics_job_query.yml
-  loop: "{{ zos_extract_cics_job_patterns }}"
-  loop_control:
-    loop_var: zos_extract_cics_pattern
-    label: "{{ zos_extract_cics_pattern }}"
+- name: Build a combined regex from the configured CICS job-name patterns
+  ansible.builtin.set_fact:
+    zos_extract_cics_job_regex: >-
+      {{
+        '^(' ~ (zos_extract_cics_job_patterns
+           | map('regex_replace', '([.^$+{}\[\]|()])', '\\\1')
+           | map('regex_replace', '\*', '.*')
+           | map('regex_replace', '\?', '.')
+           | join('|')) ~ ')$'
+      }}
   when: zos_extract_cics_job_patterns | length > 0
 
 - name: Write cics.txt
@@ -40,8 +32,10 @@
     dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_outfile }}"
     mode: "0644"
     content: |-
-      {% for job in zos_extract_cics_jobs | default([]) %}
-      {{ job.job_id }} {{ job.job_name }} {{ job.program_name | default('?') }} {{ job.asid }}
+      {% for entry in zos_extract_active_as_entries | default([]) %}
+      {% if entry[2] == 'CICS' or (entry[0] is match(zos_extract_cics_job_regex)) %}
+      {{ entry[0] }} {{ entry[1] }} {{ entry[2] }} {{ entry[3] }} {{ entry[4] }}
+      {% endif %}
       {% endfor %}
   delegate_to: localhost
   when: zos_extract_cics_job_patterns | length > 0

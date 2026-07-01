@@ -82,10 +82,20 @@
   ansible.builtin.import_tasks: activity.yml
   tags: [activity]
 
+- name: Discover active address spaces for CICS/DB2 discovery (see discover_active_address_spaces.yml)
+  ansible.builtin.import_tasks: discover_active_address_spaces.yml
+  tags: [cics, db2]
+  when: (zos_extract_cics_job_patterns | length > 0) or (zos_extract_db2_job_patterns | length > 0)
+
 - name: Live CICS region discovery -- naming-heuristic only, opt-in (see cics.yml)
   ansible.builtin.import_tasks: cics.yml
   tags: [cics]
   when: zos_extract_cics_job_patterns | length > 0
+
+- name: Live DB2 address space discovery -- naming-heuristic only, opt-in (see db2.yml)
+  ansible.builtin.import_tasks: db2.yml
+  tags: [db2]
+  when: zos_extract_db2_job_patterns | length > 0
 
 - name: Dataset catalog (step 9)
   ansible.builtin.import_tasks: catalog.yml

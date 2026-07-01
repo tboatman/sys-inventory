@@ -207,43 +207,50 @@ to find those is an unrestricted `LISTCAT ALL` scan of the whole catalog
 followed by a client-side filter, which is real overkill once (like here)
 there's a literal prefix to anchor on instead.
 
-### CICS discovery is "what's running," not a resource inventory
+### CICS/DB2 discovery is "what's running," not a resource inventory
 
-There's no `ibm.ibm_zos_core` module for CICS, and reaching real CICS
+There's no `ibm.ibm_zos_core` module for CICS or DB2. Reaching real CICS
 resource definitions (transactions, programs, files, regions defined in a
 CSD) needs IBM's separate `ibm.ibm_zos_cics` collection talking to
-CICSplex SM's CMCI -- not available at this site. `requirements.yml` pins
-`ibm.ibm_zos_cics` anyway, for whenever that changes; no task uses it yet.
-So `cics.yml` (tag `cics`) sticks to the same "what's running right now"
-scope as `activity.yml`'s `active_jobs.txt`, using the same `zos_job_query`
-module:
+CICSplex SM's CMCI -- not available at this site (`requirements.yml` pins
+`ibm.ibm_zos_cics`/`ibm.ibm_zos_ims`/`ibm.ibm_zosmf` anyway, for whenever
+that changes; no task uses any of them yet). So `cics.yml` (tag `cics`) and
+`db2.yml` (tag `db2`) stick to the same "what's running right now" scope as
+`activity.yml`'s `active_jobs.txt`:
 
 ```
 ansible-playbook playbooks/site.yml --tags cics --limit bes2
+ansible-playbook playbooks/site.yml --tags db2 --limit bes2
 ```
 
-It issues one `zos_job_query` per pattern in `zos_extract_cics_job_patterns`
-(this site's actual conventions: `CTS*`, `ECB2*`, `MTSEDUC*` -- see
-`_cics_job_query.yml`) rather than a single `job_name: "*"` query for every
-active job/STC on the system. That broad form was tried first and crashed
-ZOAU's own `jls` utility on a real run:
+Both consume `discover_active_address_spaces.yml`'s single shared `D A,L`
+(Display Active, Long form) console command (tagged `cics, db2`, so it only
+runs once even if both tags are selected together) -- deliberately **not**
+`zos_job_query`, which was tried first and crashed ZOAU's own `jls` utility
+on a real run:
 
 ```
 CEE3209S The system detected a fixed-point divide exception
 (System Completion Code=0C9) ... at entry point parseSMFRecord
 ```
 
--- a bug in ZOAU's SMF-record parsing, not this playbook's logic.
-`job_name` is the only filter `zos_job_query` exposes, so narrowing to the
-configured patterns individually is the only available way to avoid
-whatever job was tripping it (and it's cheaper besides -- server-side name
-filtering instead of a full scan). The trade-off: an earlier version also
-matched on the executing program being `DFHSIP` to catch a region whose
-name didn't follow the configured convention, which needed the `"*"` query
-and isn't safe to issue here anymore -- `program_name` is still recorded
-per matched job in `cics.txt` for visibility, just not used as an inclusion
-filter on its own. Results are a naming heuristic, not authoritative, same
-as the CSI candidate list.
+`zos_job_query` always fetches every job with `include_extended=True`
+regardless of any `job_name` filter -- confirmed in `ibm_zos_core`'s own
+`module_utils/job.py` ("Observation shows the job_name parameter is not
+being used, so we will drop that") -- so narrowing the query pattern
+couldn't have avoided this; it's a ZOAU bug in its own SMF-record parsing,
+not this playbook's logic. `D A,L` sidesteps ZOAU/`jls` entirely, going
+straight to MVS, at the cost of a narrower field set than `zos_job_query`
+returned (no job ID or ASID, just job name/step name/PROCSTEP/status).
+
+An address space counts as CICS if its `PROCSTEP` is literally `CICS`
+(true for every CICS region in a real reply from this site) **or** its job
+name matches `zos_extract_cics_job_patterns` (`CTS*`, `ECB2*`,
+`MTSEDUC*`); DB2 the same way via `PROCSTEP` `DB2PROC` **or**
+`zos_extract_db2_job_patterns` (`DB2*`) -- OR'd together as a fallback in
+case some address space doesn't use the expected `PROCSTEP`. Results are a
+naming/content heuristic, not authoritative, same as the CSI candidate
+list.
 
 ### RACF (step 10) is opt-in on purpose
 
@@ -319,10 +326,13 @@ roles/zos_extract/
                              # APF-list analogs
     activity.yml             # zos_job_query + `ps -ef` for the live
                               # jobs/processes snapshot
-    cics.yml                  # opt-in, per-pattern zos_job_query for
-                               # active CICS regions (see
-                               # _cics_job_query.yml) -- not authoritative,
-                               # see above
+    discover_active_address_spaces.yml
+                               # shared 'D A,L' console query + parse for
+                               # cics.yml/db2.yml (not zos_job_query, see
+                               # above)
+    cics.yml, db2.yml          # opt-in PROCSTEP/job-name filters over
+                               # discover_active_address_spaces.yml's
+                               # output -- not authoritative, see above
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)

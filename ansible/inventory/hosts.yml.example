@@ -69,6 +69,14 @@ all:
         #   - "ECB2*"
         #   - "MTSEDUC*"
 
+        # Live "what's running" DB2 discovery (tag 'db2' -- see
+        # roles/zos_extract/tasks/db2.yml) -- defaults to this site's
+        # actual DB2 job-name convention (DB2*) in
+        # roles/zos_extract/defaults/main.yml; override here if a
+        # particular LPAR's convention differs.
+        # zos_extract_db2_job_patterns:
+        #   - "DB2*"
+
         zos_extract_catalog_patterns:
           - "PROD.*"
           - "PROD.**"

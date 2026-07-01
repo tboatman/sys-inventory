@@ -1,0 +1,42 @@
+---
+# Shared live snapshot for cics.yml/db2.yml: issues 'D A,L' (Display
+# Active, Long form) via zos_operator and parses every active address
+# space into zos_extract_active_as_entries, a flat list of
+# [jobname, stepname, procstep, status, flag] tuples.
+#
+# Deliberately NOT zos_job_query: that module always fetches every job
+# with include_extended=True regardless of any job_name filter --
+# confirmed in ibm_zos_core's own module_utils/job.py ("Observation
+# shows the job_name parameter is not being used, so we will drop
+# that") -- and that extended fetch crashed ZOAU's own jls utility on a
+# real run here (CEE3209S fixed-point divide exception in
+# parseSMFRecord), a ZOAU bug this playbook can't route around by
+# narrowing the query. 'D A,L' sidesteps ZOAU/jls entirely, going
+# straight to MVS.
+#
+# 'D A,L' packs two active-address-space entries per physical console
+# line, each shaped JOBNAME STEPNAME PROCSTEP STATUS FLAG (confirmed
+# against a real reply -- e.g. "ECB2GFOR ECB2GFOR CICS     NSW  SO").
+# This regex_findall's every non-overlapping run of 5 whitespace-
+# separated tokens PER LINE (not across the whole joined reply -- the
+# summary header/count lines above the job list have odd token counts,
+# and joining everything into one stream before matching would let
+# their leftover tokens bleed into and misalign every real entry after
+# them). Any line's own leftover tokens below 5 (like the header/count
+# lines, or a stray wrapped line) just don't match and are dropped --
+# harmless, since cics.yml/db2.yml filter on exact PROCSTEP/job-name
+# values a bogus tuple from those lines won't happen to hit.
+
+- name: Issue D A,L
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D A,L"
+  register: zos_extract_dal_reply
+  when: (zos_extract_cics_job_patterns | length > 0) or (zos_extract_db2_job_patterns | length > 0)
+
+- name: Extract JOBNAME/STEPNAME/PROCSTEP/status tuples from the console reply
+  ansible.builtin.set_fact:
+    zos_extract_active_as_entries: >-
+      {{ zos_extract_dal_reply.content
+         | map('regex_findall', '(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)')
+         | list | flatten(levels=1) }}
+  when: (zos_extract_cics_job_patterns | length > 0) or (zos_extract_db2_job_patterns | length > 0)
