@@ -174,25 +174,27 @@ suffixes even if you didn't ask for `sysinfo`/PARMLIB steps in the same run.
 `zos_extract_smpe_csi` (used by `smplist.yml`) has to be set by hand -- unlike
 PROCLIB/PARMLIB, there's no system command that enumerates registered CSIs
 (SMP/E doesn't register a CSI anywhere central; it's just a VSAM KSDS a site
-chooses to use as one). If you don't know its name yet, set
-`zos_extract_smpe_csi_search_patterns` in `hosts.yml` and run:
+chooses to use as one). If you don't know its name yet, run:
 
 ```
 ansible-playbook playbooks/site.yml --tags smpe_csi_discovery --limit lpar1
 ```
 
 This searches the catalog (`zos_find`, `resource_type: cluster`) for VSAM
-clusters matching those patterns and writes candidates to
-`smpe_csi_candidates.txt` -- a naming-heuristic list, not a verified one.
-Confirm a candidate is really usable as an `SMPCSI` (e.g. by pointing
-`smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
+clusters matching `zos_extract_smpe_csi_search_patterns` and writes
+candidates to `smpe_csi_candidates.txt` -- a naming-heuristic list, not a
+verified one. Confirm a candidate is really usable as an `SMPCSI` (e.g. by
+pointing `smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
 
-Keep the patterns prefix-anchored (e.g. `SMPE.*.CSI`), not leading-wildcard
-(e.g. `**.CSI`): catalog search is an ordered index (BCS) lookup, so a fixed
-prefix lets it do a narrow scan, while a leading wildcard forces it to walk
-every catalog entry on the system looking for a match at the end of the
-name -- the actual CPU cost driver, not the volume of data stored under any
-of those entries.
+`zos_extract_smpe_csi_search_patterns` defaults to `["**.CSI"]`
+(`roles/zos_extract/defaults/main.yml`) since that's this site's actual
+convention -- every CSI ends in `.CSI` with no shared prefix. If yours does
+have a shared prefix, override it in `hosts.yml` with something
+prefix-anchored (e.g. `SMPE.*.CSI`) instead: catalog search is an ordered
+index (BCS) lookup, so a fixed prefix lets it do a narrow scan, while a
+leading wildcard like `**.CSI` forces it to walk every catalog entry on the
+system looking for a match at the end of the name -- the actual CPU cost
+driver, not the volume of data stored under any of those entries.
 
 ### RACF (step 10) is opt-in on purpose
 
