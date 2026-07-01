@@ -1,0 +1,14 @@
+---
+# Implementation only -- see zos-extract/README.md step 10 and the top-level
+# README's "Status" section before running this against a real system.
+# Requires READ access to a COPY of the RACF database (never the live
+# primary/backup); this is a materially harder authorization ask than every
+# other step and needs your security team's direct involvement.
+- name: Run RACF database unload (IRRDBU00) against a read-accessible copy
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrracf.py
+    --racf-database {{ zos_extract_racf_database_dsn }}
+    --workhlq {{ zos_extract_racf_workhlq }}
+    --outfile {{ zos_extract_remote_output_dir }}/racf.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true

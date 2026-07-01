@@ -1,0 +1,7 @@
+---
+- name: Dump the LNKLST concatenation (D PROG,LNKLST)
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrlnk.py
+    --outfile {{ zos_extract_remote_output_dir }}/lnklst.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true

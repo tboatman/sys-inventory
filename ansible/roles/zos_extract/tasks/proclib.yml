@@ -1,0 +1,22 @@
+---
+- name: Dump PROCLIB concatenation entries
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
+    --indsn {{ item.dsn }}
+    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_proclib.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true
+  loop: "{{ zos_extract_proclibs }}"
+  loop_control:
+    label: "{{ item.dsn }}"
+
+- name: Dump PARMLIB concatenation entries
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
+    --indsn {{ item.dsn }}
+    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_parmlib.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true
+  loop: "{{ zos_extract_parmlibs }}"
+  loop_control:
+    label: "{{ item.dsn }}"

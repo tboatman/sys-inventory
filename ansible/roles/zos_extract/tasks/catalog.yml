@@ -1,0 +1,9 @@
+---
+- name: Catalog datasets matching configured HLQ/patterns
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrcat.py
+    {{ zos_extract_catalog_patterns | map('regex_replace', '^(.*)$', '--pattern \1') | join(' ') }}
+    --workhlq {{ zos_extract_catalog_workhlq }}
+    --outfile {{ zos_extract_remote_output_dir }}/{{ zos_extract_catalog_outfile }}
+  environment: "{{ zos_extract_env }}"
+  changed_when: true

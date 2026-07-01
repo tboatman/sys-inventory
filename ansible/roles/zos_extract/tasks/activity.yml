@@ -1,0 +1,14 @@
+---
+- name: Snapshot active jobs/started tasks
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrjobs.py
+    --outfile {{ zos_extract_remote_output_dir }}/active_jobs.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true
+
+- name: Snapshot USS processes
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrprocs.py
+    --outfile {{ zos_extract_remote_output_dir }}/processes.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true

@@ -1,0 +1,19 @@
+---
+- name: Ensure remote script staging directory exists
+  ansible.builtin.file:
+    path: "{{ zos_extract_remote_script_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure remote output directory exists
+  ansible.builtin.file:
+    path: "{{ zos_extract_remote_output_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy zos-extract/python scripts to the target
+  ibm.ibm_zos_core.zos_copy:
+    src: "{{ role_path }}/../../../zos-extract/python/"
+    dest: "{{ zos_extract_remote_script_dir }}/"
+    remote_src: false
+    mode: "0755"

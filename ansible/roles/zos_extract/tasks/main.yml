@@ -1,0 +1,64 @@
+---
+# Each import below corresponds to one numbered step in
+# zos-extract/README.md's "What to run" section. Tags let you run a subset,
+# e.g. `ansible-playbook playbooks/site.yml --tags lnklst,apf`.
+#
+# These use import_tasks (static), not include_tasks (dynamic), on purpose:
+# with a dynamic include, tags placed on the include statement don't
+# reliably propagate to the tasks inside it once --tags filtering is
+# involved -- confirmed against the ansible-core version this was built
+# against, where an unselected dynamic include's child tasks silently
+# vanish (no error, no "skipping" notice) instead of being skipped
+# visibly. Static import_tasks resolves at playbook-parse time, so tags
+# apply the traditional, documented way.
+
+- name: Stage zos-extract scripts on target
+  ansible.builtin.import_tasks: stage.yml
+  tags: always
+
+- name: PROCLIB/PARMLIB dumps (step 1)
+  ansible.builtin.import_tasks: proclib.yml
+  tags: [proclib]
+
+- name: Subsystem & started-task dumps (step 2)
+  ansible.builtin.import_tasks: ssn_commnd.yml
+  tags: [ssn_commnd]
+
+- name: Product enablement dump (step 3)
+  ansible.builtin.import_tasks: ifaprd.yml
+  tags: [ifaprd]
+
+- name: LNKLST dataset list (step 4)
+  ansible.builtin.import_tasks: lnklst.yml
+  tags: [lnklst]
+
+- name: APF-authorized library list (step 5)
+  ansible.builtin.import_tasks: apf.yml
+  tags: [apf]
+
+- name: LPAR/sysplex identity (step 6)
+  ansible.builtin.import_tasks: sysinfo.yml
+  tags: [sysinfo]
+
+- name: SMP/E CSI report (step 7)
+  ansible.builtin.import_tasks: smplist.yml
+  tags: [smplist]
+  when: zos_extract_smpe_csi | length > 0
+
+- name: Live activity snapshot (step 8)
+  ansible.builtin.import_tasks: activity.yml
+  tags: [activity]
+
+- name: Dataset catalog (step 9)
+  ansible.builtin.import_tasks: catalog.yml
+  tags: [catalog]
+  when: zos_extract_catalog_patterns | length > 0
+
+- name: RACF security snapshot -- implementation only, not run unless requested (step 10)
+  ansible.builtin.import_tasks: racf.yml
+  tags: [racf, never]
+  when: zos_extract_racf_database_dsn | length > 0
+
+- name: Fetch results back to the control node
+  ansible.builtin.import_tasks: fetch.yml
+  tags: [always, fetch]

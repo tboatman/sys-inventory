@@ -1,0 +1,45 @@
+---
+# Copy this file to hosts.yml (gitignored) and fill in your own site's
+# values. One host per LPAR you want to inventory; running the playbooks
+# against the whole "zos" group inventories every LPAR listed here in one
+# `ansible-playbook` invocation.
+
+all:
+  children:
+    zos:
+      hosts:
+        lpar1:
+          ansible_host: lpar1.example.com
+      vars:
+        # zos-extract/README.md's "Before you start" section covers what
+        # each of these needs and how to get it from your admin.
+        ansible_user: youruserid
+        ansible_connection: ibm.ibm_zos_core.zos_ssh
+        ansible_ssh_common_args: ""
+        # Path to IBM Open Enterprise Python on the target LPAR (the same
+        # one `python3 --version` resolves to in your OMVS shell).
+        ansible_python_interpreter: /shrd/cyp/pyz/bin/python3
+
+        # --- what to inventory on this LPAR ---
+        zos_extract_proclibs:
+          - dsn: SYS1.PROCLIB
+            prefix: "00"
+        zos_extract_parmlibs:
+          - dsn: SYS1.PARMLIB
+            prefix: "00"
+
+        zos_extract_smpe_csi: YOUR.GLOBAL.CSI
+        zos_extract_smpe_zones:
+          - TZONE1
+        # zos_extract_smpe_steplib: YOUR.SMPE.LINKLIB   # only if GIMSMP isn't in LNKLST
+
+        zos_extract_catalog_patterns:
+          - "PROD.*"
+          - "PROD.**"
+
+        # Uncomment only once you have a READ-accessible RACF database
+        # COPY and have confirmed authorization with your security team --
+        # see zos-extract/README.md step 10. Leave unset to skip RACF
+        # entirely (it's implementation-only / not yet production-validated
+        # anyway, and the racf tag is skipped by default).
+        # zos_extract_racf_database_dsn: YOURHLQ.RACF.COPY

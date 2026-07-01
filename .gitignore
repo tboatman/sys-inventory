@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 venv/
 .claude/settings.json
+ansible/inventory/hosts.yml
+ansible/output/

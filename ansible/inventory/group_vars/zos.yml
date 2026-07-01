@@ -1,0 +1,27 @@
+---
+# Environment ZOAU/IBM Open Enterprise Python need on the target LPAR,
+# straight from zos-extract/README.md's "Basic Env requirements" section.
+# Adjust paths if your site installs ZOAU/Python somewhere else --
+# ask your systems programmer if unsure.
+zos_extract_env:
+  PATH: "/shrd/zoautil/bin:/shrd/cyp/pyz/bin/:/bin"
+  _BPXK_AUTOCVT: "ON"
+  ZOAU_ROOT: "/shrd/zoautil/"
+  _CEE_RUNOPTS: "FILETAG(AUTOCVT,AUTOTAG) POSIX(ON)"
+  CLASSPATH: "/shrd/zoautil/lib/*:"
+  STEPLIB: "none"
+  LANG: "C"
+  LIBPATH: "/shrd/zoautil/lib:/shrd/cyp/pyz/lib:/lib:/usr/lib:."
+  TERM: "xterm"
+  PYTHONPATH: "/shrd/zoautil/lib/:"
+
+# Where the zos-extract/python scripts get staged on the target, and where
+# they write their output files, before being fetched back to the control
+# node. Both are plain OMVS paths under the target user's own home.
+zos_extract_remote_script_dir: "/u/{{ ansible_user }}/zos-extract-ansible"
+zos_extract_remote_output_dir: "/u/{{ ansible_user }}/inventory"
+
+# Where fetched output lands on the control node -- one subdirectory per
+# inventoried host, ready to hand straight to `inventory ingest` (see
+# ../../inventory/README.md).
+zos_extract_local_output_dir: "{{ playbook_dir }}/../output/{{ inventory_hostname }}"

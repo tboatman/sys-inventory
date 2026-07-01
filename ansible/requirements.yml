@@ -1,0 +1,4 @@
+---
+collections:
+  - name: ibm.ibm_zos_core
+    version: ">=1.10.0"

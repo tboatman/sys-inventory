@@ -1,0 +1,22 @@
+---
+- name: Find zos-extract output files on the target
+  ansible.builtin.find:
+    paths: "{{ zos_extract_remote_output_dir }}"
+    patterns: "*.txt"
+  register: zos_extract_found_files
+
+- name: Ensure local output directory exists
+  ansible.builtin.file:
+    path: "{{ zos_extract_local_output_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+
+- name: Fetch zos-extract output files back to the control node
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ item.path }}"
+    dest: "{{ zos_extract_local_output_dir }}/"
+    flat: true
+  loop: "{{ zos_extract_found_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"

@@ -185,3 +185,7 @@ resolution works" for specifics.
 - [`inventory/README.md`](inventory/README.md) — install, CLI usage
   (with example output for every command), resolution algorithm, test
   suite, and troubleshooting.
+- [`ansible/README.md`](ansible/README.md) — optional: run
+  `zos-extract/`'s step 1 across one or more LPARs with Ansible instead of
+  by hand, and fetch the results straight into a directory ready for
+  `inventory ingest`.

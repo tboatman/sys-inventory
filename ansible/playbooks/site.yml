@@ -1,0 +1,6 @@
+---
+- name: Run zos-extract on each inventoried LPAR and fetch results locally
+  hosts: zos
+  gather_facts: false
+  roles:
+    - zos_extract

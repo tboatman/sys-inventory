@@ -1,0 +1,15 @@
+---
+- name: Run SMP/E LIST DDDEF/MOD/SYSMOD against each target zone
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['python3', zos_extract_remote_script_dir ~ '/smplist.py',
+         '--csi', zos_extract_smpe_csi,
+         '--zone', item,
+         '--workhlq', zos_extract_smpe_workhlq,
+         '--outfile', zos_extract_remote_output_dir ~ '/' ~ (item | lower) ~ '.smplist.txt']
+        + (['--steplib', zos_extract_smpe_steplib] if zos_extract_smpe_steplib else [])
+      }}
+  environment: "{{ zos_extract_env }}"
+  changed_when: true
+  loop: "{{ zos_extract_smpe_zones }}"

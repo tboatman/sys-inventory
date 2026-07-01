@@ -1,0 +1,27 @@
+---
+# Not every shop uses IFAPRDxx (zos-extract/README.md step 3) -- a PARMLIB
+# with no matching members makes extrproc.py exit non-zero, so this is
+# treated as a soft warning rather than a play failure.
+- name: Dump product enablement (IFAPRDxx) definitions
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrproc.py
+    --indsn {{ item.dsn }}
+    --members {{ zos_extract_ifaprd_member_filter }}
+    --outfile {{ zos_extract_remote_output_dir }}/{{ item.prefix }}_ifaprd.txt
+  environment: "{{ zos_extract_env }}"
+  register: zos_extract_ifaprd_result
+  failed_when: false
+  changed_when: zos_extract_ifaprd_result.rc == 0
+  loop: "{{ zos_extract_parmlibs }}"
+  loop_control:
+    label: "{{ item.dsn }}"
+
+- name: Warn if a PARMLIB has no IFAPRDxx members
+  ansible.builtin.debug:
+    msg: >-
+      No IFAPRD* members found in {{ item.item.dsn }} -- this is normal if
+      your site doesn't use IFAPRDxx (see zos-extract/README.md step 3).
+  loop: "{{ zos_extract_ifaprd_result.results }}"
+  loop_control:
+    label: "{{ item.item.dsn }}"
+  when: item.rc != 0

@@ -1,0 +1,7 @@
+---
+- name: Capture LPAR/sysplex identity (D SYMBOLS + D IPLINFO)
+  ansible.builtin.command: >
+    python3 {{ zos_extract_remote_script_dir }}/extrsys.py
+    --outfile {{ zos_extract_remote_output_dir }}/sysinfo.txt
+  environment: "{{ zos_extract_env }}"
+  changed_when: true
