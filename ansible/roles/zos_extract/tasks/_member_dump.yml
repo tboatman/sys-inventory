@@ -30,15 +30,22 @@
   register: zos_extract_scratch
   delegate_to: localhost
 
-- name: List members matching the configured filter in {{ zos_extract_dsn }}
+- name: List every member of {{ zos_extract_dsn }}
+  # ibm_zos_core >=2.0.0 dropped the separate pds_patterns (dataset name)
+  # / patterns (member name) split -- patterns is now the dataset-name
+  # filter only, and every matched PDS/PDSE comes back with its full
+  # member list already attached, unfiltered. So this pulls every member
+  # unconditionally; the regex filter now happens client-side below,
+  # against that full list, instead of being handed to the module.
   ibm.ibm_zos_core.zos_find:
-    pds_patterns: ["{{ zos_extract_dsn }}"]
-    patterns: ["{{ zos_extract_member_regex }}"]
+    patterns: ["{{ zos_extract_dsn }}"]
   register: zos_extract_members
 
-- name: Set the member name list for {{ zos_extract_dsn }}
+- name: Set the member name list for {{ zos_extract_dsn }}, filtered to the configured pattern
   ansible.builtin.set_fact:
-    zos_extract_member_names: "{{ (zos_extract_members.data_sets[0].members | default([])) | list | sort }}"
+    zos_extract_member_names: >-
+      {{ (zos_extract_members.data_sets[0].members | default([]))
+         | select('match', zos_extract_member_regex) | list | sort }}
 
 - name: Fetch each matching member of {{ zos_extract_dsn }}
   ibm.ibm_zos_core.zos_fetch:

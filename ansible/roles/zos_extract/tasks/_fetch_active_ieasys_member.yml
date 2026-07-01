@@ -11,17 +11,38 @@
 # _member_dump.yml's header comment for why that's safe here under
 # --tags filtering (this carries no tags of its own).
 
-- name: Find which configured PARMLIB has IEASYS{{ zos_extract_ieasys_suffix }}
+- name: List every member of each configured PARMLIB
+  # ibm_zos_core >=2.0.0 dropped pds_patterns/patterns as separate
+  # dataset-name/member-name filters -- patterns is the dataset-name
+  # filter only now, and every matched PDS/PDSE's full member list comes
+  # back already attached. So this lists every member of every
+  # configured PARMLIB, then the next task picks out which one(s)
+  # actually contain IEASYS{{ zos_extract_ieasys_suffix }} client-side.
   ibm.ibm_zos_core.zos_find:
-    pds_patterns: "{{ zos_extract_parmlibs | map(attribute='dsn') | list }}"
-    patterns: ["^IEASYS{{ zos_extract_ieasys_suffix }}$"]
+    patterns: "{{ zos_extract_parmlibs | map(attribute='dsn') | list }}"
   register: zos_extract_ieasys_find
+
+- name: Determine which configured PARMLIB(s) actually contain IEASYS{{ zos_extract_ieasys_suffix }}
+  # subelements pairs each matched dataset with each of its own members
+  # (skip_missing=True so a dataset with no/empty members list, e.g. an
+  # empty PARMLIB, doesn't error) -- selectattr('1', ...) then filters
+  # those (dataset, member) pairs down to ones whose member is the one
+  # we want, and map(attribute='0.name') pulls the owning dataset name
+  # back out. A plain selectattr('members', 'in', [...]) can't do this
+  # directly: that tests "is this whole members list one of these
+  # values", not "does this members list contain this value".
+  ansible.builtin.set_fact:
+    zos_extract_ieasys_containing_dsns: >-
+      {{ (zos_extract_ieasys_find.data_sets | default([]))
+         | subelements('members', skip_missing=True)
+         | selectattr('1', 'equalto', 'IEASYS' ~ zos_extract_ieasys_suffix)
+         | map(attribute='0.name') | list }}
 
 - name: Pick the highest-priority PARMLIB dsn that has it
   ansible.builtin.set_fact:
     zos_extract_ieasys_dsn: >-
       {{ (zos_extract_parmlibs
-          | selectattr('dsn', 'in', (zos_extract_ieasys_find.data_sets | default([]) | map(attribute='name') | list))
+          | selectattr('dsn', 'in', zos_extract_ieasys_containing_dsns)
           | map(attribute='dsn') | list | first | default('')) }}
 
 - name: Create a scratch directory for IEASYS{{ zos_extract_ieasys_suffix }}
