@@ -21,10 +21,13 @@ Run this from an OMVS shell:
 
 Implementation: ZOAU's jobs.fetch_multiple() lists every job/task JES
 currently knows about, in any state (queued, active, or sitting on the
-output queue) -- this filters to status == "ACTIVE" to get just what's
-actually executing right now (confirmed against ibm_zos_core's job.py,
-which maps this same ZOAU call's entries' .status/.asid/.job_type fields
-the same way this script does).
+output queue) -- this filters to status == "AC" to get just what's
+actually executing right now. Confirmed on-system: distinct status
+values observed here are AC (active), CC (completed with a condition
+code), ABEND, JCLERR, and NOEXEC -- not the "ACTIVE" string ibm_zos_core's
+job.py's higher-level wrapper exposes (it translates JES's own two-letter
+codes; this script reads zoautil_py's jobs.fetch_multiple() directly, one
+layer below that wrapper, so it sees JES's raw code instead).
 
 Requires ZOAU; if `zoautil_py` imports fail, check zos_common.py's module
 docstring for the version-difference note.
@@ -45,11 +48,11 @@ def main():
     args = p.parse_args()
 
     try:
-        entries = jobs.fetch_multiple(include_extended=True)
+        entries = jobs.fetch_multiple()
     except Exception as exc:
         die("could not list active jobs: {}".format(exc))
 
-    active = [e for e in (entries or []) if e.status == "ACTIVE"]
+    active = [e for e in (entries or []) if e.status == "AC"]
 
     if not active:
         die("no active jobs found -- unexpected, at minimum core system "
