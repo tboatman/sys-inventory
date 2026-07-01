@@ -197,10 +197,16 @@ snapshot, not configuration:
 
 ```
 $ inventory active
-STC03801 CICSPROD  TYPE=STC ASID=0043
-STC00002 JES2  TYPE=STC ASID=0002
-JOB01234 PAYROLL  TYPE=JOB ASID=0091
+STC03801 CICSPROD  TYPE=STC ASID=0043 OWNER=CICSUSR JOBCLASS=STC SVCCLASS=SYSSTC SYSTEM=BES2
+STC00002 JES2  TYPE=STC ASID=0002 OWNER=STCUSR JOBCLASS=STC SVCCLASS=SYSSTC SYSTEM=BES2
+JOB01234 PAYROLL  TYPE=JOB ASID=0091 OWNER=PAYUSR JOBCLASS=A SVCCLASS=BATCH SYSTEM=BES2
 ```
+
+`active_jobs.txt` itself is JSON Lines (one job object per line, straight
+from ZOAU's `jls`) rather than a fixed-width format -- `ActiveJob` carries
+quite a few more fields than this summary prints (completion code,
+priority, creation/execution timestamps, subsystem, node info, member
+name); query the `active_jobs` table directly if you need those.
 
 `ASID` (address space ID) distinguishes concurrently-running copies of the
 same-named task. To check whether something defined in `started-tasks`

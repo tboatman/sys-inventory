@@ -6,14 +6,17 @@
 # discover_active_address_spaces.yml's header for the CICS/DB2 version
 # of this same story), which pulls in SMF-derived fields (programname,
 # cputime, srbtime) and crashed ZOAU's own jls on a real run (CEE3209S
-# fixed-point divide exception in parseSMFRecord). None of those
-# SMF-derived fields are needed for this dump, so this asks jls
-# directly for only id,name,status,jobtype,asid -- confirmed against a
-# real run that this avoids the crash entirely (rc: 0, hundreds of
-# jobs) and restores the exact original "job_id name job_type asid"
-# schema inventory/inventory/activity_parser.py's ActiveJob model
-# expects, unlike an earlier version of this file that went through
-# 'D A,L' instead and lost job_id/asid entirely.
+# fixed-point divide exception in parseSMFRecord).
+#
+# Every OTHER field jls exposes was confirmed safe on a real run (no
+# crash, full job list returned) -- only programname/cputime/srbtime are
+# excluded below. That's a much richer capture than the original
+# job_id/name/job_type/asid extrjobs.py wrote, so active_jobs.txt is now
+# JSON Lines (one job object per line, using jls's own field names
+# verbatim) instead of a fixed four-column format -- there's no reason
+# to throw the rest of this away just to keep the old shape.
+# inventory/inventory/models.py's ActiveJob and activity_parser.py's
+# parse_active_jobs() were updated to match (see those files).
 #
 # jls's JSON output nests one {id: {...}} object per job under a
 # top-level "data" key; "AC" is the same active-job status value
@@ -28,7 +31,16 @@
 # needing the script staged on the target.
 
 - name: Query all active jobs and started tasks directly via jls
-  ansible.builtin.command: jls -j -o id,name,status,jobtype,asid -- '/*/'
+  ansible.builtin.command:
+    argv:
+      - jls
+      - "-j"
+      - "-o"
+      - "owner,name,id,status,ccode,jobclass,serviceclass,priority,asid,\
+        creationdate,creationtime,queueposition,jobtype,executiontime,executionseconds,\
+        system,subsystem,onode,xnode,membname"
+      - "--"
+      - "/*/"
   register: zos_extract_jls_result
   changed_when: false
 
@@ -38,7 +50,7 @@
     mode: "0644"
     content: |-
       {% for job in (zos_extract_jls_result.stdout | from_json).data.values() | selectattr('status', 'equalto', 'AC') | list %}
-      {{ job.id }} {{ job.name }} {{ job.jobtype }} {{ job.asid }}
+      {{ job | to_json }}
       {% endfor %}
   delegate_to: localhost
 

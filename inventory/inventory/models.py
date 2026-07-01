@@ -140,15 +140,38 @@ class Product:
 @dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
-    zos-extract/python/extrjobs.py via ZOAU's jobs.fetch_multiple(),
-    filtered to status == "ACTIVE". This is a live, point-in-time
+    ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls
+    binary directly (one JSON object per line, filtered to status ==
+    "AC") -- see that file for why this goes straight to jls rather
+    than ibm.ibm_zos_core's zos_job_query. This is a live, point-in-time
     snapshot -- unlike Subsystem/StartedTask (what's *defined*), this is
-    what's actually running right now."""
+    what's actually running right now.
+
+    Field names mostly match jls's own -o field names (snake_cased);
+    onode/xnode/membname are kept exactly as jls names them since their
+    precise semantics (e.g. which of onode/xnode is the submitting vs.
+    executing node) aren't independently confirmed."""
 
     job_id: str
     name: str
-    job_type: str | None = None   # JOB / STC / TSU
-    asid: str | None = None       # address space ID (hex); only set while running
+    job_type: str | None = None        # JOB / STC / TSU
+    asid: str | None = None            # address space ID; only set while running
+    owner: str | None = None
+    status: str | None = None          # AC while running (CC/ABEND/JCLERR/... once finished)
+    completion_code: str | None = None
+    job_class: str | None = None
+    svc_class: str | None = None
+    priority: str | None = None
+    creation_date: str | None = None
+    creation_time: str | None = None
+    queue_position: str | None = None
+    execution_time: str | None = None
+    execution_seconds: str | None = None
+    system: str | None = None
+    subsystem: str | None = None
+    onode: str | None = None
+    xnode: str | None = None
+    membname: str | None = None
 
 
 @dataclass

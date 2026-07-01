@@ -77,10 +77,26 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_id ON products(id);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
-    job_id    TEXT NOT NULL,
-    name      TEXT NOT NULL,
-    job_type  TEXT,
-    asid      TEXT
+    job_id             TEXT NOT NULL,
+    name               TEXT NOT NULL,
+    job_type           TEXT,
+    asid               TEXT,
+    owner              TEXT,
+    status             TEXT,
+    completion_code    TEXT,
+    job_class          TEXT,
+    svc_class          TEXT,
+    priority           TEXT,
+    creation_date      TEXT,
+    creation_time      TEXT,
+    queue_position     TEXT,
+    execution_time     TEXT,
+    execution_seconds  TEXT,
+    system             TEXT,
+    subsystem          TEXT,
+    onode              TEXT,
+    xnode              TEXT,
+    membname           TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_active_jobs_name ON active_jobs(name);
 
@@ -286,9 +302,26 @@ def all_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 def save_active_jobs(conn: sqlite3.Connection, active_jobs: list[ActiveJob]) -> None:
     conn.execute("DELETE FROM active_jobs")
-    rows = [(j.job_id, j.name, j.job_type, j.asid) for j in active_jobs]
+    rows = [
+        (
+            j.job_id, j.name, j.job_type, j.asid, j.owner, j.status,
+            j.completion_code, j.job_class, j.svc_class, j.priority,
+            j.creation_date, j.creation_time, j.queue_position,
+            j.execution_time, j.execution_seconds, j.system, j.subsystem,
+            j.onode, j.xnode, j.membname,
+        )
+        for j in active_jobs
+    ]
     conn.executemany(
-        "INSERT INTO active_jobs (job_id, name, job_type, asid) VALUES (?, ?, ?, ?)",
+        """
+        INSERT INTO active_jobs (
+            job_id, name, job_type, asid, owner, status,
+            completion_code, job_class, svc_class, priority,
+            creation_date, creation_time, queue_position,
+            execution_time, execution_seconds, system, subsystem,
+            onode, xnode, membname
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
         rows,
     )
     conn.commit()

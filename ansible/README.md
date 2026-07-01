@@ -231,13 +231,17 @@ job_name/pattern as a result.
 
 **`activity.yml`** doesn't need those SMF-derived fields at all, so it
 calls ZOAU's `jls` binary directly (`ansible.builtin.command`, same as this
-file's own `ps -ef` call) with a trimmed field list --
-`jls -j -o id,name,status,jobtype,asid -- '/*/'` -- confirmed against a
-real run to avoid the crash entirely (`rc: 0`, hundreds of jobs) while
-keeping the exact original `job_id name job_type asid` schema
-`inventory/inventory/activity_parser.py`'s `ActiveJob` model expects.
+file's own `ps -ef` call) requesting every *other* field jls exposes --
+`owner,name,id,status,ccode,jobclass,serviceclass,priority,asid,creationdate,`
+`creationtime,queueposition,jobtype,executiontime,executionseconds,system,`
+`subsystem,onode,xnode,membname` -- confirmed against a real run to avoid
+the crash entirely (`rc: 0`, hundreds of jobs) while capturing far more than
+the original `extrjobs.py` dump did. `active_jobs.txt` is JSON Lines (one
+job object per line, jls's own field names) rather than a fixed four-column
+format as a result; `inventory/inventory/models.py`'s `ActiveJob` and
+`activity_parser.py`'s `parse_active_jobs()` were updated to match.
 `extrjobs.py`'s own plain `jobs.fetch_multiple()` call (no
-`include_extended`) presumably never hit this for the same reason.
+`include_extended`) presumably never hit the crash for the same reason.
 
 **`cics.yml`/`db2.yml`** need `PROCSTEP`, which isn't one of `jls`'s
 available fields, so they consume `discover_active_address_spaces.yml`'s

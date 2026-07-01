@@ -13,11 +13,22 @@ def test_active_jobs_parsed():
     assert cics.job_id == "STC03801"
     assert cics.job_type == "STC"
     assert cics.asid == "0043"
+    assert cics.owner == "CICSUSR"
+    assert cics.status == "AC"
+    assert cics.job_class == "STC"
+    assert cics.svc_class == "SYSSTC"
+    assert cics.system == "BES2"
+    assert cics.membname == "CICS"
 
     payroll = next(j for j in jobs if j.name == "PAYROLL")
     assert payroll.job_id == "JOB01234"
     assert payroll.job_type == "JOB"
     assert payroll.asid == "0091"
+    assert payroll.job_class == "A"
+    # Deliberately absent from the fixture, to prove tolerant partial matching.
+    assert payroll.onode is None
+    assert payroll.xnode is None
+    assert payroll.membname is None
 
 
 def test_processes_parsed():

@@ -224,7 +224,12 @@ def cmd_active(args: argparse.Namespace) -> int:
     for row in rows:
         job_type = row["job_type"] or "?"
         asid = row["asid"] or "?"
-        print(f"{row['job_id']} {row['name']}  TYPE={job_type} ASID={asid}")
+        owner = row["owner"] or "?"
+        job_class = row["job_class"] or "?"
+        svc_class = row["svc_class"] or "?"
+        system = row["system"] or "?"
+        print(f"{row['job_id']} {row['name']}  TYPE={job_type} ASID={asid} OWNER={owner} "
+              f"JOBCLASS={job_class} SVCCLASS={svc_class} SYSTEM={system}")
     return 0
 
 
