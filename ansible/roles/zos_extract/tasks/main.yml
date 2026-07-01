@@ -82,6 +82,11 @@
   ansible.builtin.import_tasks: activity.yml
   tags: [activity]
 
+- name: Live CICS region discovery -- naming-heuristic only, opt-in (see cics.yml)
+  ansible.builtin.import_tasks: cics.yml
+  tags: [cics]
+  when: zos_extract_cics_job_patterns | length > 0
+
 - name: Dataset catalog (step 9)
   ansible.builtin.import_tasks: catalog.yml
   tags: [catalog]

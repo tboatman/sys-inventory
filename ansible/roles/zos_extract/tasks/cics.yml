@@ -1,0 +1,51 @@
+---
+# Live "what's running" CICS discovery -- no CMCI/CICSplex SM at this
+# site, so there's no way to reach actual CICS resource definitions
+# (transactions, programs, files, regions defined in a CSD); this is
+# strictly a snapshot of which CICS regions are up right now, same
+# "what's running" scope as activity.yml's active_jobs.txt (in fact it
+# reuses the exact same zos_job_query call).
+#
+# A region counts as a CICS candidate if either:
+#   - its job name matches one of zos_extract_cics_job_patterns (this
+#     site's actual conventions: CTS*, ECB2*, MTSEDUC*), or
+#   - its executing program is DFHSIP (the CICS region controller)
+# OR'd together rather than requiring both, since the naming convention
+# alone might miss a region that doesn't follow it, and DFHSIP alone
+# might miss one if zos_job_query's program_name (documented as
+# reflecting the "last completed step") isn't actually populated for a
+# still-running region -- unconfirmed either way, so this covers both.
+#
+# Opt-in: skipped entirely unless zos_extract_cics_job_patterns is
+# configured (same convention as zos_extract_catalog_patterns/racf).
+
+- name: Query all active jobs and started tasks
+  ibm.ibm_zos_core.zos_job_query:
+    job_name: "*"
+  register: zos_extract_cics_jobs_result
+  when: zos_extract_cics_job_patterns | length > 0
+
+- name: Build a combined regex from the configured CICS job-name patterns
+  ansible.builtin.set_fact:
+    zos_extract_cics_job_regex: >-
+      {{
+        '^(' ~ (zos_extract_cics_job_patterns
+           | map('regex_replace', '([.^$+{}\[\]|()])', '\\\1')
+           | map('regex_replace', '\*', '.*')
+           | map('regex_replace', '\?', '.')
+           | join('|')) ~ ')$'
+      }}
+  when: zos_extract_cics_job_patterns | length > 0
+
+- name: Write cics.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_outfile }}"
+    mode: "0644"
+    content: |-
+      {% for job in zos_extract_cics_jobs_result.jobs | default([]) | selectattr('ret_code', 'none') | list %}
+      {% if (job.job_name is match(zos_extract_cics_job_regex)) or (job.program_name | default('') == 'DFHSIP') %}
+      {{ job.job_id }} {{ job.job_name }} {{ job.program_name | default('?') }} {{ job.asid }}
+      {% endif %}
+      {% endfor %}
+  delegate_to: localhost
+  when: zos_extract_cics_job_patterns | length > 0

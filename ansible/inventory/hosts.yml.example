@@ -59,6 +59,16 @@ all:
         # zos_extract_smpe_csi_search_patterns:
         #   - "SMPE.*.CSI"
 
+        # Live "what's running" CICS discovery (tag 'cics' -- see
+        # roles/zos_extract/tasks/cics.yml) -- defaults to this site's
+        # actual CICS job-name conventions (CTS*, ECB2*, MTSEDUC*) in
+        # roles/zos_extract/defaults/main.yml; override here if a
+        # particular LPAR's conventions differ.
+        # zos_extract_cics_job_patterns:
+        #   - "CTS*"
+        #   - "ECB2*"
+        #   - "MTSEDUC*"
+
         zos_extract_catalog_patterns:
           - "PROD.*"
           - "PROD.**"

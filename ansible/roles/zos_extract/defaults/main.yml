@@ -35,3 +35,11 @@ zos_extract_catalog_patterns: []
 zos_extract_catalog_outfile: "catalog.txt"
 
 zos_extract_racf_database_dsn: ""
+
+# Opt-in live "what's running" CICS discovery -- see cics.yml. Matches
+# active STCs by job-name pattern (this site's actual CICS region
+# conventions) OR'd with the executing program being DFHSIP. No
+# CMCI/CICSplex SM at this site, so this can't reach real CICS resource
+# definitions -- just which regions are up right now.
+zos_extract_cics_job_patterns: ["CTS*", "ECB2*", "MTSEDUC*"]
+zos_extract_cics_outfile: "cics.txt"

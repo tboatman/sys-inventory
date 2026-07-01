@@ -207,6 +207,30 @@ to find those is an unrestricted `LISTCAT ALL` scan of the whole catalog
 followed by a client-side filter, which is real overkill once (like here)
 there's a literal prefix to anchor on instead.
 
+### CICS discovery is "what's running," not a resource inventory
+
+There's no `ibm.ibm_zos_core` module for CICS, and reaching real CICS
+resource definitions (transactions, programs, files, regions defined in a
+CSD) needs IBM's separate `ibm.ibm_zos_cics` collection talking to
+CICSplex SM's CMCI -- not available at this site. So `cics.yml` (tag
+`cics`) sticks to the same "what's running right now" scope as
+`activity.yml`'s `active_jobs.txt`, in fact reusing the exact same
+`zos_job_query` call:
+
+```
+ansible-playbook playbooks/site.yml --tags cics --limit bes2
+```
+
+A job counts as a CICS candidate if its job name matches one of
+`zos_extract_cics_job_patterns` (this site's actual conventions: `CTS*`,
+`ECB2*`, `MTSEDUC*`) **or** its executing program is `DFHSIP` (the CICS
+region controller) -- OR'd together rather than requiring both, since the
+naming convention alone could miss a region that doesn't follow it, and
+`DFHSIP` alone could miss one if `zos_job_query`'s `program_name` field
+(documented as reflecting the "last completed step") isn't actually
+populated for a still-running region. Results go to `cics.txt` -- like the
+CSI candidate list, a naming/content heuristic, not authoritative.
+
 ### RACF (step 10) is opt-in on purpose
 
 Per `zos-extract/README.md`, `extrracf.py` needs a materially different and
@@ -279,6 +303,9 @@ roles/zos_extract/
                              # APF-list analogs
     activity.yml             # zos_job_query + `ps -ef` for the live
                               # jobs/processes snapshot
+    cics.yml                  # opt-in zos_job_query filter for active CICS
+                               # regions by job-name pattern/DFHSIP -- not
+                               # authoritative, see above
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)
