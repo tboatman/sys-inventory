@@ -180,39 +180,24 @@ chooses to use as one). If you don't know its name yet, run:
 ansible-playbook playbooks/site.yml --tags smpe_csi_discovery --limit lpar1
 ```
 
-This runs a bare IDCAMS `LISTCAT` (no `ENTRIES`/`LEVEL` restriction -- every
-entry of every type in the connected catalog, since there's no such thing as
-a whole-catalog "just CLUSTER entries" filter; `CLUSTER` as a keyword only
-disambiguates a specific `ENTRIES()` name), keeps only the `CLUSTER` entries
-from that output, and matches the results locally against
-`zos_extract_smpe_csi_search_patterns`, writing candidates to
+This searches the catalog with `zos_find` (`resource_type: cluster`), the
+same module `catalog.yml` uses for its non-VSAM search, and writes matches to
 `smpe_csi_candidates.txt` -- a naming-heuristic list, not a verified one.
 Confirm a candidate is really usable as an `SMPCSI` (e.g. by pointing
 `smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
 
-It does **not** use `zos_find` (unlike `catalog.yml`): that module's own docs
-say it "does not support wildcards for high level qualifiers" -- e.g.
-`SOME.*.DATA.SET` is valid but `*.DATA.SET` is not. That was confirmed the
-hard way first: a real run against this site's `**.CSI` convention silently
-returned nothing, no error, because the leading wildcard isn't a supported
-position at all. A suffix-only naming convention has no catalog-search
-primitive on z/OS, full stop -- the only way to find "every cluster ending
-in `.CSI`" is to list everything and filter client-side, which is what
-`discover_smpe_csis.yml` does instead.
-
-`zos_extract_smpe_csi_search_patterns` defaults to `["**.CSI"]`
+`zos_extract_smpe_csi_search_patterns` defaults to `["EDUC.**.CSI"]`
 (`roles/zos_extract/defaults/main.yml`) since that's this site's actual
-convention -- every CSI ends in `.CSI` with no shared prefix. If yours does
-have a shared prefix, override it in `hosts.yml` with something
-prefix-anchored (e.g. `SMPE.*.CSI`) instead and it'll go through `zos_find`
-in `catalog.yml`'s style via a narrow, indexed `LEVEL()` lookup rather than
-this full-catalog scan -- much cheaper. There's no way around the full scan
-for a genuinely suffix-only convention like `**.CSI`, though.
-
-By default this only searches the catalog connected by default -- `LISTCAT`
-without an explicit `CATALOG()` doesn't descend into other user catalogs
-reachable via alias. If your CSIs live in a separate user catalog, list its
-name in `zos_extract_smpe_csi_search_catalogs` to also search it.
+convention -- every CSI lives under the `EDUC` HLQ. Override it in
+`hosts.yml` if yours differs. Keep the leading qualifier literal (e.g.
+`SMPE.*.CSI`, not `*.CSI` or `**.CSI`): `zos_find`'s own docs say it "does
+not support wildcards for high level qualifiers" -- confirmed the hard way,
+a real run against a `**.CSI`-only pattern (no shared prefix) silently
+returned nothing, no error. A genuinely suffix-only convention with no
+shared prefix has no catalog-search primitive on z/OS at all -- the only way
+to find those is an unrestricted `LISTCAT ALL` scan of the whole catalog
+followed by a client-side filter, which is real overkill once (like here)
+there's a literal prefix to anchor on instead.
 
 ### RACF (step 10) is opt-in on purpose
 
@@ -289,10 +274,9 @@ roles/zos_extract/
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)
-    discover_smpe_csis.yml     # opt-in bare LISTCAT scan (all entry types)
-                                # + local CLUSTER/naming-pattern filter for
-                                # CSI candidates (not zos_find -- not
-                                # authoritative, see above)
+    discover_smpe_csis.yml     # opt-in zos_find (cluster) search for CSI
+                                # candidates by naming pattern -- not
+                                # authoritative, see above
     catalog.yml                # zos_find + zos_stat (non-VSAM) and
                                 # zos_mvs_raw/IDCAMS (VSAM) combined
     racf.yml                   # zos_mvs_raw (IRRDBU00), implementation

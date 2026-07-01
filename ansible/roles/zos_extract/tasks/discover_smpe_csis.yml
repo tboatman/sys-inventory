@@ -10,85 +10,24 @@
 #
 # Opt-in: skipped entirely unless zos_extract_smpe_csi_search_patterns is
 # configured (same convention as zos_extract_catalog_patterns/racf) --
-# but see defaults/main.yml, it defaults to non-empty ("**.CSI").
+# but see defaults/main.yml, it defaults to non-empty ("EDUC.**.CSI").
 #
-# This does NOT use zos_find (unlike catalog.yml): zos_find's own docs
-# say it "does not support wildcards for high level qualifiers" -- e.g.
-# SOME.*.DATA.SET is valid but *.DATA.SET is not -- confirmed the hard
-# way first (a real run against this site's "**.CSI" convention
-# silently returned nothing, no error, because the leading "**" isn't a
-# supported wildcard position at all). A suffix-only naming convention
-# (no shared prefix) has no catalog-search primitive on z/OS, full stop
-# -- the only way to find "every dataset ending in .CSI" is to list
-# every cataloged entry and filter client-side, so that's what this
-# does: a bare IDCAMS LISTCAT (no ENTRIES/LEVEL restriction) lists every
-# entry of every type in the target catalog(s). Note there's no bare
-# "list every CLUSTER" filter either -- CLUSTER/DATA/etc as a modal
-# keyword only disambiguates a specific ENTRIES() name, it isn't a
-# whole-catalog type filter (confirmed the hard way too: "LISTCAT
-# CLUSTER ." got IDC3211I KEYWORD '.' IS IMPROPER on a real run) -- so
-# this lists everything (aliases, GDGs, non-VSAM, clusters, ...) and the
-# next task keeps only the "CLUSTER -------- name" header lines before
-# matching zos_extract_smpe_csi_search_patterns locally (same
-# fnmatch-to-regex conversion ssn_commnd.yml/ifaprd.yml use for their
-# member filters).
-#
-# CPU note: this really is a full scan of the catalog's index (BCS) --
-# there's no cheaper way to do a suffix-only search. If your site's CSI
-# names DO share a prefix, use a prefix-anchored pattern instead (e.g.
-# "SMPE.*.CSI") -- zos_find supports that, and catalog.yml already uses
-# it via LISTCAT LEVEL(...), which is a narrow lookup, not a full scan.
-#
-# Catalog scope: only searches the catalog(s) named in
-# zos_extract_smpe_csi_search_catalogs, or the connected default catalog
-# if that's empty. LISTCAT with no CATALOG() override does NOT descend
-# into other user catalogs reachable via alias -- if your CSIs live in a
-# separate user catalog, name it explicitly.
+# Uses zos_find, same as catalog.yml's non-VSAM search (just
+# resource_type: cluster instead of nonvsam) -- this only works because
+# this site's real convention has a fixed, literal first qualifier
+# (EDUC). zos_find's own docs say it "does not support wildcards for
+# high level qualifiers" -- e.g. SOME.*.DATA.SET is valid but
+# *.DATA.SET is not -- so a genuinely suffix-only/no-shared-prefix
+# pattern (an earlier "**.CSI" guess) can't go through zos_find at all;
+# that needs an unrestricted IDCAMS LISTCAT ALL scan plus a client-side
+# filter instead, which is real overkill once there's a literal prefix
+# to anchor on like this one.
 
-- name: Run a bare IDCAMS LISTCAT for every cataloged entry
-  ibm.ibm_zos_core.zos_mvs_raw:
-    program_name: IDCAMS
-    auth: true
-    max_rc: 4
-    dds:
-      - dd_output:
-          dd_name: SYSPRINT
-          return_content:
-            type: text
-      - dd_input:
-          dd_name: SYSIN
-          content: >-
-            {{ zos_extract_smpe_csi_search_catalogs
-               | map('regex_replace', '^(.*)$', ' LISTCAT CATALOG(\1) .')
-               | list
-               | default([' LISTCAT .'], true) }}
-  register: zos_extract_smpe_csi_listcat_result
-  when: zos_extract_smpe_csi_search_patterns | length > 0
-
-- name: Extract every cataloged cluster name
-  ansible.builtin.set_fact:
-    zos_extract_smpe_csi_all_clusters: >-
-      {{ (zos_extract_smpe_csi_listcat_result.dd_names | selectattr('dd_name', 'equalto', 'SYSPRINT') | first).content
-         | select('match', '^\s*CLUSTER\s*-+\s*\S+')
-         | map('regex_replace', '^\s*CLUSTER\s*-+\s*(\S+).*', '\1')
-         | list }}
-  when: zos_extract_smpe_csi_search_patterns | length > 0
-
-- name: Build a combined regex from the configured CSI naming patterns
-  ansible.builtin.set_fact:
-    zos_extract_smpe_csi_regex: >-
-      {{
-        '^(' ~ (zos_extract_smpe_csi_search_patterns
-           | map('regex_replace', '([.^$+{}\[\]|()])', '\\\1')
-           | map('regex_replace', '\*', '.*')
-           | map('regex_replace', '\?', '.')
-           | join('|')) ~ ')$'
-      }}
-  when: zos_extract_smpe_csi_search_patterns | length > 0
-
-- name: Filter to cluster names matching the configured CSI naming patterns
-  ansible.builtin.set_fact:
-    zos_extract_smpe_csi_candidates: "{{ zos_extract_smpe_csi_all_clusters | select('match', zos_extract_smpe_csi_regex) | list }}"
+- name: Find VSAM clusters matching the configured CSI naming patterns
+  ibm.ibm_zos_core.zos_find:
+    patterns: "{{ zos_extract_smpe_csi_search_patterns }}"
+    resource_type: [cluster]
+  register: zos_extract_smpe_csi_find
   when: zos_extract_smpe_csi_search_patterns | length > 0
 
 - name: Write the CSI candidate list
@@ -97,8 +36,8 @@
     mode: "0644"
     content: |-
       ##CSI_CANDIDATES (naming-heuristic matches only -- confirm before use)
-      {% for name in zos_extract_smpe_csi_candidates | default([]) %}
-      {{ name }}
+      {% for d in zos_extract_smpe_csi_find.data_sets | default([]) %}
+      {{ d.name }}
       {% endfor %}
   delegate_to: localhost
   when: zos_extract_smpe_csi_search_patterns | length > 0
