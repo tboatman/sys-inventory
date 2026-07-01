@@ -6,7 +6,9 @@ and which installed software product owns that code?" — across an entire
 PROCLIB/PARMLIB, automatically, instead of you tracing STEPLIB/JOBLIB/PROC
 chains and SMP/E LIST output by hand. It also separately catalogs what
 subsystems and started tasks are defined, whether each load library it
-finds is APF-authorized, and which LPAR/sysplex the data came from.
+finds is APF-authorized, which LPAR/sysplex the data came from, and which
+priced/optional products are actually licensed and enabled (as opposed to
+merely installed).
 
 If you're new to any of the z/OS terms used below (PROCLIB, PARMLIB,
 SMP/E, APF, LPAR, ...), see the [Glossary](zos-extract/README.md#glossary)
@@ -57,6 +59,7 @@ your laptop, a CI runner, wherever.
  │  - PARMLIB dump  │               │                        │
  │  - IEFSSNxx/     │               │  jcl_parser     → ProcMember/JclStep
  │    COMMNDxx dump │               │  ssn_parser     → Subsystem/StartedTask
+ │  - IFAPRDxx dump │               │  ifaprd_parser  → Product
  │  - LNKLST dump   │               │  sysinfo_parser → SystemInfo
  │  - APF dump      │               │  smpe_parser    → Zone (DDDEF, FMID)
  │  - D SYMBOLS/    │               │  resolver       → joins PROCLIB/LNKLST/
@@ -92,12 +95,14 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_apf.txt       /tmp/demo/apf.txt && \
   cp tests/fixtures/sample_ssn.txt       /tmp/demo/00_ssn.txt && \
   cp tests/fixtures/sample_commnd.txt    /tmp/demo/00_commnd.txt && \
-  cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt
+  cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt && \
+  cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 inventory --db /tmp/demo/demo.db lineage MYPROC
 inventory --db /tmp/demo/demo.db subsystems
 inventory --db /tmp/demo/demo.db started-tasks
 inventory --db /tmp/demo/demo.db sysinfo
+inventory --db /tmp/demo/demo.db products
 ```
 
 `inventory lineage MYPROC` should print something like:
@@ -122,13 +127,13 @@ use.
 3. Follow [`inventory/README.md`](inventory/README.md): `pip install -e .`
    then `inventory ingest path/to/that/directory/`.
 4. Query it with `inventory lineage`/`report`/`subsystems`/
-   `started-tasks`/`sysinfo` as shown above.
+   `started-tasks`/`sysinfo`/`products` as shown above.
 
 ## Status
 
 Core slice: one PROCLIB/PARMLIB concatenation entry + one SMP/E target
-zone, plus subsystems/started tasks, APF authorization, and system
-identity, proven end-to-end against the test fixtures in
+zone, plus subsystems/started tasks, APF authorization, system identity,
+and product enablement, proven end-to-end against the test fixtures in
 `inventory/tests/fixtures/`. The design scales to multiple concatenation
 entries and multiple zones (Global + every target zone) without code
 changes — see "Scaling" in `inventory/README.md`.

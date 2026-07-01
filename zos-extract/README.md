@@ -74,6 +74,7 @@ script names and flags below assume you know what these mean.
 | **FMID** | Function Modification ID — SMP/E's identifier for one installed software product/feature. |
 | **Subsystem** | A major system facility registered at IPL via PARMLIB member `IEFSSNxx` (e.g. JES2, DB2, CICS region managers). |
 | **Started task** | A long-running address space started via an operator `START`/`S` command, often automatically at IPL via `COMMNDxx`. |
+| **IFAPRDxx** | A PARMLIB member listing `PRODUCT` statements that say which priced/optional features are licensed and enabled — different from SMP/E, which says what's installed and patched but not whether it's turned on. |
 | **LPAR** | Logical Partition — one "virtual mainframe" carved out of the physical hardware; a physical box can run several LPARs at once. |
 | **Sysplex** | A cluster of LPARs (possibly across physical boxes) configured to work together as one logical system. |
 | **IPL** | Initial Program Load — z/OS's term for "boot"/"reboot." |
@@ -137,7 +138,22 @@ If your site names its subsystem/command PARMLIB members differently, the
 `--members` value is a wildcard filter you can adjust (`*`/`?` supported,
 same as `ls`).
 
-### 3. LNKLST dataset list
+### 3. Product enablement dump
+
+Also `python/extrproc.py`, run once more against PARMLIB with a member
+filter, for whatever's licensed/enabled via `IFAPRDxx`:
+
+```
+python3 /path/to/zos-extract/python/extrproc.py --indsn SYS1.PARMLIB --members 'IFAPRD*' --outfile 00_ifaprd.txt
+```
+
+**Filename rule:** same idea as step 2 — the output filename must contain
+`ifaprd`. Not every shop uses IFAPRDxx (some products are always-enabled
+or licensed a different way); if yours doesn't have any `IFAPRD*` members,
+just skip this step — `inventory ingest` treats a missing input as "no
+data," not an error.
+
+### 4. LNKLST dataset list
 
 Script: `python/extrlnk.py`. This is the fallback search order used when
 a JCL step has `PGM=` but no `STEPLIB`/`JOBLIB`:
@@ -154,7 +170,7 @@ admin for that authority, or run `D PROG,LNKLST` from SDSF/console
 yourself and paste the dataset names, one per line, into `lnklst.txt` by
 hand.
 
-### 4. APF-authorized library list
+### 5. APF-authorized library list
 
 Script: `python/extrapf.py`. Flags whether each resolved load library is
 APF-authorized:
@@ -163,12 +179,12 @@ APF-authorized:
 python3 /path/to/zos-extract/python/extrapf.py --outfile apf.txt
 ```
 
-Same idea as step 3, but issues `D PROG,APF` instead — this reflects the
+Same idea as step 4, but issues `D PROG,APF` instead — this reflects the
 *live* APF list (including any `SETPROG APF` changes made since IPL), not
 just what's coded in PARMLIB. Same manual-capture fallback if
 console-command access isn't available to you.
 
-### 5. LPAR/sysplex identity
+### 6. LPAR/sysplex identity
 
 Script: `python/extrsys.py`. A small "which system did this inventory come
 from" fingerprint:
@@ -184,7 +200,7 @@ off-host `inventory sysinfo` command comes back with `?` for every field,
 open `sysinfo.txt` and compare it by eye against the patterns documented
 in `inventory/inventory/sysinfo_parser.py`'s module docstring.
 
-### 6. SMP/E CSI report
+### 7. SMP/E CSI report
 
 Script: `python/smplist.py`. Run once per SMP/E zone you want in the
 inventory:
@@ -240,10 +256,11 @@ list of what it looks for in the directory you point it at:
 | PROCLIB/PARMLIB dumps | `proclib` or `parmlib` | `extrproc.py` (step 1) |
 | Subsystem dumps | `ssn` | `extrproc.py` with `--members 'IEFSSN*'` (step 2) |
 | Started-task dumps | `commnd` | `extrproc.py` with `--members 'COMMND*'` (step 2) |
-| LNKLST list | exactly `lnklst.txt` | `extrlnk.py` (step 3) |
-| APF list | exactly `apf.txt` | `extrapf.py` (step 4) |
-| System identity | `sysinfo` | `extrsys.py` (step 5) |
-| SMP/E LIST report | `smplist` | `smplist.py` (step 6), one file per zone |
+| Product enablement dumps | `ifaprd` | `extrproc.py` with `--members 'IFAPRD*'` (step 3) |
+| LNKLST list | exactly `lnklst.txt` | `extrlnk.py` (step 4) |
+| APF list | exactly `apf.txt` | `extrapf.py` (step 5) |
+| System identity | `sysinfo` | `extrsys.py` (step 6) |
+| SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per zone |
 
 When you scale beyond one PROCLIB/PARMLIB library, name each additional
 `extrproc.py` output file `NN_libname.txt`, where `NN` is that library's

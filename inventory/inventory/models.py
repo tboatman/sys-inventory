@@ -119,3 +119,19 @@ class SystemInfo:
     ipl_parm_member: str | None = None  # IEASYSxx/IPL parm member suffix
     release: str | None = None          # z/OS release, e.g. "z/OS 02.05.00"
     archlvl: str | None = None          # architecture level, from D IPLINFO
+
+
+@dataclass
+class Product:
+    """One PRODUCT enablement statement from an IFAPRDxx PARMLIB member --
+    complements the SMP/E FMID data (which says what's installed/patched)
+    with what's actually licensed/enabled for use."""
+
+    id: str                       # product ID, e.g. "5650-ZOS"
+    name: str | None = None
+    version: str | None = None
+    release: str | None = None
+    mod: str | None = None
+    featurename: str | None = None
+    state: str | None = None      # ENABLED / DISABLED
+    source_member: str = ""       # IFAPRDxx member name it came from, e.g. "IFAPRD00"

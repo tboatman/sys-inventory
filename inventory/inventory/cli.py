@@ -1,5 +1,6 @@
 """CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`,
-`inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`."""
+`inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`,
+`inventory products`."""
 from __future__ import annotations
 
 import argparse
@@ -7,7 +8,7 @@ import csv
 import sys
 from pathlib import Path
 
-from . import jcl_parser, smpe_parser, ssn_parser, store, sysinfo_parser
+from . import ifaprd_parser, jcl_parser, smpe_parser, ssn_parser, store, sysinfo_parser
 from .resolver import resolve_all
 
 DEFAULT_DB = Path("inventory.db")
@@ -54,17 +55,21 @@ def cmd_ingest(args: argparse.Namespace) -> int:
               file=sys.stderr)
     system_info = sysinfo_parser.parse_sysinfo(sysinfo_files[0]) if sysinfo_files else None
 
+    products = [prod for path in sorted(input_dir.glob("*ifaprd*.txt"))
+                for prod in ifaprd_parser.parse_products(path)]
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
     store.save_started_tasks(conn, started_tasks)
     store.save_system_info(conn, system_info)
+    store.save_products(conn, products)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
     print(f"inventory: ingested {len(members)} members, {len(zones)} zones, "
           f"{total_steps} resolved steps, {len(subsystems)} subsystems, "
-          f"{len(started_tasks)} started tasks -> {args.db}")
+          f"{len(started_tasks)} started tasks, {len(products)} products -> {args.db}")
     return 0
 
 
@@ -155,6 +160,21 @@ def cmd_sysinfo(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_products(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_products(conn)
+    conn.close()
+
+    for row in rows:
+        name = row["name"] or "?"
+        vrm = f"{row['version'] or '?'}.{row['release'] or '?'}.{row['mod'] or '?'}"
+        feature = row["featurename"] or "?"
+        state = row["state"] or "?"
+        print(f"{row['id']}: {name}  VRM={vrm} FEATURENAME={feature} STATE={state}  "
+              f"[{row['source_member']}]")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -180,6 +200,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sysinfo = sub.add_parser("sysinfo", help="show captured LPAR/sysplex identity")
     p_sysinfo.set_defaults(func=cmd_sysinfo)
+
+    p_products = sub.add_parser("products", help="list product enablement status (IFAPRDxx)")
+    p_products.set_defaults(func=cmd_products)
 
     return parser
 

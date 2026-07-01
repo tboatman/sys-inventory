@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from .models import LineageStep, StartedTask, Subsystem, SystemInfo
+from .models import LineageStep, Product, StartedTask, Subsystem, SystemInfo
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS lineage (
@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS system_info (
     release          TEXT,
     archlvl          TEXT
 );
+
+CREATE TABLE IF NOT EXISTS products (
+    id             TEXT NOT NULL,
+    name           TEXT,
+    version        TEXT,
+    release        TEXT,
+    mod            TEXT,
+    featurename    TEXT,
+    state          TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_products_id ON products(id);
 """
 
 
@@ -132,3 +144,23 @@ def get_system_info(conn: sqlite3.Connection) -> sqlite3.Row | None:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM system_info LIMIT 1")
     return cur.fetchone()
+
+
+def save_products(conn: sqlite3.Connection, products: list[Product]) -> None:
+    conn.execute("DELETE FROM products")
+    rows = [
+        (p.id, p.name, p.version, p.release, p.mod, p.featurename, p.state, p.source_member)
+        for p in products
+    ]
+    conn.executemany(
+        "INSERT INTO products (id, name, version, release, mod, featurename, state, source_member) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM products ORDER BY id")
+    return cur.fetchall()

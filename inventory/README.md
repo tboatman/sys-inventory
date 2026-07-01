@@ -4,9 +4,9 @@ Off-host half of the pipeline: parses the text dumped by `zos-extract/` and
 resolves each PROCLIB/PARMLIB member's full execution path back to the
 SMP/E FMID that owns each program it runs, flags whether each resolved
 load library is APF-authorized, and separately inventories defined
-subsystems, auto-started tasks, and the LPAR/sysplex identity of the
-system the dump came from. Everything lands in one small SQLite database
-you query from the command line.
+subsystems, auto-started tasks, the LPAR/sysplex identity of the system
+the dump came from, and product enablement status (IFAPRDxx). Everything
+lands in one small SQLite database you query from the command line.
 
 This half runs on any ordinary computer — Mac, Linux, Windows (WSL),
 CI runner — nothing here needs to touch a mainframe. If you just want to
@@ -52,7 +52,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_apf.txt       /tmp/demo/apf.txt && \
   cp tests/fixtures/sample_ssn.txt       /tmp/demo/00_ssn.txt && \
   cp tests/fixtures/sample_commnd.txt    /tmp/demo/00_commnd.txt && \
-  cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt
+  cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt && \
+  cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -64,10 +65,11 @@ just renaming them into that shape for a quick demo.)
 ## Usage against real data
 
 1. Run `zos-extract/` on the target z/OS system and download its output
-   (PROCLIB/PARMLIB dumps, IEFSSNxx/COMMNDxx dumps, LNKLST list, APF list,
-   system identity dump, SMP/E LIST reports) into one local directory —
-   see [`../zos-extract/README.md`](../zos-extract/README.md) for the
-   exact file naming and how to produce each file.
+   (PROCLIB/PARMLIB dumps, IEFSSNxx/COMMNDxx dumps, IFAPRDxx dumps,
+   LNKLST list, APF list, system identity dump, SMP/E LIST reports) into
+   one local directory — see
+   [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
+   file naming and how to produce each file.
 
 2. Ingest and resolve:
 
@@ -82,7 +84,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -162,6 +164,20 @@ ARCHLVL: 2
 If you didn't ingest a `sysinfo.txt`, this prints `no system info
 ingested` and exits with a non-zero status — that's expected, not a bug.
 
+### `inventory products`
+
+Everything found in your `IFAPRDxx` dump(s) — what's licensed/enabled, as
+opposed to `lineage`/`report`'s FMID column, which says what's installed:
+
+```
+$ inventory products
+5650-ZOS: SOME OPTIONAL FEATURE  VRM=2.5.0 FEATURENAME=OPTFEAT STATE=DISABLED  [IFAPRD00]
+5655-EPS: EMBEDDED RUNTIME ENABLEMENT FOR ZOS  VRM=*.*.* FEATURENAME=* STATE=ENABLED  [IFAPRD00]
+```
+
+`VRM` is VERSION.RELEASE.MOD as coded in the PRODUCT statement — `*` means
+"any" (a wildcard match), not literally the character `*` on your system.
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -183,12 +199,13 @@ not claimed by any ingested zone, etc.) is still recorded with a
 human-readable reason in the `resolution` column — the inventory deliberately
 surfaces gaps instead of silently dropping them.
 
-Subsystems (`ssn_parser.parse_subsystems`) and started tasks
-(`ssn_parser.parse_started_tasks`) are parsed independently of the
+Subsystems (`ssn_parser.parse_subsystems`), started tasks
+(`ssn_parser.parse_started_tasks`), and products
+(`ifaprd_parser.parse_products`) are parsed independently of the
 STEPLIB/JOBLIB/LNKLST/SMP/E lineage above — they're not part of a
-ProcMember's execution path, just a separate inventory dimension read from
-the same PARMLIB text dump format. System identity
-(`sysinfo_parser.parse_sysinfo`) is a single record per ingest, not a list.
+ProcMember's execution path, just separate inventory dimensions read from
+PARMLIB text dumps. System identity (`sysinfo_parser.parse_sysinfo`) is a
+single record per ingest, not a list.
 
 ## Tests
 
@@ -203,17 +220,19 @@ PROC inlining, an intentionally-unresolvable module (to verify the "module
 not found" reporting path), an intentionally-unresolvable nested PROC
 reference, APF-authorized/non-authorized resolution, subsystem/started-task
 parsing (including continuation-spanning INITPARM and a non-start COMMNDxx
-line that should be skipped), and system-identity parsing (including a
-field deliberately missing from the fixture, to prove tolerant partial
-matching).
+line that should be skipped), system-identity parsing (including a field
+deliberately missing from the fixture, to prove tolerant partial matching),
+and product parsing (an enabled product with wildcard VERSION/RELEASE/
+MOD/FEATURENAME, and a disabled product with a named feature).
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
-  `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` files in the input
-  directory — just keep adding files as you extract more PROCLIB/PARMLIB
-  concatenation entries and more SMP/E zones; `ingest` merges them all into
-  one inventory. `lnklst.txt` and `apf.txt` are each a single flat list.
+  `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` files in
+  the input directory — just keep adding files as you extract more
+  PROCLIB/PARMLIB concatenation entries and more SMP/E zones; `ingest`
+  merges them all into one inventory. `lnklst.txt` and `apf.txt` are each
+  a single flat list.
 - `system_info` (from `sysinfo.txt`) is the one exception: it's
   deliberately *not* additive like the tables above. It represents the
   identity of the one system being ingested, so re-ingesting replaces
