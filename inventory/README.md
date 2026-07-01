@@ -6,10 +6,12 @@ SMP/E FMID that owns each program it runs, flags whether each resolved
 load library is APF-authorized, and separately inventories defined
 subsystems, auto-started tasks, the LPAR/sysplex identity of the system
 the dump came from, product enablement status (IFAPRDxx), a live
-snapshot of currently-running jobs/tasks and USS processes, and an
+snapshot of currently-running jobs/tasks and USS processes, an
 HLQ/pattern-scoped dataset catalog (non-VSAM attributes + VSAM cluster/
-component detail). Everything lands in one small SQLite database you query
-from the command line.
+component detail), and a RACF security snapshot (users, groups, dataset
+and general-resource access — **implementation only, not yet
+production-validated**, see below). Everything lands in one small SQLite
+database you query from the command line.
 
 This half runs on any ordinary computer — Mac, Linux, Windows (WSL),
 CI runner — nothing here needs to touch a mainframe. If you just want to
@@ -59,7 +61,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt && \
   cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
   cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt && \
-  cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt
+  cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt && \
+  cp tests/fixtures/sample_racf.txt        /tmp/demo/racf.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -73,7 +76,8 @@ just renaming them into that shape for a quick demo.)
 1. Run `zos-extract/` on the target z/OS system and download its output
    (PROCLIB/PARMLIB dumps, IEFSSNxx/COMMNDxx dumps, IFAPRDxx dumps,
    LNKLST list, APF list, system identity dump, SMP/E LIST reports, active
-   jobs/processes snapshot, dataset catalog dumps) into one local
+   jobs/processes snapshot, dataset catalog dumps, and — implementation
+   only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
    file naming and how to produce each file.
@@ -91,7 +95,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -241,6 +245,49 @@ Both are HLQ/pattern-scoped, not a full catalog — see
 for how to run `extrcat.py`. `?` means that field didn't match anything in
 the captured `LISTCAT` report (see "How resolution works" below).
 
+### RACF security snapshot (implementation only, not yet production-validated)
+
+Seven commands, if you ingested a `racf.txt` — see
+[`../zos-extract/README.md`](../zos-extract/README.md#10-racf-security-snapshot-implementation-only--verify-authority-before-running)
+for the (real) authorization hurdle before you can actually generate one.
+**These are built and tested against a synthetic fixture, but not yet
+checked against a real IRRDBU00 unload — see "How resolution works" below
+for the specific field that's least certain.**
+
+```
+$ inventory racf-users
+JDOE001  NAME=JOHN DOE OWNER=SYSPROG DFLTGRP=SYSPROG SPECIAL=YES OPERATIONS=NO AUDITOR=YES REVOKED=NO RESTRICTED=?
+MARYADM  NAME=MARY ADMIN OWNER=SYSPROG DFLTGRP=APPGRP SPECIAL=NO OPERATIONS=NO AUDITOR=NO REVOKED=YES RESTRICTED=YES
+
+$ inventory racf-groups
+SYSPROG  SUPGROUP=SYS1 OWNER=IBMUSER UACC=NONE
+
+$ inventory racf-connections
+JDOE001 in SYSPROG  UACC=CONTROL GRP-SPECIAL=YES GRP-OPERATIONS=NO GRP-AUDITOR=NO REVOKED=NO
+MARYADM in APPGRP  UACC=READ GRP-SPECIAL=NO GRP-OPERATIONS=NO GRP-AUDITOR=NO REVOKED=YES
+
+$ inventory racf-dataset-profiles
+PROD.PAYROLL.**  VOLUME=? GENERIC=YES OWNER=SYSPROG UACC=NONE AUDIT=NONE
+
+$ inventory racf-dataset-access
+PROD.PAYROLL.**  ADMGRP=ALTER
+PROD.PAYROLL.**  PAYGRP=READ
+
+$ inventory racf-resource-profiles
+FACILITY/BPX.SUPERUSER  OWNER=IBMUSER UACC=NONE AUDIT=FAIL
+STARTED/CICSPROD.STC  OWNER=SYSPROG UACC=NONE AUDIT=NONE
+
+$ inventory racf-resource-access
+FACILITY/BPX.SUPERUSER  OMVSADM=READ
+STARTED/CICSPROD.STC  CICSRACF=READ
+```
+
+`racf-resource-profiles`/`racf-resource-access` only ever show classes in
+`racf_parser.CURATED_CLASSES` (currently `SURROGAT`, `JESJOBS`,
+`FACILITY`, `OPERCMDS`, `STARTED`, `SERVAUTH`, `APPL`, `DSNR`) — IRRDBU00
+itself has no selective-unload option, so every other class is dropped
+off-host during parsing, not at extraction time.
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -277,7 +324,10 @@ that means for re-ingesting. Cataloged datasets and VSAM clusters
 chain — they're not currently cross-referenced against `lineage`/`apf`/
 `lnklst` (e.g. flagging which cataloged dataset is also a load library in
 some member's execution path), though that's a natural follow-up once
-this dimension has real-world data to check it against.
+this dimension has real-world data to check it against. The RACF snapshot
+(`racf_parser.parse_racf`) is independent of everything else the same way,
+and is also not yet cross-referenced (e.g. matching `STARTED`-class
+resource profiles against `started_tasks`) for the same reason.
 
 ## Tests
 
@@ -300,7 +350,13 @@ active-job and USS-process parsing (`sample_active_jobs.txt`/
 `sample_processes.txt`), and dataset catalog parsing
 (`sample_catalog.txt`, covering non-VSAM attributes, a fully-populated
 VSAM KSDS cluster, and a VSAM ESDS cluster with several fields
-deliberately absent to prove tolerant partial matching).
+deliberately absent to prove tolerant partial matching). Also RACF
+snapshot parsing (`sample_racf.txt`, covering users incl. a revoked/
+RESTRICTED one, a group, group connections, a dataset profile + access
+list, and general-resource profiles/access across two curated classes
+plus one non-curated class proven to be filtered out) — **built against a
+hand-constructed fixture, not a real IRRDBU00 unload; see "How resolution
+works" for the specific field this is least confident about.**
 
 ## Scaling past the first slice
 
@@ -311,13 +367,15 @@ deliberately absent to prove tolerant partial matching).
   zones, or more HLQ/pattern groups; `ingest` merges them all into one
   inventory. `lnklst.txt` and `apf.txt` are each a single flat list.
 - `system_info` (from `sysinfo.txt`), `active_jobs` (from
-  `active_jobs.txt`), and `uss_processes` (from `processes.txt`) are the
-  exceptions: each is deliberately *not* additive like the tables above.
-  `system_info` represents the identity of the one system being ingested;
-  `active_jobs`/`uss_processes` represent one point-in-time snapshot of
-  what was running. Re-ingesting any of them replaces rather than merges
-  — for the live-snapshot pair, that's the whole point: re-run
-  `extrjobs.py`/`extrprocs.py` and `ingest` again to get an updated
+  `active_jobs.txt`), `uss_processes` (from `processes.txt`), and the
+  seven `racf_*` tables (from `racf.txt`) are the exceptions: each is
+  deliberately *not* additive like the tables above. `system_info`
+  represents the identity of the one system being ingested; `active_jobs`/
+  `uss_processes` represent one point-in-time snapshot of what was
+  running; the `racf_*` tables represent IRRDBU00's full current database
+  state, not an incremental slice. Re-ingesting any of them replaces
+  rather than merges — for the live-snapshot pair, that's the whole point:
+  re-run `extrjobs.py`/`extrprocs.py` and `ingest` again to get an updated
   picture, not an ever-growing history. `system_info` is also what a
   future multi-system merge (one inventory DB per system, or a `system`
   column added throughout) would key each ingest run on.
@@ -330,6 +388,18 @@ deliberately absent to prove tolerant partial matching).
   but wasn't calibrated against a real system's actual output while
   writing this; the `##NONVSAM` block (from ZOAU's `datasets` API
   directly, not a parsed report) doesn't need this caveat.
+- `racf_parser` carries the strongest version of this caveat in the
+  project: IBM's own IRRDBU00 documentation is inaccessible to automated
+  fetch, so its fixed-byte-offset field layout was derived from a real,
+  working third-party parser (`github.com/s1th/racf`) rather than IBM's
+  own docs or a real unload sample. One field in particular,
+  `GeneralResourceProfile.universal_access` (the `0500` record's `UACC`
+  field), is flagged in the module docstring as inferred rather than
+  confirmed, after finding what looks like a bug in that third-party
+  reference (it reads `UACC` from the same offset as `READ_CNT`). Verify
+  this dimension's output against a real IRRDBU00 unload before relying on
+  it — see `zos-extract/README.md`'s RACF step for why that's a bigger
+  ask than everything else in this pipeline.
 
 ## Upgrading from an older `inventory.db`
 
@@ -377,3 +447,14 @@ input directory, this loses no information beyond needing to re-run
   `LISTCAT ALL` report formatting; compare your `*catalog*.txt` file by eye
   against the patterns documented in `catalog_parser.py`'s module
   docstring and `tests/fixtures/sample_catalog.txt`.
+- **Any `inventory racf-*` command comes back empty** — this is expected if
+  you didn't ingest `racf.txt` (it's optional, and — unlike everything
+  else — implementation-only for now; see
+  [`../zos-extract/README.md`](../zos-extract/README.md#10-racf-security-snapshot-implementation-only--verify-authority-before-running)
+  for the real authorization hurdle before you can generate one).
+- **RACF fields look obviously wrong (garbled text, misaligned values)** —
+  `racf_parser.py`'s byte offsets were derived from a third-party
+  reference implementation, not IBM's own docs or a real unload sample
+  (see "How resolution works" above). This is the single most likely place
+  in the whole project for a real-system mismatch; compare your `racf.txt`
+  against the offsets documented in that module's docstring.

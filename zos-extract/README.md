@@ -48,6 +48,11 @@ install yourself.
   mainframe — everything here is read-only, display/list-style access.
   If a command fails with something like "not authorized," that's a
   RACF/security permission your admin needs to grant, not a bug.
+  **Exception:** step 10 (`extrracf.py`) needs a materially different, much
+  harder-to-get authorization — READ access to a copy of the RACF database
+  itself. See that step for details; it's implementation-only for now and
+  not something to chase down unless you're specifically working on that
+  piece.
 
 No binary or VSAM transfer is ever needed — every script here writes
 straight to a USS (z/OS UNIX System Services) text file, which you copy
@@ -85,6 +90,10 @@ script names and flags below assume you know what these mean.
 | **VSAM cluster** | One logical VSAM dataset, made up of a DATA component (the actual records) and, for keyed clusters, an INDEX component. |
 | **KSDS / ESDS / RRDS** | The three main VSAM cluster types: Key-Sequenced (indexed by a key), Entry-Sequenced (append-only, accessed by position), and Relative-Record (accessed by record number). |
 | **IDCAMS** | The standard MVS utility program for VSAM/catalog management commands like `LISTCAT` (list catalog entries) — this pipeline only ever issues the read-only `LISTCAT` command, never anything that modifies a dataset or catalog. |
+| **RACF** | Resource Access Control Facility — IBM's mainframe security product: who's a valid user, what groups they're in, and who's allowed to access which datasets/resources. |
+| **IRRDBU00** | The RACF database unload utility — dumps the entire RACF database as a flat text report, one record type per kind of data (users, groups, dataset profiles, ...). Read-only; never modifies RACF. |
+| **SPECIAL / OPERATIONS / AUDITOR** | The three RACF "superuser-style" user attributes: SPECIAL (full security-administration authority), OPERATIONS (can access nearly any dataset/resource regardless of its own permissions), AUDITOR (can view/change audit settings). Can be scoped system-wide or to just one group. |
+| **UACC** | Universal Access — the default access level a RACF profile grants to anyone not otherwise explicitly permitted (e.g. `NONE`, `READ`, `UPDATE`). |
 
 ## What to run
 
@@ -294,6 +303,51 @@ Run this once per HLQ/pattern group you care about, same idea as step 7's
 "once per zone" — each run's `--outfile` becomes one more input file for
 `inventory ingest`.
 
+### 10. RACF security snapshot (implementation only — verify authority before running)
+
+Script: `python/extrracf.py`. Captures who's a RACF user/group, who has
+elevated authority (SPECIAL/OPERATIONS/AUDITOR), and access lists for
+dataset profiles and a curated set of general-resource classes. **This
+step is built and tested, but not yet validated against a real system —
+treat it as implementation-only until you've verified it against your own
+site's RACF database unload.**
+
+```
+python3 /path/to/zos-extract/python/extrracf.py --racf-database YOURHLQ.RACF.COPY \
+    --workhlq YOURID.RACFDMP --outfile racf.txt
+```
+
+Unlike everything above, this runs `IRRDBU00` (the RACF database unload
+utility) against a **copy** of the RACF database, and it always unloads
+the entire database in one pass — there's no per-zone/per-pattern loop
+like steps 7 or 9, so you only run this once.
+
+#### Getting a RACF database copy you can read
+
+This is a genuinely different, and typically much harder, authorization
+ask than everything else in this pipeline. Console `D` commands, PARMLIB
+member reads, and `LISTCAT` are all comparatively easy to get approved.
+Reading the RACF database itself — even a copy — is not, because it's the
+security team's own crown jewels.
+
+- **You almost certainly don't already have this.** If you can issue
+  console commands or read PARMLIB, that doesn't imply RACF database read
+  access; they're governed by completely separate RACF profiles.
+- **`BPX.SUPERUSER` does not grant this.** Having OMVS superuser authority
+  (the `BPX.SUPERUSER` FACILITY-class profile) feels like "root," but it's
+  an unrelated authorization — it does not give you READ access to the
+  RACF database dataset. This is a common misconception worth heading off
+  before you spend time chasing the wrong permission.
+- **What to actually ask your security team for:** either an existing,
+  more-broadly-readable backup copy of the RACF database (many shops
+  already make one nightly via `IRRUT200` for exactly this kind of
+  reporting use case), or a one-time copy made for you. Ask them, don't
+  try to make the copy yourself — this tool deliberately doesn't automate
+  that step, since it involves the live RACF database.
+- Once you have a DSN you can read, `--racf-database` is the only new
+  thing you need to point at it — everything else about running this
+  script is the same as every other step above.
+
 ## Getting the output off-host
 
 Once the files above exist under a USS directory (e.g.
@@ -328,6 +382,7 @@ list of what it looks for in the directory you point it at:
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |
+| RACF security snapshot | exactly `racf.txt` | `extrracf.py` (step 10, implementation only) |
 
 When you scale beyond one PROCLIB/PARMLIB library, name each additional
 `extrproc.py` output file `NN_libname.txt`, where `NN` is that library's
@@ -369,7 +424,7 @@ capitalized API instead — `from zoautil_py import Datasets`,
 `from zoautil_py import ...` line, that mismatch is the most likely cause.
 Every ZOAU call in this project is deliberately isolated to
 `python/zos_common.py` (plus the DD-statement construction local to
-`python/smplist.py` and `python/extrcat.py`, which both call
-`mvscmd.execute_authorized()` directly to run one MVS program), so that
-adapting to your installed version's exact API only means editing those
-files — nothing else in the pipeline needs to change.
+`python/smplist.py`, `python/extrcat.py`, and `python/extrracf.py`, which
+each call `mvscmd.execute_authorized()` directly to run one MVS program),
+so that adapting to your installed version's exact API only means editing
+those files — nothing else in the pipeline needs to change.

@@ -1,7 +1,10 @@
 """CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`,
 `inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`,
 `inventory products`, `inventory active`, `inventory processes`,
-`inventory catalog`, `inventory vsam`."""
+`inventory catalog`, `inventory vsam`, `inventory racf-users`,
+`inventory racf-groups`, `inventory racf-connections`,
+`inventory racf-dataset-profiles`, `inventory racf-dataset-access`,
+`inventory racf-resource-profiles`, `inventory racf-resource-access`."""
 from __future__ import annotations
 
 import argparse
@@ -14,11 +17,13 @@ from . import (
     catalog_parser,
     ifaprd_parser,
     jcl_parser,
+    racf_parser,
     smpe_parser,
     ssn_parser,
     store,
     sysinfo_parser,
 )
+from .models import RacfSnapshot
 from .resolver import resolve_all
 
 DEFAULT_DB = Path("inventory.db")
@@ -81,6 +86,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         catalog_datasets.extend(ds)
         vsam_clusters.extend(clusters)
 
+    racf_file = input_dir / "racf.txt"
+    racf_snapshot = racf_parser.parse_racf(racf_file) if racf_file.exists() else RacfSnapshot()
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -91,6 +99,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
     store.save_vsam_clusters(conn, vsam_clusters)
+    store.save_racf_snapshot(conn, racf_snapshot)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -99,7 +108,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(started_tasks)} started tasks, {len(products)} products, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
-          f"{len(vsam_clusters)} VSAM clusters -> {args.db}")
+          f"{len(vsam_clusters)} VSAM clusters, "
+          f"{len(racf_snapshot.users)} RACF users, "
+          f"{len(racf_snapshot.groups)} RACF groups -> {args.db}")
     return 0
 
 
@@ -260,6 +271,106 @@ def cmd_vsam(args: argparse.Namespace) -> int:
     return 0
 
 
+def _bool_str(value) -> str:
+    if value is None:
+        return "?"
+    return "YES" if value else "NO"
+
+
+def cmd_racf_users(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_users(conn)
+    conn.close()
+
+    for row in rows:
+        name = row["name"] or "?"
+        owner = row["owner"] or "?"
+        default_group = row["default_group"] or "?"
+        print(f"{row['userid']}  NAME={name} OWNER={owner} DFLTGRP={default_group} "
+              f"SPECIAL={_bool_str(row['special'])} OPERATIONS={_bool_str(row['operations'])} "
+              f"AUDITOR={_bool_str(row['auditor'])} REVOKED={_bool_str(row['revoked'])} "
+              f"RESTRICTED={_bool_str(row['restricted'])}")
+    return 0
+
+
+def cmd_racf_groups(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_groups(conn)
+    conn.close()
+
+    for row in rows:
+        superior = row["superior_group"] or "?"
+        owner = row["owner"] or "?"
+        uacc = row["universal_access"] or "?"
+        print(f"{row['name']}  SUPGROUP={superior} OWNER={owner} UACC={uacc}")
+    return 0
+
+
+def cmd_racf_connections(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_group_connections(conn)
+    conn.close()
+
+    for row in rows:
+        uacc = row["group_universal_access"] or "?"
+        print(f"{row['userid']} in {row['grp']}  UACC={uacc} "
+              f"GRP-SPECIAL={_bool_str(row['group_special'])} "
+              f"GRP-OPERATIONS={_bool_str(row['group_operations'])} "
+              f"GRP-AUDITOR={_bool_str(row['group_auditor'])} "
+              f"REVOKED={_bool_str(row['revoked_in_group'])}")
+    return 0
+
+
+def cmd_racf_dataset_profiles(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_dataset_profiles(conn)
+    conn.close()
+
+    for row in rows:
+        volume = row["volume"] or "?"
+        owner = row["owner"] or "?"
+        uacc = row["universal_access"] or "?"
+        audit_level = row["audit_level"] or "?"
+        print(f"{row['profile']}  VOLUME={volume} GENERIC={_bool_str(row['generic'])} "
+              f"OWNER={owner} UACC={uacc} AUDIT={audit_level}")
+    return 0
+
+
+def cmd_racf_dataset_access(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_dataset_access(conn)
+    conn.close()
+
+    for row in rows:
+        access = row["access"] or "?"
+        print(f"{row['profile']}  {row['auth_id']}={access}")
+    return 0
+
+
+def cmd_racf_resource_profiles(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_general_resource_profiles(conn)
+    conn.close()
+
+    for row in rows:
+        owner = row["owner"] or "?"
+        uacc = row["universal_access"] or "?"
+        audit_level = row["audit_level"] or "?"
+        print(f"{row['class_name']}/{row['profile']}  OWNER={owner} UACC={uacc} AUDIT={audit_level}")
+    return 0
+
+
+def cmd_racf_resource_access(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_racf_general_resource_access(conn)
+    conn.close()
+
+    for row in rows:
+        access = row["access"] or "?"
+        print(f"{row['class_name']}/{row['profile']}  {row['auth_id']}={access}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -300,6 +411,27 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_vsam = sub.add_parser("vsam", help="list VSAM clusters and their DATA/INDEX components (HLQ/pattern-scoped)")
     p_vsam.set_defaults(func=cmd_vsam)
+
+    p_racf_users = sub.add_parser("racf-users", help="list RACF users (implementation only, not yet production-validated)")
+    p_racf_users.set_defaults(func=cmd_racf_users)
+
+    p_racf_groups = sub.add_parser("racf-groups", help="list RACF groups (implementation only, not yet production-validated)")
+    p_racf_groups.set_defaults(func=cmd_racf_groups)
+
+    p_racf_connections = sub.add_parser("racf-connections", help="list RACF user-to-group connections (implementation only, not yet production-validated)")
+    p_racf_connections.set_defaults(func=cmd_racf_connections)
+
+    p_racf_ds_profiles = sub.add_parser("racf-dataset-profiles", help="list RACF DATASET-class profiles (implementation only, not yet production-validated)")
+    p_racf_ds_profiles.set_defaults(func=cmd_racf_dataset_profiles)
+
+    p_racf_ds_access = sub.add_parser("racf-dataset-access", help="list RACF DATASET-class access lists (implementation only, not yet production-validated)")
+    p_racf_ds_access.set_defaults(func=cmd_racf_dataset_access)
+
+    p_racf_gr_profiles = sub.add_parser("racf-resource-profiles", help="list RACF general-resource profiles, curated classes only (implementation only, not yet production-validated)")
+    p_racf_gr_profiles.set_defaults(func=cmd_racf_resource_profiles)
+
+    p_racf_gr_access = sub.add_parser("racf-resource-access", help="list RACF general-resource access lists, curated classes only (implementation only, not yet production-validated)")
+    p_racf_gr_access.set_defaults(func=cmd_racf_resource_access)
 
     return parser
 

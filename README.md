@@ -10,9 +10,11 @@ finds is APF-authorized, which LPAR/sysplex the data came from, which
 priced/optional products are actually licensed and enabled (as opposed to
 merely installed), what's cataloged (non-VSAM attributes and VSAM
 cluster/component detail) under whatever HLQs/patterns you point it at,
-and — unlike everything else here, which is configuration/definition
-data — a live snapshot of what's actually running right now (active
-jobs/tasks and USS processes).
+who has access to what per RACF (users, groups, dataset and
+general-resource access — **implementation only, not yet
+production-validated**), and — unlike everything else here, which is
+configuration/definition data — a live snapshot of what's actually
+running right now (active jobs/tasks and USS processes).
 
 If you're new to any of the z/OS terms used below (PROCLIB, PARMLIB,
 SMP/E, APF, LPAR, ...), see the [Glossary](zos-extract/README.md#glossary)
@@ -74,8 +76,10 @@ your laptop, a CI runner, wherever.
  │     SYSMOD/ZONES)│               │                        │
  │  - active jobs/  │               │  catalog_parser → CatalogDataset/
  │    processes     │               │                   VsamCluster
- │  - dataset       │               │                        │
- │    catalog       │               │                        │
+ │  - dataset       │               │  racf_parser    → RacfSnapshot
+ │    catalog       │               │                   (impl. only)
+ │  - RACF unload   │               │                        │
+ │    (impl. only)  │               │                        │
  └─────────────────┘               └──────────────────────┘
 ```
 
@@ -108,7 +112,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt && \
   cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
   cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt && \
-  cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt
+  cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt && \
+  cp tests/fixtures/sample_racf.txt        /tmp/demo/racf.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 inventory --db /tmp/demo/demo.db lineage MYPROC
 inventory --db /tmp/demo/demo.db subsystems
@@ -119,6 +124,8 @@ inventory --db /tmp/demo/demo.db active
 inventory --db /tmp/demo/demo.db processes
 inventory --db /tmp/demo/demo.db catalog
 inventory --db /tmp/demo/demo.db vsam
+inventory --db /tmp/demo/demo.db racf-users
+inventory --db /tmp/demo/demo.db racf-groups
 ```
 
 `inventory lineage MYPROC` should print something like:
@@ -144,7 +151,9 @@ use.
    then `inventory ingest path/to/that/directory/`.
 4. Query it with `inventory lineage`/`report`/`subsystems`/
    `started-tasks`/`sysinfo`/`products`/`active`/`processes`/`catalog`/
-   `vsam` as shown above.
+   `vsam`/`racf-users`/`racf-groups`/`racf-connections`/
+   `racf-dataset-profiles`/`racf-dataset-access`/`racf-resource-profiles`/
+   `racf-resource-access` as shown above.
 
 ## Status
 
@@ -156,6 +165,17 @@ against the test fixtures in `inventory/tests/fixtures/`. The design
 scales to multiple concatenation entries and multiple zones (Global +
 every target zone) without code changes — see "Scaling" in
 `inventory/README.md`.
+
+A seventh dimension, a RACF security snapshot (users, groups, dataset and
+curated general-resource access), is implemented and unit-tested against a
+synthetic fixture, but is **explicitly not yet production-validated** —
+its `extrracf.py` extraction needs a real, and likely hard-to-get, RACF
+database read authorization this environment can't provide, and its
+parser's field layout was derived from a third-party reference rather than
+IBM's own documentation or a real unload sample. Treat it as
+implementation-only until checked against a real system. See
+`zos-extract/README.md`'s RACF step and `inventory/README.md`'s "How
+resolution works" for specifics.
 
 ## Sub-project docs
 

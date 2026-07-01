@@ -8,8 +8,16 @@ from pathlib import Path
 from .models import (
     ActiveJob,
     CatalogDataset,
+    DatasetAccess,
+    DatasetProfile,
+    GeneralResourceAccess,
+    GeneralResourceProfile,
     LineageStep,
     Product,
+    RacfGroup,
+    RacfGroupConnection,
+    RacfSnapshot,
+    RacfUser,
     StartedTask,
     Subsystem,
     SystemInfo,
@@ -100,6 +108,73 @@ CREATE TABLE IF NOT EXISTS vsam_clusters (
     index_component  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_vsam_clusters_name ON vsam_clusters(name);
+
+CREATE TABLE IF NOT EXISTS racf_users (
+    userid         TEXT NOT NULL,
+    name           TEXT,
+    owner          TEXT,
+    default_group  TEXT,
+    special        INTEGER,
+    operations     INTEGER,
+    auditor        INTEGER,
+    revoked        INTEGER,
+    restricted     INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_racf_users_userid ON racf_users(userid);
+
+CREATE TABLE IF NOT EXISTS racf_groups (
+    name              TEXT NOT NULL,
+    superior_group    TEXT,
+    owner             TEXT,
+    universal_access  TEXT,
+    description       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_racf_groups_name ON racf_groups(name);
+
+CREATE TABLE IF NOT EXISTS racf_group_connections (
+    userid                   TEXT NOT NULL,
+    grp                      TEXT NOT NULL,
+    group_special            INTEGER,
+    group_operations         INTEGER,
+    group_auditor            INTEGER,
+    group_universal_access   TEXT,
+    revoked_in_group         INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_racf_group_connections_userid ON racf_group_connections(userid);
+
+CREATE TABLE IF NOT EXISTS racf_dataset_profiles (
+    profile           TEXT NOT NULL,
+    volume            TEXT,
+    generic           INTEGER,
+    owner             TEXT,
+    universal_access  TEXT,
+    audit_level       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_racf_dataset_profiles_profile ON racf_dataset_profiles(profile);
+
+CREATE TABLE IF NOT EXISTS racf_dataset_access (
+    profile  TEXT NOT NULL,
+    auth_id  TEXT NOT NULL,
+    access   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_racf_dataset_access_profile ON racf_dataset_access(profile);
+
+CREATE TABLE IF NOT EXISTS racf_general_resource_profiles (
+    profile           TEXT NOT NULL,
+    class_name        TEXT NOT NULL,
+    owner             TEXT,
+    universal_access  TEXT,
+    audit_level       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_racf_gr_profiles_class_profile ON racf_general_resource_profiles(class_name, profile);
+
+CREATE TABLE IF NOT EXISTS racf_general_resource_access (
+    profile     TEXT NOT NULL,
+    class_name  TEXT NOT NULL,
+    auth_id     TEXT NOT NULL,
+    access      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_racf_gr_access_class_profile ON racf_general_resource_access(class_name, profile);
 """
 
 
@@ -273,4 +348,107 @@ def save_vsam_clusters(conn: sqlite3.Connection, vsam_clusters: list[VsamCluster
 def all_vsam_clusters(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM vsam_clusters ORDER BY name")
+    return cur.fetchall()
+
+
+def save_racf_snapshot(conn: sqlite3.Connection, snapshot: RacfSnapshot) -> None:
+    """Save every RacfSnapshot table together as one atomic, non-additive
+    replace -- IRRDBU00 always represents the RACF database's full current
+    state, not an incremental slice, so re-ingesting a new racf.txt
+    replaces the previous snapshot rather than merging into it."""
+    conn.execute("DELETE FROM racf_users")
+    conn.executemany(
+        "INSERT INTO racf_users (userid, name, owner, default_group, special, operations, "
+        "auditor, revoked, restricted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [(u.userid, u.name, u.owner, u.default_group, u.special, u.operations,
+          u.auditor, u.revoked, u.restricted) for u in snapshot.users],
+    )
+
+    conn.execute("DELETE FROM racf_groups")
+    conn.executemany(
+        "INSERT INTO racf_groups (name, superior_group, owner, universal_access, description) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [(g.name, g.superior_group, g.owner, g.universal_access, g.description)
+         for g in snapshot.groups],
+    )
+
+    conn.execute("DELETE FROM racf_group_connections")
+    conn.executemany(
+        "INSERT INTO racf_group_connections (userid, grp, group_special, group_operations, "
+        "group_auditor, group_universal_access, revoked_in_group) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(c.userid, c.group, c.group_special, c.group_operations, c.group_auditor,
+          c.group_universal_access, c.revoked_in_group) for c in snapshot.group_connections],
+    )
+
+    conn.execute("DELETE FROM racf_dataset_profiles")
+    conn.executemany(
+        "INSERT INTO racf_dataset_profiles (profile, volume, generic, owner, universal_access, "
+        "audit_level) VALUES (?, ?, ?, ?, ?, ?)",
+        [(p.profile, p.volume, p.generic, p.owner, p.universal_access, p.audit_level)
+         for p in snapshot.dataset_profiles],
+    )
+
+    conn.execute("DELETE FROM racf_dataset_access")
+    conn.executemany(
+        "INSERT INTO racf_dataset_access (profile, auth_id, access) VALUES (?, ?, ?)",
+        [(a.profile, a.auth_id, a.access) for a in snapshot.dataset_access],
+    )
+
+    conn.execute("DELETE FROM racf_general_resource_profiles")
+    conn.executemany(
+        "INSERT INTO racf_general_resource_profiles (profile, class_name, owner, "
+        "universal_access, audit_level) VALUES (?, ?, ?, ?, ?)",
+        [(p.profile, p.class_name, p.owner, p.universal_access, p.audit_level)
+         for p in snapshot.general_resource_profiles],
+    )
+
+    conn.execute("DELETE FROM racf_general_resource_access")
+    conn.executemany(
+        "INSERT INTO racf_general_resource_access (profile, class_name, auth_id, access) "
+        "VALUES (?, ?, ?, ?)",
+        [(a.profile, a.class_name, a.auth_id, a.access) for a in snapshot.general_resource_access],
+    )
+
+    conn.commit()
+
+
+def all_racf_users(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_users ORDER BY userid")
+    return cur.fetchall()
+
+
+def all_racf_groups(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_groups ORDER BY name")
+    return cur.fetchall()
+
+
+def all_racf_group_connections(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_group_connections ORDER BY userid, grp")
+    return cur.fetchall()
+
+
+def all_racf_dataset_profiles(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_dataset_profiles ORDER BY profile")
+    return cur.fetchall()
+
+
+def all_racf_dataset_access(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_dataset_access ORDER BY profile, auth_id")
+    return cur.fetchall()
+
+
+def all_racf_general_resource_profiles(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_general_resource_profiles ORDER BY class_name, profile")
+    return cur.fetchall()
+
+
+def all_racf_general_resource_access(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM racf_general_resource_access ORDER BY class_name, profile, auth_id")
     return cur.fetchall()

@@ -186,3 +186,107 @@ class VsamCluster:
     key_offset: int | None = None
     data_component: str | None = None
     index_component: str | None = None
+
+
+@dataclass
+class RacfUser:
+    """One RACF user (0200 USER BASIC DATA), as dumped by
+    zos-extract/python/extrracf.py via IRRDBU00. IMPLEMENTATION ONLY --
+    not yet validated against a real RACF database unload."""
+
+    userid: str
+    name: str | None = None
+    owner: str | None = None
+    default_group: str | None = None
+    special: bool | None = None
+    operations: bool | None = None
+    auditor: bool | None = None
+    revoked: bool | None = None
+    restricted: bool | None = None   # RESTRICTED attribute, from ATTRIBS
+
+
+@dataclass
+class RacfGroup:
+    """One RACF group (0100 GROUP BASIC DATA)."""
+
+    name: str
+    superior_group: str | None = None
+    owner: str | None = None
+    universal_access: str | None = None
+    description: str | None = None   # INSTALL_DATA
+
+
+@dataclass
+class RacfGroupConnection:
+    """One user-to-group connection (0205 USER CONNECT DATA) -- who's in
+    what group, and what elevated authority (if any) they have scoped to
+    that group specifically."""
+
+    userid: str
+    group: str
+    group_special: bool | None = None
+    group_operations: bool | None = None
+    group_auditor: bool | None = None
+    group_universal_access: str | None = None
+    revoked_in_group: bool | None = None
+
+
+@dataclass
+class DatasetProfile:
+    """One RACF DATASET-class profile (0400 DATASET BASIC DATA) -- a
+    protection rule for a dataset name/pattern, not a physical dataset
+    (see CatalogDataset for that)."""
+
+    profile: str
+    volume: str | None = None
+    generic: bool | None = None
+    owner: str | None = None
+    universal_access: str | None = None
+    audit_level: str | None = None
+
+
+@dataclass
+class DatasetAccess:
+    """One access-list entry (0404 DATASET ACCESS) for a DatasetProfile."""
+
+    profile: str
+    auth_id: str   # user ID or group name
+    access: str | None = None   # NONE / EXECUTE / READ / UPDATE / CONTROL / ALTER
+
+
+@dataclass
+class GeneralResourceProfile:
+    """One general-resource-class profile (0500 GENERAL RESOURCE BASIC
+    DATA), limited to racf_parser.CURATED_CLASSES -- IRRDBU00 itself has
+    no selective-unload option, so this curation happens off-host."""
+
+    profile: str
+    class_name: str
+    owner: str | None = None
+    universal_access: str | None = None
+    audit_level: str | None = None
+
+
+@dataclass
+class GeneralResourceAccess:
+    """One access-list entry (0505 GENERAL RESOURCE ACCESS) for a
+    GeneralResourceProfile."""
+
+    profile: str
+    class_name: str
+    auth_id: str
+    access: str | None = None
+
+
+@dataclass
+class RacfSnapshot:
+    """Everything parsed from one extrracf.py dump, bundled together
+    rather than returned as a 7-tuple (error-prone to unpack)."""
+
+    users: list[RacfUser] = field(default_factory=list)
+    groups: list[RacfGroup] = field(default_factory=list)
+    group_connections: list[RacfGroupConnection] = field(default_factory=list)
+    dataset_profiles: list[DatasetProfile] = field(default_factory=list)
+    dataset_access: list[DatasetAccess] = field(default_factory=list)
+    general_resource_profiles: list[GeneralResourceProfile] = field(default_factory=list)
+    general_resource_access: list[GeneralResourceAccess] = field(default_factory=list)
