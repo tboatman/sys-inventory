@@ -16,19 +16,17 @@ left None -- a partially-populated SystemInfo is normal, not an error.
 
 Dump format: two blocks, each introduced by a "##BLOCKNAME" sentinel line
 (e.g. "##SYMBOLS", "##IPLINFO") followed by that command's raw reply text,
-unchanged, up to the next sentinel or end of file. This is a different
-sentinel vocabulary from jcl_parser's "##MEMBER name" (a bare block label,
-not a keyword+name pair), so it uses its own small splitter here rather
-than reusing jcl_parser.split_members().
+unchanged, up to the next sentinel or end of file. Split via
+blocks.split_named_blocks(), shared with catalog_parser.py (extrcat.py's
+NONVSAM/LISTCAT dump uses the same bare-sentinel vocabulary).
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
+from .blocks import split_named_blocks
 from .models import SystemInfo
-
-_BLOCK_HDR = re.compile(r"^##(\S+)\s*$")
 
 # 'D SYMBOLS' reply (abbreviated, real output has many more &SYSxxx lines):
 #   SYSTEM SYMBOL LIST
@@ -50,21 +48,6 @@ _RELEASE = re.compile(r"\bRELEASE\s+(z/OS\s+\S+)", re.IGNORECASE)
 _ARCHLVL = re.compile(r"\bARCHLVL\s*=\s*(\S+)", re.IGNORECASE)
 
 
-def _split_blocks(text: str) -> dict[str, list[str]]:
-    """Split a raw extrsys.py dump into {block_name: [raw lines]}."""
-    blocks: dict[str, list[str]] = {}
-    current: str | None = None
-    for line in text.splitlines():
-        m = _BLOCK_HDR.match(line)
-        if m:
-            current = m.group(1)
-            blocks[current] = []
-            continue
-        if current is not None:
-            blocks[current].append(line)
-    return blocks
-
-
 def _first_match(pattern: re.Pattern, text: str) -> str | None:
     m = pattern.search(text)
     return m.group(1) if m else None
@@ -73,7 +56,7 @@ def _first_match(pattern: re.Pattern, text: str) -> str | None:
 def parse_sysinfo(path: Path) -> SystemInfo:
     """Parse one extrsys.py dump into a single SystemInfo record."""
     text = path.read_text(errors="replace")
-    blocks = _split_blocks(text)
+    blocks = split_named_blocks(text)
 
     symbols_text = "\n".join(blocks.get("SYMBOLS", []))
     iplinfo_text = "\n".join(blocks.get("IPLINFO", []))
