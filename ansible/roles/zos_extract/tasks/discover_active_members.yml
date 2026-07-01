@@ -1,0 +1,65 @@
+---
+# Determines the *active* IEFSSNxx/COMMNDxx/IFAPRDxx member suffixes by
+# reading the actual content of each active IEASYSxx member (named by
+# zos_extract_ieasys_suffixes, from discover_active_parmlib_suffixes.yml)
+# and pulling out its SSN=/CMD=/PROD= keyword values -- confirmed against
+# a real IEASYSxx sample and its own D IPLINFO-reported values, all "BN"
+# at the site this was built against. z/OS's real IEFSSNxx/COMMNDxx/
+# IFAPRDxx selection is driven by these keywords inside IEASYSxx, not
+# simply "same suffix as IEASYS" -- that's just this site's naming
+# convention, confirmed rather than assumed.
+#
+# The keyword parser below is deliberately general (one pass extracting
+# every KEYWORD=value statement, not three separate hand-tuned regexes
+# for SSN=/CMD=/PROD= specifically) since IEASYSxx statement formatting
+# has a few exceptions here and there even within one member -- a single
+# general parser has one place to get right instead of three.
+# regex_replace/regex_search calls using backreferences (\1, \2, ...) are
+# deliberately kept at plain {{ }} expression level, not inside a
+# {% set %} statement: confirmed those backreferences get corrupted
+# (turned into control characters) when used inside {% set %}, even
+# outside any loop, in the ansible-core version this was built against.
+#
+# If multiple IEASYSxx members are concatenated (zos_extract_ieasys_suffixes
+# has more than one entry), each is fetched in order and the LAST
+# occurrence of a given keyword wins -- a reasonable approximation of
+# z/OS's own override behavior for these single-purpose selector
+# keywords, not a full IEASYSxx merge simulation.
+#
+# ssn_commnd.yml/ifaprd.yml use these suffix lists (when non-empty) to
+# fetch just the active member(s) instead of every IEFSSN*/COMMND*/
+# IFAPRD* member; if this discovery comes up empty for any reason
+# (keyword not found, IEASYSxx unreadable, D IPLINFO unavailable, etc.)
+# they fall back to the broad wildcard filter, same as before this
+# feature existed.
+
+- name: Fetch each active IEASYSxx member's content, in order
+  ansible.builtin.include_tasks: _fetch_active_ieasys_member.yml
+  loop: "{{ zos_extract_ieasys_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_ieasys_suffix
+    label: "IEASYS{{ zos_extract_ieasys_suffix }}"
+
+- name: Flatten all fetched IEASYSxx member lines in order
+  ansible.builtin.set_fact:
+    zos_extract_ieasys_lines: "{{ (zos_extract_ieasys_member_texts | default([]) | join('\n')).splitlines() }}"
+
+- name: Transform each line into a KEYWORD@@@VALUE marker (unmatched lines untouched)
+  ansible.builtin.set_fact:
+    zos_extract_ieasys_kv_lines: >-
+      {{ zos_extract_ieasys_lines
+         | map('regex_replace', '^\s*([A-Z0-9$#@]+)\s*=\s*\(?([^,()]*(?:,[^,()]*)*)\)?\s*,.*$', '\1@@@\2')
+         | select('match', '^[A-Z0-9$#@]+@@@')
+         | list }}
+
+- name: Extract the active SSN/CMD/PROD keyword values (last member wins)
+  ansible.builtin.set_fact:
+    zos_extract_active_ssn_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^SSN@@@') | map('regex_replace', '^SSN@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    zos_extract_active_cmd_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^CMD@@@') | map('regex_replace', '^CMD@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    zos_extract_active_prod_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^PROD@@@') | map('regex_replace', '^PROD@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}

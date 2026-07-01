@@ -20,6 +20,22 @@
   ansible.builtin.import_tasks: local_prep.yml
   tags: always
 
+- name: Auto-discover the PROCLIB concatenation if not explicitly configured
+  ansible.builtin.import_tasks: discover_proclib.yml
+  tags: always
+
+- name: Auto-discover the PARMLIB concatenation if not explicitly configured
+  ansible.builtin.import_tasks: discover_parmlib.yml
+  tags: always
+
+- name: Determine the active IEASYSxx/IEASYMxx suffixes
+  ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
+  tags: always
+
+- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members
+  ansible.builtin.import_tasks: discover_active_members.yml
+  tags: always
+
 - name: PROCLIB/PARMLIB dumps (step 1)
   ansible.builtin.import_tasks: proclib.yml
   tags: [proclib]

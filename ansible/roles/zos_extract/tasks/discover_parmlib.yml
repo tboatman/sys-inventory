@@ -1,0 +1,48 @@
+---
+# Auto-discovers the live PARMLIB concatenation via 'D PARMLIB' when
+# zos_extract_parmlibs isn't explicitly set (e.g. in hosts.yml), instead
+# of requiring it to be hand-populated. Runs before any PARMLIB-consuming
+# step (proclib/ssn_commnd/ifaprd) so they see the discovered list the
+# same way as a manually configured one; an explicit zos_extract_parmlibs
+# always wins (this is skipped entirely if it's already non-empty).
+#
+# 'D PARMLIB' replies in the same 4-column numbered-DSN shape LNKLST/APF
+# do (ENTRY FLAGS VOLUME DATA SET), confirmed against a real reply:
+#   ENTRY  FLAGS  VOLUME  DATA SET
+#     1      S    HCD000  SYS1.COMMON.PARMLIB
+#     2      S    BES2W1  SYS3.BES2.PARMLIB
+# so this reuses the same select/regex_replace idiom lnklst.yml uses.
+# ENTRY order is PARMLIB search order (lowest = searched first), matching
+# this project's NN-prefix convention (zos-extract/README.md), so
+# discovered entries are numbered 00, 01, 02, ... in reply order.
+#
+# See discover_proclib.yml for the PROCLIB equivalent -- JES2's
+# '$D PROCLIB' rather than a plain MVS console command, since there's no
+# system-wide equivalent to 'D PARMLIB' for PROCLIB.
+
+- name: Issue D PARMLIB
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D PARMLIB"
+  register: zos_extract_parmlib_reply
+  when: zos_extract_parmlibs | length == 0
+
+- name: Extract PARMLIB data set names from the console reply
+  ansible.builtin.set_fact:
+    zos_extract_discovered_parmlib_dsns: >-
+      {{ zos_extract_parmlib_reply.content
+         | select('match', '^\s*[0-9]+\s+\S+\s+\S+\s+\S+\s*$')
+         | map('regex_replace', '^\s*[0-9]+\s+\S+\s+\S+\s+(\S+)\s*$', '\1')
+         | list }}
+  when: zos_extract_parmlibs | length == 0
+
+- name: Set zos_extract_parmlibs from the discovered PARMLIB concatenation
+  ansible.builtin.set_fact:
+    zos_extract_parmlibs: "{{ zos_extract_parmlibs_json | from_json }}"
+  vars:
+    zos_extract_parmlibs_json: |-
+      [
+      {% for dsn in zos_extract_discovered_parmlib_dsns %}
+      {"dsn": "{{ dsn }}", "prefix": "{{ '%02d' | format(loop.index0) }}"}{{ "," if not loop.last else "" }}
+      {% endfor %}
+      ]
+  when: zos_extract_parmlibs | length == 0

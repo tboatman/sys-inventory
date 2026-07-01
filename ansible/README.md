@@ -134,6 +134,41 @@ the password prompt needs `sshpass` installed on your control node, the
 same as any Ansible password-based SSH connection -- if you don't have
 it, leave the prompt blank and rely on key-based auth instead.
 
+### PROCLIB/PARMLIB and active-member auto-discovery
+
+You don't have to hand-populate `zos_extract_proclibs`/`zos_extract_parmlibs`,
+and `ssn_commnd`/`ifaprd` don't have to dump every `IEFSSN*`/`COMMND*`/
+`IFAPRD*` member -- this role can work it all out live instead:
+
+1. **`discover_proclib.yml`** -- if `zos_extract_proclibs` isn't set, it
+   queries the live PROCLIB concatenation via JES2's `$D PROCLIB` command,
+   in search (DD) order. This is JES2-specific -- there's no system-wide
+   MVS console command for PROCLIB the way `D PARMLIB` covers PARMLIB, and
+   JES3 sites haven't been verified against this parser, so configure
+   `zos_extract_proclibs` by hand if your site is JES3 or this doesn't
+   find anything. An explicit list in `hosts.yml` always wins over this.
+2. **`discover_parmlib.yml`** -- if `zos_extract_parmlibs` isn't set, it
+   queries the live PARMLIB concatenation via `D PARMLIB` (a real
+   system-wide MVS console command, same idea as the existing LNKLST
+   discovery), in search order. An explicit list in `hosts.yml` always
+   wins over this too.
+3. **`discover_active_parmlib_suffixes.yml`** + **`discover_active_members.yml`**
+   -- `D IPLINFO`'s `IEASYM LIST`/`IEASYS LIST` give the active
+   `IEASYSxx`/`IEASYMxx` suffix(es); this role then reads the actual
+   content of those `IEASYSxx` member(s) and pulls out their `SSN=`/
+   `CMD=`/`PROD=` keyword values -- the *real* mechanism z/OS uses to
+   select the active `IEFSSNxx`/`COMMNDxx`/`IFAPRDxx` member, as opposed
+   to assuming they share the same suffix by convention. `ssn_commnd.yml`/
+   `ifaprd.yml` use those suffixes (when found) to fetch just the active
+   member(s) instead of every member matching the wildcard filter. If
+   this comes up empty for any reason (unreadable `IEASYSxx`, unexpected
+   `D IPLINFO` format, etc.), it falls back to the broad wildcard filter
+   automatically -- no separate flag to flip.
+
+All of these are unconditional (`always` tagged) so they run regardless of
+which step tags you select, since `ssn_commnd`/`ifaprd` need the discovered
+suffixes even if you didn't ask for `sysinfo`/PARMLIB steps in the same run.
+
 ### RACF (step 10) is opt-in on purpose
 
 Per `zos-extract/README.md`, `extrracf.py` needs a materially different and
@@ -182,6 +217,21 @@ roles/zos_extract/
   tasks/
     main.yml               # dispatches to one file per step, by tag
     local_prep.yml          # ensures the local output directory exists
+    discover_proclib.yml    # auto-discovers zos_extract_proclibs via
+                             # JES2's '$D PROCLIB' if it isn't set explicitly
+    discover_parmlib.yml    # auto-discovers zos_extract_parmlibs via
+                             # 'D PARMLIB' if it isn't set explicitly
+    discover_active_parmlib_suffixes.yml
+                             # parses 'D IPLINFO's IEASYM/IEASYS LIST
+                             # into the active IEASYSxx/IEASYMxx suffixes
+    discover_active_members.yml
+                             # reads the active IEASYSxx member(s) (see
+                             # _fetch_active_ieasys_member.yml) and pulls
+                             # their SSN=/CMD=/PROD= keywords -- the
+                             # active IEFSSNxx/COMMNDxx/IFAPRDxx suffixes,
+                             # used by ssn_commnd.yml/ifaprd.yml to fetch
+                             # just those members instead of every one
+                             # matching the broad wildcard filter
     proclib.yml, ssn_commnd.yml, ifaprd.yml
                              # zos_find + zos_fetch member dumps (see
                              # _member_dump.yml, the shared worker they

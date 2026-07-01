@@ -26,6 +26,16 @@ all:
         ansible_python_interpreter: /shrd/cyp/pyz/bin/python3
 
         # --- what to inventory on this LPAR ---
+        # Both PROCLIB and PARMLIB can be auto-discovered live (via JES2's
+        # '$D PROCLIB' and 'D PARMLIB' respectively) -- leave
+        # zos_extract_proclibs/zos_extract_parmlibs unset/empty (remove
+        # the blocks below) to have the role query the live concatenation
+        # itself instead of hand-listing it here (see
+        # roles/zos_extract/tasks/discover_proclib.yml and
+        # discover_parmlib.yml). An explicit list here always wins over
+        # auto-discovery. PROCLIB discovery is JES2-specific (JES3 sites
+        # haven't been verified against it) -- configure it by hand if
+        # your site is JES3 or the discovery doesn't find anything.
         zos_extract_proclibs:
           - dsn: SYS1.PROCLIB
             prefix: "00"

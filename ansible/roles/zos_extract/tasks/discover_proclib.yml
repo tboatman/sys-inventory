@@ -1,0 +1,64 @@
+---
+# Auto-discovers the live PROCLIB concatenation via JES2's '$D PROCLIB'
+# command when zos_extract_proclibs isn't explicitly set -- the same idea
+# as discover_parmlib.yml's 'D PARMLIB', confirmed against a real reply.
+# An explicit list in hosts.yml always wins (this is skipped entirely if
+# it's already non-empty).
+#
+# Unlike D PARMLIB/D PROG,LNKLST/D PROG,APF, $D PROCLIB's reply isn't a
+# clean one-row-per-DSN table -- it's a single JES2 $HASP319 message that
+# gets wrapped across several console lines, each re-prefixed with the
+# message ID, e.g.:
+#   $HASP319 PROCLIB(PROC00)    DD(1)=(DSNAME=SYS1.PROCLIB,
+#   $HASP319                    VOLSER=BES25A,UNIT=SYSALLDA),
+#   $HASP319                    DD(2)=(DSNAME=SYS2.BES2.PROCLIB, ...
+# so this strips the $HASP319 prefix from every line, rejoins them into
+# one string, and pulls out every DSNAME=... occurrence in order (DD(1),
+# DD(2), ... = PROCLIB search order).
+#
+# JES2-specific: this issues '$D PROCLIB' (JES2's own command syntax,
+# confirmed against a real JES2 system). The '$' needs the single backslash
+# escape zos_operator's own docs describe for special characters --
+# single-quoted YAML so it isn't touched by YAML's own escape processing.
+# JES3 sites use different command syntax and haven't been verified
+# against this parser -- if $DPROCLIB isn't recognized, this simply finds
+# nothing and zos_extract_proclibs stays empty (same as if it had never
+# been attempted; proclib.yml's dump loop just has nothing to loop over,
+# same as any other unconfigured library).
+
+- name: Issue $D PROCLIB (JES2)
+  ibm.ibm_zos_core.zos_operator:
+    cmd: '\$DPROCLIB'
+  register: zos_extract_proclib_reply
+  when: zos_extract_proclibs | length == 0
+
+- name: Keep only the $HASP319 data lines, stripped of the message-id prefix
+  ansible.builtin.set_fact:
+    zos_extract_proclib_data_lines: >-
+      {{ zos_extract_proclib_reply.content
+         | select('match', '.*\$HASP319.*')
+         | map('regex_replace', '^.*\$HASP319\s*', '')
+         | list }}
+  when: zos_extract_proclibs | length == 0
+
+- name: Reassemble the wrapped $D PROCLIB message into one string
+  ansible.builtin.set_fact:
+    zos_extract_proclib_joined: "{{ zos_extract_proclib_data_lines | join(' ') }}"
+  when: zos_extract_proclibs | length == 0
+
+- name: Extract PROCLIB data set names in DD order
+  ansible.builtin.set_fact:
+    zos_extract_discovered_proclib_dsns: "{{ zos_extract_proclib_joined | regex_findall('DSNAME=([^,) ]+)') }}"
+  when: zos_extract_proclibs | length == 0
+
+- name: Set zos_extract_proclibs from the discovered PROCLIB concatenation
+  ansible.builtin.set_fact:
+    zos_extract_proclibs: "{{ zos_extract_proclibs_json | from_json }}"
+  vars:
+    zos_extract_proclibs_json: |-
+      [
+      {% for dsn in zos_extract_discovered_proclib_dsns %}
+      {"dsn": "{{ dsn }}", "prefix": "{{ '%02d' | format(loop.index0) }}"}{{ "," if not loop.last else "" }}
+      {% endfor %}
+      ]
+  when: zos_extract_proclibs | length == 0

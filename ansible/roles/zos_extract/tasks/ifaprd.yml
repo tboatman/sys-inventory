@@ -1,18 +1,29 @@
 ---
 # Same zos_find + zos_fetch approach as ssn_commnd.yml (see
-# _member_dump.yml). Not every shop uses IFAPRDxx (zos-extract/README.md
-# step 3), so a PARMLIB with zero matching members is a soft warning, not
-# a failure -- the ifaprd.txt file for that library just doesn't get
-# written (matching extrproc.py's old behavior: `inventory ingest` treats
-# a missing input file as "no data").
+# _member_dump.yml). When discover_active_members.yml successfully
+# determined the active IFAPRDxx suffix(es) (from the active IEASYSxx
+# member's PROD= keyword), fetch just those specific members instead of
+# every member matching the broad zos_extract_ifaprd_member_filter
+# wildcard. Falls back to the wildcard filter if that discovery came up
+# empty for any reason. Not every shop uses IFAPRDxx (zos-extract/README.md
+# step 3) regardless, so a PARMLIB with zero matching members is a soft
+# warning, not a failure -- the ifaprd.txt file for that library just
+# doesn't get written (matching extrproc.py's old behavior: `inventory
+# ingest` treats a missing input file as "no data").
 
-- name: Build a regex from the IFAPRDxx member filter
+- name: Build a regex for the IFAPRDxx member(s) to fetch
   ansible.builtin.set_fact:
     zos_extract_ifaprd_regex: >-
-      {{ '^' ~ (zos_extract_ifaprd_member_filter
-         | regex_replace('([.^$+{}\[\]|()])', '\\\1')
-         | regex_replace('\*', '.*')
-         | regex_replace('\?', '.')) ~ '$' }}
+      {{
+        ('^' ~ (zos_extract_ifaprd_member_filter | regex_replace('\*.*$', ''))
+           ~ '(' ~ (zos_extract_active_prod_suffixes | join('|')) ~ ')$')
+        if (zos_extract_active_prod_suffixes | default([]) | length > 0)
+        else
+        ('^' ~ (zos_extract_ifaprd_member_filter
+           | regex_replace('([.^$+{}\[\]|()])', '\\\1')
+           | regex_replace('\*', '.*')
+           | regex_replace('\?', '.')) ~ '$')
+      }}
 
 - name: Dump product enablement (IFAPRDxx) definitions
   ansible.builtin.include_tasks: _member_dump.yml

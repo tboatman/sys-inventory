@@ -1,0 +1,40 @@
+---
+# Determines which IEASYSxx/IEASYMxx member suffixes are actually active
+# (not just which PARMLIB libraries are concatenated -- see
+# discover_parmlib.yml for that) via 'D IPLINFO', whose reply includes
+# lines like (confirmed against a real reply):
+#   IEASYM LIST = (BN,L)
+#   IEASYS LIST = (BN) (OP)
+# Both lines can have one or more parenthesized groups, and each group
+# can itself hold a comma-separated list of suffixes (both forms are
+# seen above) -- regex_findall pulls every parenthesized group's inner
+# text, then each group is split on comma and the whole thing flattened
+# into one ordered list of suffixes (IEASYM: [BN, L], IEASYS: [BN, OP]).
+#
+# These are exposed as plain facts (zos_extract_ieasym_suffixes/
+# zos_extract_ieasys_suffixes) for reporting, and are also the first link
+# in determining the *active* IEFSSNxx/COMMNDxx/IFAPRDxx member (as
+# opposed to every member matching the IEFSSN*/COMMND*/IFAPRD* wildcard):
+# the active IEASYSxx member(s) (named by zos_extract_ieasys_suffixes)
+# themselves contain IEFSSN=/CMD=/PROD= keyword statements naming the
+# suffix to use for each of those -- see the task file for that step for
+# specifics (it needs a real IEASYSxx member sample to parse correctly,
+# since keyword statement syntax/continuation varies by site).
+
+- name: Issue D IPLINFO
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D IPLINFO"
+  register: zos_extract_iplinfo_reply
+
+- name: Extract IEASYM/IEASYS suffix lists from the console reply
+  ansible.builtin.set_fact:
+    zos_extract_ieasym_suffixes: >-
+      {{ (zos_extract_iplinfo_reply.content | select('match', '.*IEASYM LIST.*') | list | first | default(''))
+         | regex_findall('\(([^)]*)\)')
+         | map('split', ',')
+         | list | flatten }}
+    zos_extract_ieasys_suffixes: >-
+      {{ (zos_extract_iplinfo_reply.content | select('match', '.*IEASYS LIST.*') | list | first | default(''))
+         | regex_findall('\(([^)]*)\)')
+         | map('split', ',')
+         | list | flatten }}

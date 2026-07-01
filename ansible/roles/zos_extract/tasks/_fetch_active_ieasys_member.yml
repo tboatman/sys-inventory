@@ -1,0 +1,54 @@
+---
+# Shared worker for discover_active_members.yml: given
+# zos_extract_ieasys_suffix, finds which configured PARMLIB (in
+# search-priority order) contains IEASYS{suffix} and appends its raw
+# content to zos_extract_ieasys_member_texts (in order), so a later
+# member's keyword values can override an earlier one's (see
+# discover_active_members.yml).
+#
+# Included via include_tasks (not import_tasks) since it's invoked in a
+# loop with per-iteration state threaded across tasks -- see
+# _member_dump.yml's header comment for why that's safe here under
+# --tags filtering (this carries no tags of its own).
+
+- name: Find which configured PARMLIB has IEASYS{{ zos_extract_ieasys_suffix }}
+  ibm.ibm_zos_core.zos_find:
+    pds_patterns: "{{ zos_extract_parmlibs | map(attribute='dsn') | list }}"
+    patterns: ["^IEASYS{{ zos_extract_ieasys_suffix }}$"]
+  register: zos_extract_ieasys_find
+
+- name: Pick the highest-priority PARMLIB dsn that has it
+  ansible.builtin.set_fact:
+    zos_extract_ieasys_dsn: >-
+      {{ (zos_extract_parmlibs
+          | selectattr('dsn', 'in', (zos_extract_ieasys_find.data_sets | default([]) | map(attribute='name') | list))
+          | map(attribute='dsn') | list | first | default('')) }}
+
+- name: Create a scratch directory for IEASYS{{ zos_extract_ieasys_suffix }}
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_ieasys_scratch
+  delegate_to: localhost
+  when: zos_extract_ieasys_dsn | length > 0
+
+- name: Fetch IEASYS{{ zos_extract_ieasys_suffix }}
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_ieasys_dsn }}(IEASYS{{ zos_extract_ieasys_suffix }})"
+    dest: "{{ zos_extract_ieasys_scratch.path }}/"
+    flat: true
+  when: zos_extract_ieasys_dsn | length > 0
+
+- name: Append this member's content to the ordered list
+  ansible.builtin.set_fact:
+    zos_extract_ieasys_member_texts: >-
+      {{ (zos_extract_ieasys_member_texts | default([]))
+         + [ lookup('ansible.builtin.file', zos_extract_ieasys_scratch.path ~ '/IEASYS' ~ zos_extract_ieasys_suffix) ] }}
+  when: zos_extract_ieasys_dsn | length > 0
+
+- name: Remove scratch directory for IEASYS{{ zos_extract_ieasys_suffix }}
+  ansible.builtin.file:
+    path: "{{ zos_extract_ieasys_scratch.path }}"
+    state: absent
+  delegate_to: localhost
+  when: zos_extract_ieasys_scratch.path is defined
