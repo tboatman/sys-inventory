@@ -8,3 +8,13 @@ collections:
   # is zos_job_query-based (ibm.ibm_zos_core) and doesn't need this.
   - name: ibm.ibm_zos_cics
     version: ">=2.0.0"
+  # Not used by any task yet -- pinned for future IMS discovery (regions,
+  # databases, transactions) if this ever expands past CICS/PROCLIB/PARMLIB.
+  - name: ibm.ibm_zos_ims
+    version: ">=1.4.0"
+  # Not used by any task yet -- pinned for future z/OSMF REST API-based
+  # discovery (an alternative path to some of what this role already gets
+  # via console commands/ZOAU, e.g. job/dataset/console queries over HTTPS
+  # instead of SSH).
+  - name: ibm.ibm_zosmf
+    version: ">=1.6.0"

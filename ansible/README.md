@@ -260,8 +260,8 @@ that advice matters even more here.
 ```
 ansible.cfg
 requirements.yml           # ibm.ibm_zos_core collection pin, plus
-                            # ibm.ibm_zos_cics for future CMCI-based
-                            # CICS discovery (unused today)
+                            # ibm.ibm_zos_cics/ibm.ibm_zos_ims/ibm.ibm_zosmf
+                            # for future expansion (all unused today)
 inventory/hosts.yml.example
 inventory/group_vars/zos.yml  # shared ZOAU/Python env + local output path
                                # (must live beside the inventory file --
