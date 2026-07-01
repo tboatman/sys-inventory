@@ -42,9 +42,12 @@ _SYSPLEX = re.compile(r"\bSYSPLEX\s*=.*?\"([A-Za-z0-9$#@]+)\"", re.IGNORECASE)
 # 'D IPLINFO' reply (abbreviated):
 #   SYSTEM IPLED AT 08.00.00 ON 07/01/2026  RELEASE z/OS 02.05.00
 #   SYSTEM IPLED FROM 01A0  IPL PARM 00
+#   ARCHLVL = 2       MTLSHARE = N
 #   IPL DEVICE: 01A0  VOLUME: RES0S1
 _IPL_VOLUME = re.compile(r"\bVOLUME:\s*([A-Za-z0-9$#@]+)", re.IGNORECASE)
 _IPL_PARM = re.compile(r"\bIPL\s+PARM\s+([A-Za-z0-9$#@]+)", re.IGNORECASE)
+_RELEASE = re.compile(r"\bRELEASE\s+(z/OS\s+\S+)", re.IGNORECASE)
+_ARCHLVL = re.compile(r"\bARCHLVL\s*=\s*(\S+)", re.IGNORECASE)
 
 
 def _split_blocks(text: str) -> dict[str, list[str]]:
@@ -81,4 +84,6 @@ def parse_sysinfo(path: Path) -> SystemInfo:
         sysplex=_first_match(_SYSPLEX, symbols_text),
         ipl_volume=_first_match(_IPL_VOLUME, iplinfo_text),
         ipl_parm_member=_first_match(_IPL_PARM, iplinfo_text),
+        release=_first_match(_RELEASE, iplinfo_text),
+        archlvl=_first_match(_ARCHLVL, iplinfo_text),
     )

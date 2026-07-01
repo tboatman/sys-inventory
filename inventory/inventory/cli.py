@@ -150,6 +150,8 @@ def cmd_sysinfo(args: argparse.Namespace) -> int:
     print(f"SYSPLEX:  {row['sysplex'] or '?'}")
     print(f"IPL VOLUME: {row['ipl_volume'] or '?'}")
     print(f"IPL PARM MEMBER: {row['ipl_parm_member'] or '?'}")
+    print(f"RELEASE: {row['release'] or '?'}")
+    print(f"ARCHLVL: {row['archlvl'] or '?'}")
     return 0
 
 

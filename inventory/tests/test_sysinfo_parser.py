@@ -18,6 +18,12 @@ def test_ipl_volume_and_parm_parsed():
     assert info.ipl_parm_member == "00"
 
 
+def test_release_and_archlvl_parsed():
+    info = sysinfo_parser.parse_sysinfo(FIXTURES / "sample_sysinfo.txt")
+    assert info.release == "z/OS 02.05.00"
+    assert info.archlvl == "2"
+
+
 def test_missing_field_yields_none(tmp_path):
     text = (
         "##SYMBOLS\n"
@@ -37,3 +43,5 @@ def test_missing_field_yields_none(tmp_path):
     assert info.sysplex is None
     assert info.ipl_volume == "RES0S2"
     assert info.ipl_parm_member == "01"
+    assert info.release is None
+    assert info.archlvl is None

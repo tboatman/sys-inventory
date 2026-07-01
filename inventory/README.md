@@ -155,6 +155,8 @@ SYSCLONE: S1
 SYSPLEX:  PLEX1
 IPL VOLUME: RES0S1
 IPL PARM MEMBER: 00
+RELEASE: z/OS 02.05.00
+ARCHLVL: 2
 ```
 
 If you didn't ingest a `sysinfo.txt`, this prints `no system info

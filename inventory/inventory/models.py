@@ -117,3 +117,5 @@ class SystemInfo:
     sysplex: str | None = None          # sysplex name (&SYSPLEX.)
     ipl_volume: str | None = None       # SYSRES IPL volume
     ipl_parm_member: str | None = None  # IEASYSxx/IPL parm member suffix
+    release: str | None = None          # z/OS release, e.g. "z/OS 02.05.00"
+    archlvl: str | None = None          # architecture level, from D IPLINFO

@@ -41,7 +41,9 @@ CREATE TABLE IF NOT EXISTS system_info (
     sysclone         TEXT,
     sysplex          TEXT,
     ipl_volume       TEXT,
-    ipl_parm_member  TEXT
+    ipl_parm_member  TEXT,
+    release          TEXT,
+    archlvl          TEXT
 );
 """
 
@@ -118,9 +120,10 @@ def save_system_info(conn: sqlite3.Connection, info: SystemInfo | None) -> None:
     conn.execute("DELETE FROM system_info")
     if info is not None:
         conn.execute(
-            "INSERT INTO system_info (sysname, sysclone, sysplex, ipl_volume, ipl_parm_member) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (info.sysname, info.sysclone, info.sysplex, info.ipl_volume, info.ipl_parm_member),
+            "INSERT INTO system_info (sysname, sysclone, sysplex, ipl_volume, ipl_parm_member, "
+            "release, archlvl) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (info.sysname, info.sysclone, info.sysplex, info.ipl_volume, info.ipl_parm_member,
+             info.release, info.archlvl),
         )
     conn.commit()
 
