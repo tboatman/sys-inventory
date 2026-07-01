@@ -1,12 +1,27 @@
 ---
-# Jobs: direct analog for extrjobs.py. zos_job_query is ibm_zos_core's
-# higher-level wrapper around the same job-listing ZOAU API
-# jobs.fetch_multiple() used directly -- per zos_job_query's own source
-# (parsing_jobs() in its module file), it sets ret_code to None
-# specifically when the raw JES status contains "AC" (active), so
-# `ret_code is none` here is the exact equivalent of extrjobs.py's
-# `entry.status == "AC"` filter, just expressed against the wrapper's
-# normalized field instead of ZOAU's raw one.
+# Jobs: was a direct analog for extrjobs.py via zos_job_query (ibm_zos_core's
+# wrapper around ZOAU's jobs.fetch_multiple()), until a real run crashed
+# ZOAU's own jls utility (CEE3209S fixed-point divide exception in
+# parseSMFRecord). Root cause, confirmed by reading ibm_zos_core's own
+# module_utils/job.py: it unconditionally calls
+# jobs.fetch_multiple(..., include_extended=True) -- include_extended is
+# what pulls in the SMF-derived fields (program_name, cpu_time, srb_time),
+# and it's specifically SMF-record parsing that's crashing. There's no
+# module option to turn include_extended off, so zos_job_query can't be
+# used here at all, for any job_name filter. extrjobs.py's own
+# jobs.fetch_multiple() call (no include_extended) presumably doesn't hit
+# this, but zos_job_query the ansible module has no equivalent "plain"
+# mode.
+#
+# Now consumes zos_extract_active_as_entries from
+# discover_active_address_spaces.yml ('D A,L', which sidesteps ZOAU/jls
+# entirely) instead. This changes active_jobs.txt's schema: 'D A,L'
+# doesn't expose job ID or ASID the way zos_job_query did, only
+# jobname/stepname/procstep/status/flag -- so this is no longer a
+# drop-in-compatible dump for inventory/inventory/activity_parser.py's
+# ActiveJob model (job_id/name/job_type/asid). That parser hasn't been
+# updated to match yet; treat active_jobs.txt as informational until it
+# is.
 #
 # Processes: there's no ibm.ibm_zos_core module for USS process listing
 # (it's plain USS, no ZOAU/MVS concept involved, same as extrprocs.py
@@ -15,18 +30,13 @@
 # extrprocs.py did in Python is reproduced in Jinja below instead of
 # needing the script staged on the target.
 
-- name: Query all active jobs and started tasks
-  ibm.ibm_zos_core.zos_job_query:
-    job_name: "*"
-  register: zos_extract_jobs_result
-
 - name: Write active_jobs.txt
   ansible.builtin.copy:
     dest: "{{ zos_extract_local_output_dir }}/active_jobs.txt"
     mode: "0644"
     content: |-
-      {% for job in zos_extract_jobs_result.jobs | default([]) | selectattr('ret_code', 'none') | list %}
-      {{ job.job_id }} {{ job.job_name }} {{ job.content_type | default('?') }} {{ job.asid }}
+      {% for entry in zos_extract_active_as_entries | default([]) %}
+      {{ entry[0] }} {{ entry[1] }} {{ entry[2] }} {{ entry[3] }} {{ entry[4] }}
       {% endfor %}
   delegate_to: localhost
 
