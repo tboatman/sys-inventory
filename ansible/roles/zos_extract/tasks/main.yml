@@ -20,21 +20,29 @@
   ansible.builtin.import_tasks: local_prep.yml
   tags: always
 
+# The four discovery imports below are tagged with exactly the step(s)
+# that consume their output, not "always" -- so e.g. `--tags
+# smpe_csi_discovery` or `--tags catalog` alone doesn't also issue $D
+# PROCLIB/D PARMLIB/D IPLINFO and fetch IEASYSxx members for no reason.
+# A tagless run (the normal case) still runs all of them, same as
+# before, since Ansible runs every task when no --tags/--skip-tags is
+# given regardless of what tags it carries.
+
 - name: Auto-discover the PROCLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_proclib.yml
-  tags: always
+  tags: [proclib]
 
 - name: Auto-discover the PARMLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_parmlib.yml
-  tags: always
+  tags: [proclib, ssn_commnd, ifaprd]
 
 - name: Determine the active IEASYSxx/IEASYMxx suffixes
   ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
-  tags: always
+  tags: [ssn_commnd, ifaprd]
 
 - name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members
   ansible.builtin.import_tasks: discover_active_members.yml
-  tags: always
+  tags: [ssn_commnd, ifaprd]
 
 - name: PROCLIB/PARMLIB dumps (step 1)
   ansible.builtin.import_tasks: proclib.yml

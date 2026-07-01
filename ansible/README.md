@@ -165,9 +165,17 @@ and `ssn_commnd`/`ifaprd` don't have to dump every `IEFSSN*`/`COMMND*`/
    `D IPLINFO` format, etc.), it falls back to the broad wildcard filter
    automatically -- no separate flag to flip.
 
-All of these are unconditional (`always` tagged) so they run regardless of
-which step tags you select, since `ssn_commnd`/`ifaprd` need the discovered
-suffixes even if you didn't ask for `sysinfo`/PARMLIB steps in the same run.
+Each of these is tagged with exactly the step(s) that need it, not `always`
+-- `discover_proclib.yml` is tagged `proclib`; `discover_parmlib.yml` is
+tagged `proclib, ssn_commnd, ifaprd` (all three consume the PARMLIB list);
+`discover_active_parmlib_suffixes.yml`/`discover_active_members.yml` are
+tagged `ssn_commnd, ifaprd` only (`proclib.yml` dumps the whole PARMLIB
+concatenation, so it has no use for the narrowed-down active suffixes). So
+e.g. `--tags catalog` or `--tags smpe_csi_discovery` alone doesn't also
+issue `$D PROCLIB`/`D PARMLIB`/`D IPLINFO` and fetch `IEASYSxx` members for
+no reason -- a tagless run still does all of it, same as before, since
+Ansible runs every task when no `--tags`/`--skip-tags` is given regardless
+of what tags it carries.
 
 ### Finding your SMP/E CSI if you don't already know its name
 
