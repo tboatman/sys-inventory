@@ -156,26 +156,42 @@ and `ssn_commnd`/`ifaprd` don't have to dump every `IEFSSN*`/`COMMND*`/
    -- `D IPLINFO`'s `IEASYM LIST`/`IEASYS LIST` give the active
    `IEASYSxx`/`IEASYMxx` suffix(es); this role then reads the actual
    content of those `IEASYSxx` member(s) and pulls out their `SSN=`/
-   `CMD=`/`PROD=` keyword values -- the *real* mechanism z/OS uses to
-   select the active `IEFSSNxx`/`COMMNDxx`/`IFAPRDxx` member, as opposed
-   to assuming they share the same suffix by convention. `ssn_commnd.yml`/
-   `ifaprd.yml` use those suffixes (when found) to fetch just the active
-   member(s) instead of every member matching the wildcard filter. If
-   this comes up empty for any reason (unreadable `IEASYSxx`, unexpected
-   `D IPLINFO` format, etc.), it falls back to the broad wildcard filter
-   automatically -- no separate flag to flip.
+   `CMD=`/`PROD=`/`MSTRJCL=` keyword values -- the *real* mechanism z/OS
+   uses to select the active `IEFSSNxx`/`COMMNDxx`/`IFAPRDxx`/`MSTJCLxx`
+   member, as opposed to assuming they share the same suffix by
+   convention. `ssn_commnd.yml`/`ifaprd.yml` use those suffixes (when
+   found) to fetch just the active member(s) instead of every member
+   matching the wildcard filter. If this comes up empty for any reason
+   (unreadable `IEASYSxx`, unexpected `D IPLINFO` format, etc.), it falls
+   back to the broad wildcard filter automatically -- no separate flag to
+   flip.
+4. **`discover_mstrjcl_proclibs.yml`** -- fills a real gap in step 1:
+   `$D PROCLIB` only reports JES2's own PROCLIB concatenation (used to
+   resolve batch job PROCs), not the separate one the master scheduler
+   uses to resolve `START`/`S` command PROCs for started tasks, which
+   comes from the `IEFPDSI` DD inside the `MSTJCLxx` member (selected by
+   the `MSTRJCL=` suffix from step 3). A site can concatenate extra
+   proclib datasets straight onto that DD without ever touching JES2's
+   own PROCLIB definition -- confirmed as a real site's setup -- so this
+   fetches the active `MSTJCLxx` member (from wherever it's found in
+   `zos_extract_proclibs`), pulls every `DSN=` out of the `IEFPDSI` DD
+   group (the DD itself plus any unnamed concatenated DD statements after
+   it), and appends any not already known to `zos_extract_proclibs` before
+   `proclib.yml` dumps everything. Skipped entirely if `MSTRJCL=` wasn't
+   found in step 3.
 
 Each of these is tagged with exactly the step(s) that need it, not `always`
 -- `discover_proclib.yml` is tagged `proclib`; `discover_parmlib.yml` is
 tagged `proclib, ssn_commnd, ifaprd` (all three consume the PARMLIB list);
 `discover_active_parmlib_suffixes.yml`/`discover_active_members.yml` are
-tagged `ssn_commnd, ifaprd` only (`proclib.yml` dumps the whole PARMLIB
-concatenation, so it has no use for the narrowed-down active suffixes). So
-e.g. `--tags catalog` or `--tags smpe_csi_discovery` alone doesn't also
-issue `$D PROCLIB`/`D PARMLIB`/`D IPLINFO` and fetch `IEASYSxx` members for
-no reason -- a tagless run still does all of it, same as before, since
-Ansible runs every task when no `--tags`/`--skip-tags` is given regardless
-of what tags it carries.
+tagged `proclib, ssn_commnd, ifaprd` (`proclib` needs them too now, for the
+`MSTRJCL=` suffix `discover_mstrjcl_proclibs.yml` consumes);
+`discover_mstrjcl_proclibs.yml` is tagged `proclib` only. So e.g.
+`--tags catalog` or `--tags smpe_csi_discovery` alone doesn't also issue
+`$D PROCLIB`/`D PARMLIB`/`D IPLINFO`, fetch `IEASYSxx` members, or fetch
+`MSTJCLxx` for no reason -- a tagless run still does all of it, same as
+before, since Ansible runs every task when no `--tags`/`--skip-tags` is
+given regardless of what tags it carries.
 
 ### Finding your SMP/E CSI if you don't already know its name
 
@@ -320,11 +336,19 @@ roles/zos_extract/
     discover_active_members.yml
                              # reads the active IEASYSxx member(s) (see
                              # _fetch_active_ieasys_member.yml) and pulls
-                             # their SSN=/CMD=/PROD= keywords -- the
-                             # active IEFSSNxx/COMMNDxx/IFAPRDxx suffixes,
-                             # used by ssn_commnd.yml/ifaprd.yml to fetch
-                             # just those members instead of every one
-                             # matching the broad wildcard filter
+                             # their SSN=/CMD=/PROD=/MSTRJCL= keywords --
+                             # the active IEFSSNxx/COMMNDxx/IFAPRDxx
+                             # suffixes, used by ssn_commnd.yml/ifaprd.yml
+                             # to fetch just those members instead of
+                             # every one matching the broad wildcard
+                             # filter, plus the active MSTJCLxx suffix,
+                             # used by discover_mstrjcl_proclibs.yml
+    discover_mstrjcl_proclibs.yml
+                             # fetches the active MSTJCLxx member and
+                             # appends any proclib DSN concatenated onto
+                             # its IEFPDSI DD to zos_extract_proclibs --
+                             # accounts for proclib datasets invisible to
+                             # '$D PROCLIB' (see above)
     proclib.yml, ssn_commnd.yml, ifaprd.yml
                              # zos_find + zos_fetch member dumps (see
                              # _member_dump.yml, the shared worker they

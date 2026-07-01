@@ -1,0 +1,91 @@
+---
+# Accounts for proclib datasets configured only inside the MSTRJCL member,
+# rather than through JES2's own PROCLIB definition -- confirmed as a real
+# gap at a site that concatenates extra proclib datasets straight onto
+# MSTJCLxx's IEFPDSI DD instead of adding them to JES2's PROCxx.
+#
+# Two distinct "PROCLIB concatenation"s exist on z/OS: JES2's own (used to
+# resolve EXEC PROC= for batch jobs, reportable via '$D PROCLIB' -- see
+# discover_proclib.yml) and the master scheduler's (used to resolve
+# START/S command procs for started tasks), which comes from the IEFPDSI
+# DD inside MSTJCLxx -- the member IEASYSxx's MSTRJCL=xx keyword selects
+# (dropping the "R": MSTRJCL=00 means member MSTJCL00, an IBM-documented
+# naming quirk). There's no console command equivalent to 'D PARMLIB'/
+# '$D PROCLIB' for this one -- the only way to see it is to read the
+# member itself. A site can concatenate extra datasets onto IEFPDSI (the
+# same unnamed `// DD DSN=...` concatenation idiom STEPLIB/JOBLIB use)
+# without ever touching JES2's own PROCLIB definition, so those DSNs are
+# otherwise invisible to this survey.
+#
+# Depends on zos_extract_active_mstrjcl_suffix (discover_active_members.yml)
+# and the already-discovered zos_extract_proclibs (discover_proclib.yml) --
+# MSTJCLxx itself lives in the PROCLIB concatenation, same as any other
+# PROCLIB member, so it's looked up there the same way
+# _fetch_active_ieasys_member.yml looks up IEASYSxx in PARMLIB.
+#
+# Any DSN found here that isn't already in zos_extract_proclibs is
+# appended with the next available NN prefix, so proclib.yml's dump loop
+# (which just iterates zos_extract_proclibs) picks it up the same as
+# every other entry -- no separate dump/ingest path needed.
+
+- name: Find which configured PROCLIB has MSTJCL{{ zos_extract_active_mstrjcl_suffix }}
+  ibm.ibm_zos_core.zos_find:
+    pds_patterns: "{{ zos_extract_proclibs | map(attribute='dsn') | list }}"
+    patterns: ["^MSTJCL{{ zos_extract_active_mstrjcl_suffix }}$"]
+  register: zos_extract_mstrjcl_find
+  when: zos_extract_active_mstrjcl_suffix | length > 0
+
+- name: Pick the highest-priority PROCLIB dsn that has it
+  ansible.builtin.set_fact:
+    zos_extract_mstrjcl_dsn: >-
+      {{ (zos_extract_proclibs
+          | selectattr('dsn', 'in', (zos_extract_mstrjcl_find.data_sets | default([]) | map(attribute='name') | list))
+          | map(attribute='dsn') | list | first | default('')) }}
+  when: zos_extract_active_mstrjcl_suffix | length > 0
+
+- name: Create a scratch directory for MSTJCL{{ zos_extract_active_mstrjcl_suffix }}
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_mstrjcl_scratch
+  delegate_to: localhost
+  when: zos_extract_mstrjcl_dsn | default('') | length > 0
+
+- name: Fetch MSTJCL{{ zos_extract_active_mstrjcl_suffix }}
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_mstrjcl_dsn }}(MSTJCL{{ zos_extract_active_mstrjcl_suffix }})"
+    dest: "{{ zos_extract_mstrjcl_scratch.path }}/"
+    flat: true
+  when: zos_extract_mstrjcl_dsn | default('') | length > 0
+
+- name: Pull every DSN out of the IEFPDSI DD group (the DD itself plus any unnamed concatenated DD statements that follow it)
+  ansible.builtin.set_fact:
+    zos_extract_mstrjcl_proclib_dsns: >-
+      {{ (lookup('ansible.builtin.file', zos_extract_mstrjcl_scratch.path ~ '/MSTJCL' ~ zos_extract_active_mstrjcl_suffix))
+         | regex_findall('(?ms)^//IEFPDSI\s+DD\s+.*?(?=^//\S|\Z)')
+         | join('\n')
+         | regex_findall('DSN=([A-Za-z0-9$#@.()]+)') }}
+  when: zos_extract_mstrjcl_dsn | default('') | length > 0
+
+- name: Remove scratch directory for MSTJCL{{ zos_extract_active_mstrjcl_suffix }}
+  ansible.builtin.file:
+    path: "{{ zos_extract_mstrjcl_scratch.path }}"
+    state: absent
+  delegate_to: localhost
+  when: zos_extract_mstrjcl_scratch.path is defined
+
+- name: Append any not-already-known MSTRJCL proclib DSNs to zos_extract_proclibs
+  ansible.builtin.set_fact:
+    zos_extract_proclibs: "{{ zos_extract_proclibs + (zos_extract_proclibs_mstrjcl_additions_json | from_json) }}"
+  vars:
+    zos_extract_mstrjcl_new_dsns: >-
+      {{ (zos_extract_mstrjcl_proclib_dsns | default([]))
+         | reject('in', zos_extract_proclibs | map(attribute='dsn') | list)
+         | unique | list }}
+    zos_extract_proclibs_mstrjcl_additions_json: |-
+      [
+      {% for dsn in zos_extract_mstrjcl_new_dsns %}
+      {"dsn": "{{ dsn }}", "prefix": "{{ '%02d' | format(zos_extract_proclibs | length + loop.index0) }}"}{{ "," if not loop.last else "" }}
+      {% endfor %}
+      ]
+  when: (zos_extract_mstrjcl_proclib_dsns | default([]) | length) > 0

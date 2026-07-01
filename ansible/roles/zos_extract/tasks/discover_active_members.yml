@@ -9,6 +9,11 @@
 # simply "same suffix as IEASYS" -- that's just this site's naming
 # convention, confirmed rather than assumed.
 #
+# Also pulls out MSTRJCL= (the active MSTJCLxx member suffix) the same
+# way, for discover_mstrjcl_proclibs.yml's benefit -- unlike SSN/CMD/PROD
+# it isn't consumed here, just extracted here since this is already where
+# IEASYSxx gets fetched and parsed.
+#
 # The keyword parser below is deliberately general (one pass extracting
 # every KEYWORD=value statement, not three separate hand-tuned regexes
 # for SSN=/CMD=/PROD= specifically) since IEASYSxx statement formatting
@@ -63,3 +68,11 @@
     zos_extract_active_prod_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^PROD@@@') | map('regex_replace', '^PROD@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # MSTRJCL=xx is a single suffix, not a parenthesized list like
+    # SSN=/CMD=/PROD= above -- it names one member (MSTJCLxx, dropping the
+    # "R" -- an IBM-documented naming quirk, not a typo), so this is kept
+    # as a plain string rather than split on comma. See
+    # discover_mstrjcl_proclibs.yml for what it's used for.
+    zos_extract_active_mstrjcl_suffix: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^MSTRJCL@@@') | map('regex_replace', '^MSTRJCL@@@', '')
+          | list | last | default('')) }}
