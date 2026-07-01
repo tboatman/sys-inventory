@@ -20,12 +20,18 @@
 # supported wildcard position at all). A suffix-only naming convention
 # (no shared prefix) has no catalog-search primitive on z/OS, full stop
 # -- the only way to find "every dataset ending in .CSI" is to list
-# every cataloged cluster and filter client-side, so that's what this
-# does: IDCAMS LISTCAT CLUSTER with no LEVEL/NAME restriction lists
-# every VSAM cluster in the target catalog(s), and the match against
-# zos_extract_smpe_csi_search_patterns happens locally afterwards
-# (same fnmatch-to-regex conversion ssn_commnd.yml/ifaprd.yml use for
-# their member filters).
+# every cataloged entry and filter client-side, so that's what this
+# does: a bare IDCAMS LISTCAT (no ENTRIES/LEVEL restriction) lists every
+# entry of every type in the target catalog(s). Note there's no bare
+# "list every CLUSTER" filter either -- CLUSTER/DATA/etc as a modal
+# keyword only disambiguates a specific ENTRIES() name, it isn't a
+# whole-catalog type filter (confirmed the hard way too: "LISTCAT
+# CLUSTER ." got IDC3211I KEYWORD '.' IS IMPROPER on a real run) -- so
+# this lists everything (aliases, GDGs, non-VSAM, clusters, ...) and the
+# next task keeps only the "CLUSTER -------- name" header lines before
+# matching zos_extract_smpe_csi_search_patterns locally (same
+# fnmatch-to-regex conversion ssn_commnd.yml/ifaprd.yml use for their
+# member filters).
 #
 # CPU note: this really is a full scan of the catalog's index (BCS) --
 # there's no cheaper way to do a suffix-only search. If your site's CSI
@@ -39,7 +45,7 @@
 # into other user catalogs reachable via alias -- if your CSIs live in a
 # separate user catalog, name it explicitly.
 
-- name: Run IDCAMS LISTCAT CLUSTER for every cataloged VSAM cluster
+- name: Run a bare IDCAMS LISTCAT for every cataloged entry
   ibm.ibm_zos_core.zos_mvs_raw:
     program_name: IDCAMS
     auth: true
@@ -53,9 +59,9 @@
           dd_name: SYSIN
           content: >-
             {{ zos_extract_smpe_csi_search_catalogs
-               | map('regex_replace', '^(.*)$', ' LISTCAT CATALOG(\1) CLUSTER .')
+               | map('regex_replace', '^(.*)$', ' LISTCAT CATALOG(\1) .')
                | list
-               | default([' LISTCAT CLUSTER .'], true) }}
+               | default([' LISTCAT .'], true) }}
   register: zos_extract_smpe_csi_listcat_result
   when: zos_extract_smpe_csi_search_patterns | length > 0
 

@@ -180,9 +180,12 @@ chooses to use as one). If you don't know its name yet, run:
 ansible-playbook playbooks/site.yml --tags smpe_csi_discovery --limit lpar1
 ```
 
-This runs an unrestricted IDCAMS `LISTCAT CLUSTER` (every VSAM cluster in the
-connected catalog, no `LEVEL`/name filter) and matches the results locally
-against `zos_extract_smpe_csi_search_patterns`, writing candidates to
+This runs a bare IDCAMS `LISTCAT` (no `ENTRIES`/`LEVEL` restriction -- every
+entry of every type in the connected catalog, since there's no such thing as
+a whole-catalog "just CLUSTER entries" filter; `CLUSTER` as a keyword only
+disambiguates a specific `ENTRIES()` name), keeps only the `CLUSTER` entries
+from that output, and matches the results locally against
+`zos_extract_smpe_csi_search_patterns`, writing candidates to
 `smpe_csi_candidates.txt` -- a naming-heuristic list, not a verified one.
 Confirm a candidate is really usable as an `SMPCSI` (e.g. by pointing
 `smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
@@ -286,10 +289,10 @@ roles/zos_extract/
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)
-    discover_smpe_csis.yml     # opt-in full LISTCAT CLUSTER scan + local
-                                # naming-pattern filter for CSI candidates
-                                # (not zos_find -- not authoritative, see
-                                # above)
+    discover_smpe_csis.yml     # opt-in bare LISTCAT scan (all entry types)
+                                # + local CLUSTER/naming-pattern filter for
+                                # CSI candidates (not zos_find -- not
+                                # authoritative, see above)
     catalog.yml                # zos_find + zos_stat (non-VSAM) and
                                 # zos_mvs_raw/IDCAMS (VSAM) combined
     racf.yml                   # zos_mvs_raw (IRRDBU00), implementation
