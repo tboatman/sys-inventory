@@ -1,6 +1,6 @@
 """CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`,
 `inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`,
-`inventory products`."""
+`inventory products`, `inventory active`, `inventory processes`."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,7 @@ import csv
 import sys
 from pathlib import Path
 
-from . import ifaprd_parser, jcl_parser, smpe_parser, ssn_parser, store, sysinfo_parser
+from . import activity_parser, ifaprd_parser, jcl_parser, smpe_parser, ssn_parser, store, sysinfo_parser
 from .resolver import resolve_all
 
 DEFAULT_DB = Path("inventory.db")
@@ -58,18 +58,27 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     products = [prod for path in sorted(input_dir.glob("*ifaprd*.txt"))
                 for prod in ifaprd_parser.parse_products(path)]
 
+    active_jobs_file = input_dir / "active_jobs.txt"
+    active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
+
+    processes_file = input_dir / "processes.txt"
+    processes = activity_parser.parse_processes(processes_file) if processes_file.exists() else []
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
     store.save_started_tasks(conn, started_tasks)
     store.save_system_info(conn, system_info)
     store.save_products(conn, products)
+    store.save_active_jobs(conn, active_jobs)
+    store.save_processes(conn, processes)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
     print(f"inventory: ingested {len(members)} members, {len(zones)} zones, "
           f"{total_steps} resolved steps, {len(subsystems)} subsystems, "
-          f"{len(started_tasks)} started tasks, {len(products)} products -> {args.db}")
+          f"{len(started_tasks)} started tasks, {len(products)} products, "
+          f"{len(active_jobs)} active jobs, {len(processes)} processes -> {args.db}")
     return 0
 
 
@@ -175,6 +184,28 @@ def cmd_products(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_active(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_active_jobs(conn)
+    conn.close()
+
+    for row in rows:
+        job_type = row["job_type"] or "?"
+        asid = row["asid"] or "?"
+        print(f"{row['job_id']} {row['name']}  TYPE={job_type} ASID={asid}")
+    return 0
+
+
+def cmd_processes(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_processes(conn)
+    conn.close()
+
+    for row in rows:
+        print(row["command"])
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -203,6 +234,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_products = sub.add_parser("products", help="list product enablement status (IFAPRDxx)")
     p_products.set_defaults(func=cmd_products)
+
+    p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
+    p_active.set_defaults(func=cmd_active)
+
+    p_processes = sub.add_parser("processes", help="list currently-running USS processes (live snapshot)")
+    p_processes.set_defaults(func=cmd_processes)
 
     return parser
 

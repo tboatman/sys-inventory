@@ -135,3 +135,25 @@ class Product:
     featurename: str | None = None
     state: str | None = None      # ENABLED / DISABLED
     source_member: str = ""       # IFAPRDxx member name it came from, e.g. "IFAPRD00"
+
+
+@dataclass
+class ActiveJob:
+    """One currently-executing job/started task, as dumped by
+    zos-extract/python/extrjobs.py via ZOAU's jobs.fetch_multiple(),
+    filtered to status == "ACTIVE". This is a live, point-in-time
+    snapshot -- unlike Subsystem/StartedTask (what's *defined*), this is
+    what's actually running right now."""
+
+    job_id: str
+    name: str
+    job_type: str | None = None   # JOB / STC / TSU
+    asid: str | None = None       # address space ID (hex); only set while running
+
+
+@dataclass
+class UssProcess:
+    """One currently-running USS process, as dumped by
+    zos-extract/python/extrprocs.py via the z/OS UNIX `ps -ef` command."""
+
+    command: str

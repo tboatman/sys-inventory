@@ -1,0 +1,3 @@
+/usr/sbin/sshd
+/bin/tcsh
+python3

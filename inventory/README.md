@@ -5,7 +5,8 @@ resolves each PROCLIB/PARMLIB member's full execution path back to the
 SMP/E FMID that owns each program it runs, flags whether each resolved
 load library is APF-authorized, and separately inventories defined
 subsystems, auto-started tasks, the LPAR/sysplex identity of the system
-the dump came from, and product enablement status (IFAPRDxx). Everything
+the dump came from, product enablement status (IFAPRDxx), and a live
+snapshot of currently-running jobs/tasks and USS processes. Everything
 lands in one small SQLite database you query from the command line.
 
 This half runs on any ordinary computer — Mac, Linux, Windows (WSL),
@@ -53,7 +54,9 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_ssn.txt       /tmp/demo/00_ssn.txt && \
   cp tests/fixtures/sample_commnd.txt    /tmp/demo/00_commnd.txt && \
   cp tests/fixtures/sample_sysinfo.txt   /tmp/demo/sysinfo.txt && \
-  cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt
+  cp tests/fixtures/sample_ifaprd.txt    /tmp/demo/00_ifaprd.txt && \
+  cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
+  cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -66,8 +69,8 @@ just renaming them into that shape for a quick demo.)
 
 1. Run `zos-extract/` on the target z/OS system and download its output
    (PROCLIB/PARMLIB dumps, IEFSSNxx/COMMNDxx dumps, IFAPRDxx dumps,
-   LNKLST list, APF list, system identity dump, SMP/E LIST reports) into
-   one local directory — see
+   LNKLST list, APF list, system identity dump, SMP/E LIST reports, active
+   jobs/processes snapshot) into one local directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
    file naming and how to produce each file.
 
@@ -84,7 +87,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -178,6 +181,35 @@ $ inventory products
 `VRM` is VERSION.RELEASE.MOD as coded in the PRODUCT statement — `*` means
 "any" (a wildcard match), not literally the character `*` on your system.
 
+### `inventory active`
+
+Currently-active jobs/started tasks, if you ingested an `active_jobs.txt`
+— unlike everything else in this tool, this is a live, point-in-time
+snapshot, not configuration:
+
+```
+$ inventory active
+STC03801 CICSPROD  TYPE=STC ASID=0043
+STC00002 JES2  TYPE=STC ASID=0002
+JOB01234 PAYROLL  TYPE=JOB ASID=0091
+```
+
+`ASID` (address space ID) distinguishes concurrently-running copies of the
+same-named task. To check whether something defined in `started-tasks`
+above is actually running, match its task name against this list's names.
+
+### `inventory processes`
+
+Currently-running USS process command names, if you ingested a
+`processes.txt`:
+
+```
+$ inventory processes
+/bin/tcsh
+/usr/sbin/sshd
+python3
+```
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -205,7 +237,11 @@ Subsystems (`ssn_parser.parse_subsystems`), started tasks
 STEPLIB/JOBLIB/LNKLST/SMP/E lineage above — they're not part of a
 ProcMember's execution path, just separate inventory dimensions read from
 PARMLIB text dumps. System identity (`sysinfo_parser.parse_sysinfo`) is a
-single record per ingest, not a list.
+single record per ingest, not a list. Active jobs and USS processes
+(`activity_parser.parse_active_jobs`/`parse_processes`) are also
+independent of the lineage chain and, unlike every other dimension, are a
+live snapshot rather than configuration — see "Scaling" below on what
+that means for re-ingesting.
 
 ## Tests
 
@@ -223,7 +259,9 @@ parsing (including continuation-spanning INITPARM and a non-start COMMNDxx
 line that should be skipped), system-identity parsing (including a field
 deliberately missing from the fixture, to prove tolerant partial matching),
 and product parsing (an enabled product with wildcard VERSION/RELEASE/
-MOD/FEATURENAME, and a disabled product with a named feature).
+MOD/FEATURENAME, and a disabled product with a named feature). Also
+active-job and USS-process parsing (`sample_active_jobs.txt`/
+`sample_processes.txt`).
 
 ## Scaling past the first slice
 
@@ -233,12 +271,17 @@ MOD/FEATURENAME, and a disabled product with a named feature).
   PROCLIB/PARMLIB concatenation entries and more SMP/E zones; `ingest`
   merges them all into one inventory. `lnklst.txt` and `apf.txt` are each
   a single flat list.
-- `system_info` (from `sysinfo.txt`) is the one exception: it's
-  deliberately *not* additive like the tables above. It represents the
-  identity of the one system being ingested, so re-ingesting replaces
-  rather than merges it — this is what a future multi-system merge (one
-  inventory DB per system, or a `system` column added throughout) would
-  key each ingest run on.
+- `system_info` (from `sysinfo.txt`), `active_jobs` (from
+  `active_jobs.txt`), and `uss_processes` (from `processes.txt`) are the
+  exceptions: each is deliberately *not* additive like the tables above.
+  `system_info` represents the identity of the one system being ingested;
+  `active_jobs`/`uss_processes` represent one point-in-time snapshot of
+  what was running. Re-ingesting any of them replaces rather than merges
+  — for the live-snapshot pair, that's the whole point: re-run
+  `extrjobs.py`/`extrprocs.py` and `ingest` again to get an updated
+  picture, not an ever-growing history. `system_info` is also what a
+  future multi-system merge (one inventory DB per system, or a `system`
+  column added throughout) would key each ingest run on.
 - The `smpe_parser` module's docstring explains how to tune its regexes if
   your shop's SMP/E LIST report formatting differs from the fixture; the
   `sysinfo_parser` module's docstring has the same guidance for `D
@@ -278,3 +321,7 @@ input directory, this loses no information beyond needing to re-run
   actually named `apf.txt` (exact name, not just containing `apf`).
 - **`ingest` fails with a SQLite error mentioning a column count** — see
   "Upgrading from an older inventory.db" above.
+- **`inventory active`/`processes` come back empty** — this is expected if
+  you didn't ingest `active_jobs.txt`/`processes.txt` (they're optional,
+  same as `apf.txt`/`sysinfo.txt`); double check the filenames are exact
+  if you did generate them.

@@ -75,6 +75,7 @@ script names and flags below assume you know what these mean.
 | **Subsystem** | A major system facility registered at IPL via PARMLIB member `IEFSSNxx` (e.g. JES2, DB2, CICS region managers). |
 | **Started task** | A long-running address space started via an operator `START`/`S` command, often automatically at IPL via `COMMNDxx`. |
 | **IFAPRDxx** | A PARMLIB member listing `PRODUCT` statements that say which priced/optional features are licensed and enabled — different from SMP/E, which says what's installed and patched but not whether it's turned on. |
+| **ASID** | Address Space ID — a small hex number identifying one specific running instance of a job/started task. Only assigned while something is actually executing; useful for telling two concurrently-running copies of the same task apart. |
 | **LPAR** | Logical Partition — one "virtual mainframe" carved out of the physical hardware; a physical box can run several LPARs at once. |
 | **Sysplex** | A cluster of LPARs (possibly across physical boxes) configured to work together as one logical system. |
 | **IPL** | Initial Program Load — z/OS's term for "boot"/"reboot." |
@@ -227,6 +228,31 @@ python3 /path/to/zos-extract/python/smplist.py --csi YOUR.GLOBAL.CSI \
 SMP/E itself only needs READ access to the CSI for LIST commands (no
 APPLY/ACCEPT/RECEIVE happens here), so this is safe to run broadly.
 
+### 8. Live activity snapshot (currently-running jobs and processes)
+
+Everything above is either configuration (what's *defined*) or fairly
+stable point-in-time state. This step is different: it's a live,
+second-to-second snapshot of what's actually *running right now*, from
+two angles — `python/extrjobs.py` for MVS/JES jobs and started tasks, and
+`python/extrprocs.py` for USS (Unix) processes:
+
+```
+python3 /path/to/zos-extract/python/extrjobs.py --outfile active_jobs.txt
+python3 /path/to/zos-extract/python/extrprocs.py --outfile processes.txt
+```
+
+`extrjobs.py` uses ZOAU's job-listing API to find every job/started task
+currently in `ACTIVE` status, writing `job_id name job_type asid` per
+line — the ASID (address space ID) lets you tell two concurrently-running
+copies of the same started task apart. `extrprocs.py` just runs the
+standard z/OS UNIX `ps -ef` command directly (no ZOAU/SDSF involved — this
+is plain USS process listing) and writes one command name per line.
+
+Since this is a snapshot, not configuration, re-running these two scripts
+and re-running `inventory ingest` replaces the previous snapshot rather
+than accumulating history — run them again whenever you want an updated
+picture of what's running.
+
 See each script's `--help` output (or open the `.py` file — the top
 comment has the same information) for full parameter details.
 
@@ -261,6 +287,8 @@ list of what it looks for in the directory you point it at:
 | APF list | exactly `apf.txt` | `extrapf.py` (step 5) |
 | System identity | `sysinfo` | `extrsys.py` (step 6) |
 | SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per zone |
+| Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
+| USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 
 When you scale beyond one PROCLIB/PARMLIB library, name each additional
 `extrproc.py` output file `NN_libname.txt`, where `NN` is that library's

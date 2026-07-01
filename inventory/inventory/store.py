@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from .models import LineageStep, Product, StartedTask, Subsystem, SystemInfo
+from .models import ActiveJob, LineageStep, Product, StartedTask, Subsystem, SystemInfo, UssProcess
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS lineage (
@@ -57,6 +57,18 @@ CREATE TABLE IF NOT EXISTS products (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_products_id ON products(id);
+
+CREATE TABLE IF NOT EXISTS active_jobs (
+    job_id    TEXT NOT NULL,
+    name      TEXT NOT NULL,
+    job_type  TEXT,
+    asid      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_active_jobs_name ON active_jobs(name);
+
+CREATE TABLE IF NOT EXISTS uss_processes (
+    command TEXT NOT NULL
+);
 """
 
 
@@ -163,4 +175,33 @@ def save_products(conn: sqlite3.Connection, products: list[Product]) -> None:
 def all_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM products ORDER BY id")
+    return cur.fetchall()
+
+
+def save_active_jobs(conn: sqlite3.Connection, active_jobs: list[ActiveJob]) -> None:
+    conn.execute("DELETE FROM active_jobs")
+    rows = [(j.job_id, j.name, j.job_type, j.asid) for j in active_jobs]
+    conn.executemany(
+        "INSERT INTO active_jobs (job_id, name, job_type, asid) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_active_jobs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM active_jobs ORDER BY name")
+    return cur.fetchall()
+
+
+def save_processes(conn: sqlite3.Connection, processes: list[UssProcess]) -> None:
+    conn.execute("DELETE FROM uss_processes")
+    rows = [(p.command,) for p in processes]
+    conn.executemany("INSERT INTO uss_processes (command) VALUES (?)", rows)
+    conn.commit()
+
+
+def all_processes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM uss_processes ORDER BY command")
     return cur.fetchall()
