@@ -27,8 +27,8 @@
   # testing both forms), which would corrupt the ##SYMBOLS/##IPLINFO
   # sentinel format sysinfo_parser.py expects.
   ansible.builtin.set_fact:
-    zos_extract_symbols_text: "{{ zos_extract_symbols_reply.content | join('\n') }}"
-    zos_extract_iplinfo_text: "{{ zos_extract_iplinfo_reply.content | join('\n') }}"
+    zos_extract_symbols_text: "{{ zos_extract_symbols_reply.stdout_lines | join('\n') }}"
+    zos_extract_iplinfo_text: "{{ zos_extract_iplinfo_reply.stdout_lines | join('\n') }}"
 
 - name: Write sysinfo.txt
   ansible.builtin.copy:

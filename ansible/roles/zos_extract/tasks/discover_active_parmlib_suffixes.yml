@@ -29,12 +29,12 @@
 - name: Extract IEASYM/IEASYS suffix lists from the console reply
   ansible.builtin.set_fact:
     zos_extract_ieasym_suffixes: >-
-      {{ (zos_extract_iplinfo_reply.content | select('match', '.*IEASYM LIST.*') | list | first | default(''))
+      {{ (zos_extract_iplinfo_reply.stdout_lines | select('match', '.*IEASYM LIST.*') | list | first | default(''))
          | regex_findall('\(([^)]*)\)')
          | map('split', ',')
          | list | flatten }}
     zos_extract_ieasys_suffixes: >-
-      {{ (zos_extract_iplinfo_reply.content | select('match', '.*IEASYS LIST.*') | list | first | default(''))
+      {{ (zos_extract_iplinfo_reply.stdout_lines | select('match', '.*IEASYS LIST.*') | list | first | default(''))
          | regex_findall('\(([^)]*)\)')
          | map('split', ',')
          | list | flatten }}

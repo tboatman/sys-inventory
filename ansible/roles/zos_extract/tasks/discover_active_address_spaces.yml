@@ -43,7 +43,7 @@
 - name: Extract JOBNAME/STEPNAME/PROCSTEP/status tuples from the console reply
   ansible.builtin.set_fact:
     zos_extract_active_as_entries: >-
-      {{ zos_extract_dal_reply.content
+      {{ zos_extract_dal_reply.stdout_lines
          | map('regex_findall', '(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)')
          | list | flatten(levels=1) }}
   when: (zos_extract_cics_job_patterns | length > 0) or (zos_extract_db2_job_patterns | length > 0)

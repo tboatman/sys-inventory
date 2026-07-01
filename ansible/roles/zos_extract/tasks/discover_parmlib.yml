@@ -29,7 +29,7 @@
 - name: Extract PARMLIB data set names from the console reply
   ansible.builtin.set_fact:
     zos_extract_discovered_parmlib_dsns: >-
-      {{ zos_extract_parmlib_reply.content
+      {{ zos_extract_parmlib_reply.stdout_lines
          | select('match', '^\s*[0-9]+\s+\S+\s+\S+\s+\S+\s*$')
          | map('regex_replace', '^\s*[0-9]+\s+\S+\s+\S+\s+(\S+)\s*$', '\1')
          | list }}

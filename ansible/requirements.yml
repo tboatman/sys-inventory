@@ -1,7 +1,14 @@
 ---
 collections:
+  # >=1.14.0, not just >=1.10.0: catalog.yml's zos_stat call (the
+  # non-VSAM attribute lookup) doesn't exist before 1.14.0 -- confirmed
+  # the hard way, 1.12.0 installs cleanly under the old ">=1.10.0" pin
+  # but fails at playbook-parse time with "couldn't resolve module/
+  # action 'ibm.ibm_zos_core.zos_stat'" (import_tasks resolves every
+  # task's module at parse time regardless of --tags, so this broke
+  # even tag-scoped runs that never touch catalog.yml).
   - name: ibm.ibm_zos_core
-    version: ">=1.10.0"
+    version: ">=1.14.0"
   # Not used by any task yet -- pinned for future CMCI-based CICS resource
   # discovery (transactions, programs, files, regions defined in a CSD) if
   # this site ever enables CICSplex SM. cics.yml's current CICS discovery

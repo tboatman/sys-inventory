@@ -35,7 +35,7 @@
 - name: Keep only the $HASP319 data lines, stripped of the message-id prefix
   ansible.builtin.set_fact:
     zos_extract_proclib_data_lines: >-
-      {{ zos_extract_proclib_reply.content
+      {{ zos_extract_proclib_reply.stdout_lines
          | select('match', '.*\$HASP319.*')
          | map('regex_replace', '^.*\$HASP319\s*', '')
          | list }}
