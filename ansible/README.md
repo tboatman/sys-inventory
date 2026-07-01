@@ -215,22 +215,35 @@ CSD) needs IBM's separate `ibm.ibm_zos_cics` collection talking to
 CICSplex SM's CMCI -- not available at this site. `requirements.yml` pins
 `ibm.ibm_zos_cics` anyway, for whenever that changes; no task uses it yet.
 So `cics.yml` (tag `cics`) sticks to the same "what's running right now"
-scope as `activity.yml`'s `active_jobs.txt`, in fact reusing the exact same
-`zos_job_query` call:
+scope as `activity.yml`'s `active_jobs.txt`, using the same `zos_job_query`
+module:
 
 ```
 ansible-playbook playbooks/site.yml --tags cics --limit bes2
 ```
 
-A job counts as a CICS candidate if its job name matches one of
-`zos_extract_cics_job_patterns` (this site's actual conventions: `CTS*`,
-`ECB2*`, `MTSEDUC*`) **or** its executing program is `DFHSIP` (the CICS
-region controller) -- OR'd together rather than requiring both, since the
-naming convention alone could miss a region that doesn't follow it, and
-`DFHSIP` alone could miss one if `zos_job_query`'s `program_name` field
-(documented as reflecting the "last completed step") isn't actually
-populated for a still-running region. Results go to `cics.txt` -- like the
-CSI candidate list, a naming/content heuristic, not authoritative.
+It issues one `zos_job_query` per pattern in `zos_extract_cics_job_patterns`
+(this site's actual conventions: `CTS*`, `ECB2*`, `MTSEDUC*` -- see
+`_cics_job_query.yml`) rather than a single `job_name: "*"` query for every
+active job/STC on the system. That broad form was tried first and crashed
+ZOAU's own `jls` utility on a real run:
+
+```
+CEE3209S The system detected a fixed-point divide exception
+(System Completion Code=0C9) ... at entry point parseSMFRecord
+```
+
+-- a bug in ZOAU's SMF-record parsing, not this playbook's logic.
+`job_name` is the only filter `zos_job_query` exposes, so narrowing to the
+configured patterns individually is the only available way to avoid
+whatever job was tripping it (and it's cheaper besides -- server-side name
+filtering instead of a full scan). The trade-off: an earlier version also
+matched on the executing program being `DFHSIP` to catch a region whose
+name didn't follow the configured convention, which needed the `"*"` query
+and isn't safe to issue here anymore -- `program_name` is still recorded
+per matched job in `cics.txt` for visibility, just not used as an inclusion
+filter on its own. Results are a naming heuristic, not authoritative, same
+as the CSI candidate list.
 
 ### RACF (step 10) is opt-in on purpose
 
@@ -306,9 +319,10 @@ roles/zos_extract/
                              # APF-list analogs
     activity.yml             # zos_job_query + `ps -ef` for the live
                               # jobs/processes snapshot
-    cics.yml                  # opt-in zos_job_query filter for active CICS
-                               # regions by job-name pattern/DFHSIP -- not
-                               # authoritative, see above
+    cics.yml                  # opt-in, per-pattern zos_job_query for
+                               # active CICS regions (see
+                               # _cics_job_query.yml) -- not authoritative,
+                               # see above
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)

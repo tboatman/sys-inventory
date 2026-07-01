@@ -3,38 +3,36 @@
 # site, so there's no way to reach actual CICS resource definitions
 # (transactions, programs, files, regions defined in a CSD); this is
 # strictly a snapshot of which CICS regions are up right now, same
-# "what's running" scope as activity.yml's active_jobs.txt (in fact it
-# reuses the exact same zos_job_query call).
+# "what's running" scope as activity.yml's active_jobs.txt.
 #
-# A region counts as a CICS candidate if either:
-#   - its job name matches one of zos_extract_cics_job_patterns (this
-#     site's actual conventions: CTS*, ECB2*, MTSEDUC*), or
-#   - its executing program is DFHSIP (the CICS region controller)
-# OR'd together rather than requiring both, since the naming convention
-# alone might miss a region that doesn't follow it, and DFHSIP alone
-# might miss one if zos_job_query's program_name (documented as
-# reflecting the "last completed step") isn't actually populated for a
-# still-running region -- unconfirmed either way, so this covers both.
+# Issues one zos_job_query per configured job-name pattern (see
+# _cics_job_query.yml) rather than a single job_name: "*" query for
+# every active job/STC on the system -- a real run of the "*" form
+# crashed ZOAU's own jls utility here:
+#   CEE3209S The system detected a fixed-point divide exception
+#   (System Completion Code=0C9) ... at entry point parseSMFRecord
+# a bug in ZOAU's SMF-record parsing, not this playbook's logic.
+# job_name is the only filter zos_job_query exposes, so narrowing to
+# the three configured patterns individually is the only lever
+# available to avoid whatever job was tripping it -- and it's cheaper
+# besides (server-side name filtering vs a full scan).
+#
+# Trade-off: this drops the "catch a region whose name doesn't follow
+# the configured convention via its executing program being DFHSIP"
+# fallback an earlier version of this file had -- that needed a
+# system-wide "*" query, which isn't safe to issue here anymore.
+# program_name is still recorded per matched job in cics.txt for
+# visibility, just not used as an inclusion filter on its own.
 #
 # Opt-in: skipped entirely unless zos_extract_cics_job_patterns is
 # configured (same convention as zos_extract_catalog_patterns/racf).
 
-- name: Query all active jobs and started tasks
-  ibm.ibm_zos_core.zos_job_query:
-    job_name: "*"
-  register: zos_extract_cics_jobs_result
-  when: zos_extract_cics_job_patterns | length > 0
-
-- name: Build a combined regex from the configured CICS job-name patterns
-  ansible.builtin.set_fact:
-    zos_extract_cics_job_regex: >-
-      {{
-        '^(' ~ (zos_extract_cics_job_patterns
-           | map('regex_replace', '([.^$+{}\[\]|()])', '\\\1')
-           | map('regex_replace', '\*', '.*')
-           | map('regex_replace', '\?', '.')
-           | join('|')) ~ ')$'
-      }}
+- name: Query active jobs/STCs for each configured CICS job-name pattern
+  ansible.builtin.include_tasks: _cics_job_query.yml
+  loop: "{{ zos_extract_cics_job_patterns }}"
+  loop_control:
+    loop_var: zos_extract_cics_pattern
+    label: "{{ zos_extract_cics_pattern }}"
   when: zos_extract_cics_job_patterns | length > 0
 
 - name: Write cics.txt
@@ -42,10 +40,8 @@
     dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_outfile }}"
     mode: "0644"
     content: |-
-      {% for job in zos_extract_cics_jobs_result.jobs | default([]) | selectattr('ret_code', 'none') | list %}
-      {% if (job.job_name is match(zos_extract_cics_job_regex)) or (job.program_name | default('') == 'DFHSIP') %}
+      {% for job in zos_extract_cics_jobs | default([]) %}
       {{ job.job_id }} {{ job.job_name }} {{ job.program_name | default('?') }} {{ job.asid }}
-      {% endif %}
       {% endfor %}
   delegate_to: localhost
   when: zos_extract_cics_job_patterns | length > 0
