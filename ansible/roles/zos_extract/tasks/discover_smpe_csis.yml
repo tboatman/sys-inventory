@@ -1,0 +1,41 @@
+---
+# Finds VSAM clusters that LOOK like SMP/E CSIs, by catalog name pattern
+# only -- there's no system command that enumerates registered CSIs the
+# way D PARMLIB/$D PROCLIB does for PROCLIB/PARMLIB (SMP/E doesn't
+# register a CSI anywhere central; a CSI is just a VSAM KSDS a site
+# chooses to use as one). So this is a naming-convention heuristic over
+# the catalog, not a guaranteed-complete or guaranteed-accurate list --
+# anything it finds needs a human to confirm is really usable as an
+# SMPCSI (e.g. by pointing GIMSMP LIST at it) before being set as
+# zos_extract_smpe_csi.
+#
+# Opt-in: skipped entirely unless zos_extract_smpe_csi_search_patterns is
+# configured (same convention as zos_extract_catalog_patterns/racf).
+#
+# CPU note: zos_find's catalog search only walks the catalog's index
+# (BCS), never the VSAM data itself, so its cost scales with how much of
+# that index has to be walked, not with how much data is stored under
+# it. A pattern anchored on a fixed prefix (e.g. "SMPE.*.CSI") lets the
+# search do a narrow, ordered lookup; a leading wildcard (e.g. "**.CSI")
+# forces it to walk every catalog entry on the system looking for a
+# match at the end of the name. Keep these patterns prefix-anchored --
+# see ansible/README.md.
+
+- name: Find VSAM clusters matching the configured CSI naming patterns
+  ibm.ibm_zos_core.zos_find:
+    patterns: "{{ zos_extract_smpe_csi_search_patterns }}"
+    resource_type: [cluster]
+  register: zos_extract_smpe_csi_find
+  when: zos_extract_smpe_csi_search_patterns | length > 0
+
+- name: Write the CSI candidate list
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_smpe_csi_candidates_outfile }}"
+    mode: "0644"
+    content: |-
+      ##CSI_CANDIDATES (naming-heuristic matches only -- confirm before use)
+      {% for d in zos_extract_smpe_csi_find.data_sets | default([]) %}
+      {{ d.name }}
+      {% endfor %}
+  delegate_to: localhost
+  when: zos_extract_smpe_csi_search_patterns | length > 0

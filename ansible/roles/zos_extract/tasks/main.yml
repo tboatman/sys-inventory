@@ -60,6 +60,11 @@
   ansible.builtin.import_tasks: sysinfo.yml
   tags: [sysinfo]
 
+- name: Candidate SMP/E CSI discovery -- naming-heuristic only, opt-in (see discover_smpe_csis.yml)
+  ansible.builtin.import_tasks: discover_smpe_csis.yml
+  tags: [smpe_csi_discovery]
+  when: zos_extract_smpe_csi_search_patterns | length > 0
+
 - name: SMP/E CSI report (step 7)
   ansible.builtin.import_tasks: smplist.yml
   tags: [smplist]

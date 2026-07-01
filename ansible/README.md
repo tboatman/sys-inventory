@@ -169,6 +169,31 @@ All of these are unconditional (`always` tagged) so they run regardless of
 which step tags you select, since `ssn_commnd`/`ifaprd` need the discovered
 suffixes even if you didn't ask for `sysinfo`/PARMLIB steps in the same run.
 
+### Finding your SMP/E CSI if you don't already know its name
+
+`zos_extract_smpe_csi` (used by `smplist.yml`) has to be set by hand -- unlike
+PROCLIB/PARMLIB, there's no system command that enumerates registered CSIs
+(SMP/E doesn't register a CSI anywhere central; it's just a VSAM KSDS a site
+chooses to use as one). If you don't know its name yet, set
+`zos_extract_smpe_csi_search_patterns` in `hosts.yml` and run:
+
+```
+ansible-playbook playbooks/site.yml --tags smpe_csi_discovery --limit lpar1
+```
+
+This searches the catalog (`zos_find`, `resource_type: cluster`) for VSAM
+clusters matching those patterns and writes candidates to
+`smpe_csi_candidates.txt` -- a naming-heuristic list, not a verified one.
+Confirm a candidate is really usable as an `SMPCSI` (e.g. by pointing
+`smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
+
+Keep the patterns prefix-anchored (e.g. `SMPE.*.CSI`), not leading-wildcard
+(e.g. `**.CSI`): catalog search is an ordered index (BCS) lookup, so a fixed
+prefix lets it do a narrow scan, while a leading wildcard forces it to walk
+every catalog entry on the system looking for a match at the end of the
+name -- the actual CPU cost driver, not the volume of data stored under any
+of those entries.
+
 ### RACF (step 10) is opt-in on purpose
 
 Per `zos-extract/README.md`, `extrracf.py` needs a materially different and
@@ -244,6 +269,9 @@ roles/zos_extract/
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)
+    discover_smpe_csis.yml     # opt-in catalog search for CSI candidates
+                                # by naming pattern (zos_find, cluster) --
+                                # not authoritative, see above
     catalog.yml                # zos_find + zos_stat (non-VSAM) and
                                 # zos_mvs_raw/IDCAMS (VSAM) combined
     racf.yml                   # zos_mvs_raw (IRRDBU00), implementation

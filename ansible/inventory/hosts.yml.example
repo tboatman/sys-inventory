@@ -48,6 +48,17 @@ all:
           - TZONE1
         # zos_extract_smpe_steplib: YOUR.SMPE.LINKLIB   # only if GIMSMP isn't in LNKLST
 
+        # Don't know your CSI's name yet? Uncomment this to have the
+        # 'smpe_csi_discovery' tag search the catalog for candidates
+        # (naming-heuristic only, not authoritative -- see
+        # roles/zos_extract/tasks/discover_smpe_csis.yml) and write them to
+        # smpe_csi_candidates.txt instead of hand-configuring
+        # zos_extract_smpe_csi above. Keep patterns prefix-anchored
+        # (e.g. "SMPE.*.CSI"), not leading-wildcard (e.g. "**.CSI") --
+        # that file explains why.
+        # zos_extract_smpe_csi_search_patterns:
+        #   - "SMPE.*.CSI"
+
         zos_extract_catalog_patterns:
           - "PROD.*"
           - "PROD.**"
