@@ -1,0 +1,18 @@
+[project]
+name = "zos-inventory"
+version = "0.1.0"
+description = "Resolve z/OS PROCLIB/PARMLIB execution paths back to owning SMP/E FMIDs"
+requires-python = ">=3.9"
+
+[project.scripts]
+inventory = "inventory.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["inventory"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
