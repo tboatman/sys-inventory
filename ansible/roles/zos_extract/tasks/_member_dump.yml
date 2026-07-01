@@ -38,7 +38,7 @@
 
 - name: Set the member name list for {{ zos_extract_dsn }}
   ansible.builtin.set_fact:
-    zos_extract_member_names: "{{ (zos_extract_members.data_sets[0].members | default({})).keys() | list | sort }}"
+    zos_extract_member_names: "{{ (zos_extract_members.data_sets[0].members | default([])) | list | sort }}"
 
 - name: Fetch each matching member of {{ zos_extract_dsn }}
   ibm.ibm_zos_core.zos_fetch:
