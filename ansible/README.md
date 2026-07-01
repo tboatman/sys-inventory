@@ -106,6 +106,34 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
 
+### Running it against a system that isn't in `hosts.yml` yet
+
+`playbooks/interactive.yml` prompts for connection details instead of
+requiring them in `inventory/hosts.yml` -- useful for a one-off run against
+a system you haven't added to inventory, or don't want to:
+
+```
+ansible-playbook playbooks/interactive.yml
+```
+
+It asks for the hostname/IP, username, password (leave blank to use
+key-based auth via your normal `ssh` config/agent instead), and SSH port,
+then runs the same role against just that system. Everything else --
+which steps run, `zos_extract_proclibs`/`zos_extract_smpe_csi`/
+`zos_extract_catalog_patterns`/... -- still comes from
+`roles/zos_extract/defaults/main.yml` and `inventory/group_vars/zos.yml`,
+same as `playbooks/site.yml`; override those with `-e` as needed, e.g.:
+
+```
+ansible-playbook playbooks/interactive.yml \
+  -e '{"zos_extract_proclibs": [{"dsn": "SYS1.PROCLIB", "prefix": "00"}]}'
+```
+
+`--tags`/`--limit` work the same as with `playbooks/site.yml`. Answering
+the password prompt needs `sshpass` installed on your control node, the
+same as any Ansible password-based SSH connection -- if you don't have
+it, leave the prompt blank and rely on key-based auth instead.
+
 ### RACF (step 10) is opt-in on purpose
 
 Per `zos-extract/README.md`, `extrracf.py` needs a materially different and
@@ -139,6 +167,8 @@ inventory/group_vars/zos.yml  # shared ZOAU/Python env + local output path
                                # (must live beside the inventory file --
                                # that's how Ansible auto-loads group_vars)
 playbooks/site.yml         # entry point; sets the ZOAU env at the play level
+playbooks/interactive.yml  # same, but prompts for connection details for a
+                            # one-off system instead of reading hosts.yml
 roles/zos_extract/
   defaults/main.yml        # per-step defaults (member filters, HLQs, ...)
   tasks/

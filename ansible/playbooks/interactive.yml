@@ -1,0 +1,72 @@
+---
+# Entry point for a one-off run against a system that isn't (or isn't yet)
+# in inventory/hosts.yml -- prompts for connection details instead of
+# requiring them to be pre-populated there. Everything else (which steps
+# run, zos_extract_proclibs/zos_extract_smpe_csi/
+# zos_extract_catalog_patterns/...) still comes from
+# roles/zos_extract/defaults/main.yml and inventory/group_vars/zos.yml,
+# same as playbooks/site.yml -- override those with -e as needed, e.g.:
+#   ansible-playbook playbooks/interactive.yml \
+#     -e '{"zos_extract_proclibs": [{"dsn": "SYS1.PROCLIB", "prefix": "00"}]}'
+#
+# Password auth (if you answer the password prompt) needs `sshpass`
+# installed on the control node, same as any Ansible password-based SSH
+# connection. Leave the password prompt blank to use key-based auth
+# instead (whatever your normal `ssh` config/agent already provides).
+
+- name: Prompt for connection details and register the target system
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: zos_extract_target_host
+      prompt: "z/OS system hostname or IP address"
+      private: false
+
+    - name: zos_extract_target_user
+      prompt: "Username"
+      private: false
+
+    - name: zos_extract_target_password
+      prompt: "Password (leave blank to use key-based auth instead)"
+      private: true
+      default: ""
+
+    - name: zos_extract_target_port
+      prompt: "SSH port"
+      private: false
+      default: "22"
+
+  tasks:
+    - name: Register the entered system in the zos group (password auth)
+      ansible.builtin.add_host:
+        name: "{{ zos_extract_target_host }}"
+        groups: zos
+        ansible_host: "{{ zos_extract_target_host }}"
+        ansible_port: "{{ zos_extract_target_port }}"
+        ansible_user: "{{ zos_extract_target_user }}"
+        ansible_password: "{{ zos_extract_target_password }}"
+        ansible_connection: ibm.ibm_zos_core.zos_ssh
+        ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
+      no_log: true
+      tags: always
+      when: zos_extract_target_password | length > 0
+
+    - name: Register the entered system in the zos group (key-based auth)
+      ansible.builtin.add_host:
+        name: "{{ zos_extract_target_host }}"
+        groups: zos
+        ansible_host: "{{ zos_extract_target_host }}"
+        ansible_port: "{{ zos_extract_target_port }}"
+        ansible_user: "{{ zos_extract_target_user }}"
+        ansible_connection: ibm.ibm_zos_core.zos_ssh
+        ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
+      tags: always
+      when: zos_extract_target_password | length == 0
+
+- name: Run zos-extract-equivalent native Ansible modules on the entered system
+  hosts: zos
+  gather_facts: false
+  environment: "{{ zos_extract_env }}"
+  roles:
+    - zos_extract
