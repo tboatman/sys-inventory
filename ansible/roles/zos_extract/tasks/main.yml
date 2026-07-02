@@ -61,6 +61,10 @@
   ansible.builtin.import_tasks: ifaprd.yml
   tags: [ifaprd]
 
+- name: Explicit PARMLIB concatenation snapshot -- own tag, not bundled with discover_parmlib.yml's implicit discovery call above (step 20, see parmlib_snapshot.yml)
+  ansible.builtin.import_tasks: parmlib_snapshot.yml
+  tags: [parmlib_snapshot]
+
 - name: LNKLST dataset list (step 4)
   ansible.builtin.import_tasks: lnklst.yml
   tags: [lnklst]

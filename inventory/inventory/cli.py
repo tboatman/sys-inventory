@@ -12,7 +12,7 @@
 `inventory sms-storgrps`,
 `inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
 `inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
-`inventory cics-csd`, `inventory zone-index`."""
+`inventory cics-csd`, `inventory zone-index`, `inventory parmlib`."""
 from __future__ import annotations
 
 import argparse
@@ -30,6 +30,7 @@ from . import (
     ifaprd_parser,
     jcl_parser,
     jes2parm_parser,
+    parmlib_parser,
     racf_parser,
     smpe_parser,
     sms_parser,
@@ -69,7 +70,11 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         return 1
 
     members = []
-    for path in sorted(input_dir.glob("*proclib*.txt")) + sorted(input_dir.glob("*parmlib*.txt")):
+    # parmlib_snapshot.txt is a 'D PARMLIB' console reply, not a member
+    # dump -- excluded here the same way '*wlm*.txt' excludes
+    # 'wlm_zosmf.txt' below, since it'd otherwise also match '*parmlib*.txt'.
+    parmlib_member_dumps = [p for p in input_dir.glob("*parmlib*.txt") if p.name != "parmlib_snapshot.txt"]
+    for path in sorted(input_dir.glob("*proclib*.txt")) + sorted(parmlib_member_dumps):
         members.extend(jcl_parser.parse_dump(path))
 
     zone_maps = [smpe_parser.parse_smplist(p) for p in sorted(input_dir.glob("*smplist*.txt"))]
@@ -94,6 +99,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     products = [prod for path in sorted(input_dir.glob("*ifaprd*.txt"))
                 for prod in ifaprd_parser.parse_products(path)]
+
+    parmlib_snapshot_file = input_dir / "parmlib_snapshot.txt"
+    parmlib_datasets = (parmlib_parser.parse_parmlib_snapshot(parmlib_snapshot_file)
+                        if parmlib_snapshot_file.exists() else [])
 
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
@@ -181,6 +190,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_started_tasks(conn, started_tasks)
     store.save_system_info(conn, system_info)
     store.save_products(conn, products)
+    store.save_parmlib_datasets(conn, parmlib_datasets)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -208,6 +218,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     print(f"inventory: ingested {len(members)} members, {len(zones)} zones, "
           f"{total_steps} resolved steps, {len(subsystems)} subsystems, "
           f"{len(started_tasks)} started tasks, {len(products)} products, "
+          f"{len(parmlib_datasets)} PARMLIB concatenation datasets, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -378,6 +389,18 @@ def cmd_products(args: argparse.Namespace) -> int:
         state = row["state"] or "?"
         print(f"{row['id']}: {name}  VRM={vrm} FEATURENAME={feature} STATE={state}  "
               f"[{row['source_member']}]")
+    return 0
+
+
+def cmd_parmlib(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_parmlib_datasets(conn)
+    conn.close()
+
+    for row in rows:
+        flags = row["flags"] or "?"
+        volume = row["volume"] or "?"
+        print(f"{row['entry']}  FLAGS={flags} VOLUME={volume} {row['dsn']}")
     return 0
 
 
@@ -774,6 +797,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_products = sub.add_parser("products", help="list product enablement status (IFAPRDxx)")
     p_products.set_defaults(func=cmd_products)
+
+    p_parmlib = sub.add_parser("parmlib", help="list the live PARMLIB concatenation in search order (D PARMLIB, explicit capture)")
+    p_parmlib.set_defaults(func=cmd_parmlib)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

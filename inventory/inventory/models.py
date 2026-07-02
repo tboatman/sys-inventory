@@ -188,6 +188,28 @@ class Product:
 
 
 @dataclass
+class ParmlibDataset:
+    """One dataset in the live PARMLIB concatenation, as reported by 'D
+    PARMLIB' (see ansible/roles/zos_extract/tasks/parmlib_snapshot.yml)
+    and parsed by parmlib_parser.py -- explicit, always-captured
+    counterpart to discover_parmlib.yml's own implicit 'D PARMLIB' call
+    (issued only when zos_extract_parmlibs isn't already configured, and
+    reduced in-place to a bare DSN list, never saved or ingested as its
+    own dimension). `entry` is PARMLIB search order (lowest = searched
+    first, "1"-based as MVS reports it -- distinct from this project's
+    own "00"/"01"/... NN-prefix convention for zos_extract_parmlibs).
+
+    Same confirmed 4-column ENTRY/FLAGS/VOLUME/DATA-SET reply shape
+    LNKLST/APF use (see discover_parmlib.yml's own header comment) --
+    not a fresh guess."""
+
+    entry: str
+    flags: str | None = None
+    volume: str | None = None
+    dsn: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

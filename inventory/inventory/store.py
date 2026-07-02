@@ -20,6 +20,7 @@ from .models import (
     GeneralResourceProfile,
     Jes2InitStatement,
     LineageStep,
+    ParmlibDataset,
     Product,
     RacfGroup,
     RacfGroupConnection,
@@ -93,6 +94,13 @@ CREATE TABLE IF NOT EXISTS products (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_products_id ON products(id);
+
+CREATE TABLE IF NOT EXISTS parmlib_datasets (
+    entry   TEXT NOT NULL,
+    flags   TEXT,
+    volume  TEXT,
+    dsn     TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -439,6 +447,22 @@ def save_products(conn: sqlite3.Connection, products: list[Product]) -> None:
 def all_products(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM products ORDER BY id")
+    return cur.fetchall()
+
+
+def save_parmlib_datasets(conn: sqlite3.Connection, datasets: list[ParmlibDataset]) -> None:
+    conn.execute("DELETE FROM parmlib_datasets")
+    rows = [(d.entry, d.flags, d.volume, d.dsn) for d in datasets]
+    conn.executemany(
+        "INSERT INTO parmlib_datasets (entry, flags, volume, dsn) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_parmlib_datasets(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM parmlib_datasets ORDER BY CAST(entry AS INTEGER)")
     return cur.fetchall()
 
 

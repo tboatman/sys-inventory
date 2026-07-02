@@ -394,7 +394,7 @@ list of what it looks for in the directory you point it at:
 
 | What | Filename must contain | Produced by |
 |---|---|---|
-| PROCLIB/PARMLIB dumps | `proclib` or `parmlib` | `extrproc.py` (step 1) |
+| PROCLIB/PARMLIB dumps | `proclib` or `parmlib` (except exactly `parmlib_snapshot.txt`, see below) | `extrproc.py` (step 1) |
 | Subsystem dumps | `ssn` | `extrproc.py` with `--members 'IEFSSN*'` (step 2) |
 | Started-task dumps | `commnd` | `extrproc.py` with `--members 'COMMND*'` (step 2) |
 | Product enablement dumps | `ifaprd` | `extrproc.py` with `--members 'IFAPRD*'` (step 3) |
@@ -403,6 +403,7 @@ list of what it looks for in the directory you point it at:
 | System identity | `sysinfo` | `extrsys.py` (step 6) |
 | SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per CSI/zone pair |
 | SMP/E zone index (LIST GLOBALZONE) | `smpzones` | ansible-only, `discover_smpe_zones.yml`, one file per CSI |
+| PARMLIB concatenation snapshot (D PARMLIB) | exactly `parmlib_snapshot.txt` | ansible-only, `parmlib_snapshot.yml` -- deliberately excluded from the `parmlib` rule above so it isn't mistaken for a PARMLIB member dump |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

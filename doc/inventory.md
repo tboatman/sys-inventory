@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Nine more files —
+   file naming and how to produce each file. Eleven more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -113,19 +113,29 @@ just renaming them into that shape for a quick demo.)
    policy name/mode, first cut only), `db2_catalog.txt` (installed DB2
    packages/plans, opt-in), `wlm_zosmf.txt` (WLM service-class/goal
    definitions via z/OSMF's REST API, opt-in, raw JSON text despite the
-   `.txt` name), and `cics_deepening.txt` (deepened CICS DFHRPL/SIT/CSD
-   detail, opt-in) — have no standalone `zos-extract/python` script yet
+   `.txt` name), `cics_deepening.txt` (deepened CICS DFHRPL/SIT/CSD
+   detail, opt-in), `*.smpzones.txt` (SMP/E zone census via LIST
+   GLOBALZONE, one per CSI), and `parmlib_snapshot.txt` (the live PARMLIB
+   concatenation via an explicit, always-run `D PARMLIB` capture,
+   distinct from the implicit one `zos_extract_parmlibs` auto-discovery
+   uses internally) — have no standalone `zos-extract/python` script yet
    and are only produced by the `ansible/` role's
-   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`
+   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
+   `smpe_zone_discovery`/`parmlib_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
-   `interactive.yml` — see that README's own section on it. All nine are
+   `interactive.yml` — see that README's own section on it. The original
+   nine (everything except `*.smpzones.txt`/`parmlib_snapshot.txt`) are
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
    caveat; `cics_deepening.txt`'s own CSD-report portion is right behind
-   them — see their own sections below.
+   them — see their own sections below. `parmlib_snapshot.txt` reuses the
+   already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
+   that caveat; `*.smpzones.txt` is confirmed against a real third-party
+   reference implementation but not yet against this site's own system —
+   see its own section below.
 
 2. Ingest and resolve:
 
@@ -140,7 +150,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions, 0 SMP/E zone index entries -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 0 PARMLIB concatenation datasets, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions, 0 SMP/E zone index entries -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -261,6 +271,27 @@ $ inventory products
 
 `VRM` is VERSION.RELEASE.MOD as coded in the PRODUCT statement — `*` means
 "any" (a wildcard match), not literally the character `*` on your system.
+
+### `inventory parmlib`
+
+The live PARMLIB concatenation in search order (`D PARMLIB`), if you
+ingested a `parmlib_snapshot.txt` — an explicit, always-captured
+counterpart to `discover_parmlib.yml`'s own implicit `D PARMLIB` call
+(only issued when `zos_extract_parmlibs` isn't already configured, and
+never saved anywhere; see `ansible.md`'s Available tags section):
+
+```
+$ inventory parmlib
+1  FLAGS=S VOLUME=HCD000 SYS1.COMMON.PARMLIB
+2  FLAGS=S VOLUME=BES2W1 SYS3.BES2.PARMLIB
+3  FLAGS=D VOLUME=BES2W1 SYS3.BES2.LOCAL.PARMLIB
+```
+
+`entry` is PARMLIB search order as MVS itself numbers it (1-based, lowest
+searched first) — distinct from this project's own `zos_extract_parmlibs`
+`"00"`/`"01"`/... prefix convention. Same confirmed 4-column reply shape
+LNKLST/APF already use (see `parmlib_parser.py`'s module docstring), not
+a fresh guess.
 
 ### `inventory active`
 
@@ -956,12 +987,15 @@ else) — see `cics_csdup_parser.py`'s module docstring.**
   `apf.txt` are each a single flat list.
 - `system_info` (from `sysinfo.txt`), `wlm_policy` (from `wlm.txt`),
   `active_jobs` (from `active_jobs.txt`), `uss_processes` (from
-  `processes.txt`), and the seven `racf_*` tables (from `racf.txt`) are
+  `processes.txt`), `parmlib_datasets` (from `parmlib_snapshot.txt`), and
+  the seven `racf_*` tables (from `racf.txt`) are
   the exceptions: each is deliberately *not* additive like the tables
   above. `system_info`/`wlm_policy` represent a single-record identity
   (system, or active policy) rather than a list; `active_jobs`/
   `uss_processes` represent one point-in-time snapshot of what was
-  running; the `racf_*` tables represent IRRDBU00's full current database
+  running; `parmlib_datasets` represents the current PARMLIB
+  concatenation, same "one system's current state" reasoning; the
+  `racf_*` tables represent IRRDBU00's full current database
   state, not an incremental slice. Re-ingesting any of them replaces
   rather than merges — for the live-snapshot pair, that's the whole point:
   re-run `extrjobs.py`/`extrprocs.py` and `ingest` again to get an updated

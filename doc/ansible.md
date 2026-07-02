@@ -100,7 +100,8 @@ ansible-playbook playbooks/site.yml --tags lnklst,apf
 ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
-Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
+Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
+`lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
 `wlm_zosmf` (like `racf`) is gated `never` -- it only runs when
@@ -109,6 +110,15 @@ explicitly requested with `--tags wlm_zosmf`, normally via the dedicated
 `smplist`/`catalog` only run on hosts where `zos_extract_smpe_csis`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
+
+`parmlib_snapshot` is a deliberately explicit, separate tag: unlike
+`proclib`/`ssn_commnd`/`ifaprd` (which each trigger `discover_parmlib.yml`'s
+own *implicit* `D PARMLIB` call as internal plumbing -- only issued when
+`zos_extract_parmlibs` isn't already configured, and never saved anywhere),
+this always issues `D PARMLIB` and writes the raw reply to
+`parmlib_snapshot.txt`, ingested as its own dimension (`inventory
+parmlib`) -- request it explicitly with `--tags parmlib_snapshot`, or via
+an untagged full run.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -784,6 +794,12 @@ roles/zos_extract/
                              # zos_find + zos_fetch member dumps (see
                              # _member_dump.yml, the shared worker they
                              # each include per PROCLIB/PARMLIB entry)
+    parmlib_snapshot.yml     # explicit, always-run 'D PARMLIB' capture,
+                             # tag parmlib_snapshot -- separate from
+                             # discover_parmlib.yml's own implicit,
+                             # conditional call above; writes
+                             # parmlib_snapshot.txt, ingested as its own
+                             # dimension (inventory parmlib)
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs
