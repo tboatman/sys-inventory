@@ -6,7 +6,8 @@
 `inventory racf-dataset-profiles`, `inventory racf-dataset-access`,
 `inventory racf-resource-profiles`, `inventory racf-resource-access`,
 `inventory uss-mounts`, `inventory jes2parm`, `inventory vtam-majnodes`,
-`inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`."""
+`inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`,
+`inventory sms-storgrps`, `inventory sms-storclas`, `inventory sms-mgmtclas`."""
 from __future__ import annotations
 
 import argparse
@@ -23,6 +24,7 @@ from . import (
     jes2parm_parser,
     racf_parser,
     smpe_parser,
+    sms_parser,
     ssn_parser,
     store,
     sysinfo_parser,
@@ -116,6 +118,15 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         tcpip_home_addresses.extend(addresses)
         tcpip_profile_statements.extend(statements)
 
+    sms_storage_groups = []
+    sms_storage_classes = []
+    sms_management_classes = []
+    for path in sorted(input_dir.glob("*sms*.txt")):
+        storgrps, storclas, mgmtclas = sms_parser.parse_sms(path)
+        sms_storage_groups.extend(storgrps)
+        sms_storage_classes.extend(storclas)
+        sms_management_classes.extend(mgmtclas)
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -133,6 +144,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_vtam_start_options(conn, vtam_start_options)
     store.save_tcpip_home_addresses(conn, tcpip_home_addresses)
     store.save_tcpip_profile_statements(conn, tcpip_profile_statements)
+    store.save_sms_storage_groups(conn, sms_storage_groups)
+    store.save_sms_storage_classes(conn, sms_storage_classes)
+    store.save_sms_management_classes(conn, sms_management_classes)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -149,7 +163,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(vtam_major_nodes)} VTAM major nodes, "
           f"{len(vtam_start_options)} VTAM start options, "
           f"{len(tcpip_home_addresses)} TCPIP home addresses, "
-          f"{len(tcpip_profile_statements)} TCPIP profile statements -> {args.db}")
+          f"{len(tcpip_profile_statements)} TCPIP profile statements, "
+          f"{len(sms_storage_groups)} SMS storage groups, "
+          f"{len(sms_storage_classes)} SMS storage classes, "
+          f"{len(sms_management_classes)} SMS management classes -> {args.db}")
     return 0
 
 
@@ -484,6 +501,39 @@ def cmd_tcpip_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sms_storgrps(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_sms_storage_groups(conn)
+    conn.close()
+
+    for row in rows:
+        volumes = ",".join(json.loads(row["volumes_json"]))
+        print(f"{row['name']}  STATUS={row['status'] or '?'}  VOLUMES={volumes or '?'}")
+    return 0
+
+
+def cmd_sms_storclas(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_sms_storage_classes(conn)
+    conn.close()
+
+    for row in rows:
+        params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
+        print(f"{row['name']}  {params}")
+    return 0
+
+
+def cmd_sms_mgmtclas(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_sms_management_classes(conn)
+    conn.close()
+
+    for row in rows:
+        params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
+        print(f"{row['name']}  {params}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -563,6 +613,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_tcpip_profile = sub.add_parser("tcpip-profile", help="list PROFILE.TCPIP configuration statements, if configured (not yet production-validated)")
     p_tcpip_profile.set_defaults(func=cmd_tcpip_profile)
+
+    p_sms_storgrps = sub.add_parser("sms-storgrps", help="list SMS storage groups and their volumes (not yet production-validated)")
+    p_sms_storgrps.set_defaults(func=cmd_sms_storgrps)
+
+    p_sms_storclas = sub.add_parser("sms-storclas", help="list SMS storage classes (not yet production-validated)")
+    p_sms_storclas.set_defaults(func=cmd_sms_storclas)
+
+    p_sms_mgmtclas = sub.add_parser("sms-mgmtclas", help="list SMS management classes (not yet production-validated)")
+    p_sms_mgmtclas.set_defaults(func=cmd_sms_mgmtclas)
 
     return parser
 

@@ -46,6 +46,8 @@ zos_extract_tcpip_outfile: "tcpip.txt"
 # tcpip.yml. Leave blank to skip; D TCPIP,,NETSTAT,HOME still runs either way.
 zos_extract_tcpip_profile_dsn: ""
 
+zos_extract_sms_outfile: "sms.txt"
+
 zos_extract_racf_database_dsn: ""
 
 # Opt-in live "what's running" CICS/DB2 discovery -- see

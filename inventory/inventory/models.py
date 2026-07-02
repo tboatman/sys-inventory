@@ -293,6 +293,52 @@ class TcpipProfileStatement:
 
 
 @dataclass
+class SmsStorageGroup:
+    """One SMS storage group, as dumped by 'D SMS,STORGRP(*),LISTVOL'
+    (see ansible/roles/zos_extract/tasks/sms.yml) and parsed by
+    sms_parser.py.
+
+    NOT YET VALIDATED against a real 'D SMS,STORGRP(*),LISTVOL' reply --
+    see sms_parser.py's module docstring for the same caveat
+    racf_parser.py carries for its own unconfirmed byte offsets."""
+
+    name: str
+    status: str | None = None   # e.g. ENABLE, DISABLE, NOTCNCT
+    volumes: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SmsStorageClass:
+    """One SMS storage class, as dumped by 'D SMS,SC(*)' (see
+    ansible/roles/zos_extract/tasks/sms.yml) and parsed by sms_parser.py.
+
+    Captured generically (class name + a raw keyword->value map) rather
+    than modeled per attribute -- the same "capture everything
+    generically" approach Jes2InitStatement/VtamStartOption use, since
+    the full storage class attribute set isn't confirmed here.
+
+    NOT YET VALIDATED against a real 'D SMS,SC(*)' reply -- see
+    sms_parser.py's module docstring."""
+
+    name: str
+    params: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class SmsManagementClass:
+    """One SMS management class, as dumped by 'D SMS,MC(*)' (see
+    ansible/roles/zos_extract/tasks/sms.yml) and parsed by sms_parser.py.
+
+    Captured generically, same rationale as SmsStorageClass.
+
+    NOT YET VALIDATED against a real 'D SMS,MC(*)' reply -- see
+    sms_parser.py's module docstring."""
+
+    name: str
+    params: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class CatalogDataset:
     """One non-VSAM dataset under an operator-supplied HLQ/pattern, as
     dumped by zos-extract/python/extrcat.py via ZOAU's

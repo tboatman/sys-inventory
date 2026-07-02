@@ -93,6 +93,10 @@
   ansible.builtin.import_tasks: tcpip.yml
   tags: [tcpip]
 
+- name: SMS storage groups, storage classes, and management classes (step 15)
+  ansible.builtin.import_tasks: sms.yml
+  tags: [sms]
+
 - name: Candidate SMP/E CSI discovery -- naming-heuristic only, opt-in (see discover_smpe_csis.yml)
   ansible.builtin.import_tasks: discover_smpe_csis.yml
   tags: [smpe_csi_discovery]

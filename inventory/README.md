@@ -3,8 +3,9 @@
 Off-host half of the pipeline: parses the text dumped by `zos-extract/`
 (or, for domains with no standalone `zos-extract/python` script yet --
 USS mounted filesystems, JES2's own initialization parameters, VTAM
-major-node status/start options, and TCP/IP home addresses/PROFILE.TCPIP
--- the `ansible/` role directly; see
+major-node status/start options, TCP/IP home addresses/PROFILE.TCPIP, and
+SMS storage groups/storage classes/management classes -- the `ansible/`
+role directly; see
 [`../ansible/README.md`](../ansible/README.md)) and resolves each
 PROCLIB/PARMLIB member's full execution path back to the SMP/E FMID that
 owns each program it runs, flags whether each resolved load library is
@@ -14,8 +15,9 @@ from, product enablement status (IFAPRDxx), a live snapshot of
 currently-running jobs/tasks and USS processes, an HLQ/pattern-scoped
 dataset catalog (non-VSAM attributes + VSAM cluster/component detail),
 mounted USS filesystems, JES2's own initialization statements, VTAM/APPN
-status, TCP/IP configuration, and a RACF security snapshot (users,
-groups, dataset and general-resource access — **implementation only, not
+status, TCP/IP configuration, SMS storage groups/classes, and a RACF
+security snapshot (users, groups, dataset and general-resource access —
+**implementation only, not
 yet production-validated**, see below). Everything lands in one small
 SQLite database you query from the command line.
 
@@ -72,7 +74,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_uss_mounts.txt  /tmp/demo/uss_mounts.txt && \
   cp tests/fixtures/sample_jes2parm.txt    /tmp/demo/jes2parm.txt && \
   cp tests/fixtures/sample_vtam.txt        /tmp/demo/vtam.txt && \
-  cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt
+  cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt && \
+  cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -90,16 +93,17 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
-   file naming and how to produce each file. Four more files —
+   file naming and how to produce each file. Five more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
-   enablement/role), and `tcpip.txt` (TCP/IP home addresses and, if
-   configured, `PROFILE.TCPIP` text) — have no standalone
+   enablement/role), `tcpip.txt` (TCP/IP home addresses and, if
+   configured, `PROFILE.TCPIP` text), and `sms.txt` (SMS storage groups,
+   storage classes, and management classes) — have no standalone
    `zos-extract/python` script yet and are only produced by the
-   `ansible/` role's `uss_mounts`/`jes2parm`/`vtam`/`tcpip` tags; see
+   `ansible/` role's `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms` tags; see
    [`../ansible/README.md`](../ansible/README.md)'s Layout section. All
-   four are implementation-only, same caveat as RACF below — not yet
+   five are implementation-only, same caveat as RACF below — not yet
    validated against a real system's actual command output.
 
 2. Ingest and resolve:
@@ -115,7 +119,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 2 SMS storage groups, 2 SMS storage classes, 1 SMS management classes -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -397,6 +401,31 @@ HOSTNAME MVSTCPIP  [TCPIP.TCPPARMS(PROFILE1)]
 LINK ETH0LINK IPAQENET OSA2080  [TCPIP.TCPPARMS(PROFILE1)]
 ```
 
+### `inventory sms-storgrps` / `inventory sms-storclas` / `inventory sms-mgmtclas` (not yet production-validated)
+
+SMS storage groups and their volumes (`D SMS,STORGRP(*),LISTVOL`),
+storage classes (`D SMS,SC(*)`), and management classes (`D SMS,MC(*)`),
+if you ingested an `sms.txt`. ACS routine *source* is out of scope here
+(that needs ISMF, not a `D`-command). Storage/management class attributes
+are captured generically (class name + a raw keyword->value map,
+`SmsStorageClass`/`SmsManagementClass` in `models.py`) rather than
+modeled per attribute, the same approach `VtamStartOption`/
+`Jes2InitStatement` use. **None of the three commands has been checked
+against a real system — see `sms_parser.py`'s module docstring.**
+
+```
+$ inventory sms-storgrps
+SG1  STATUS=ENABLE  VOLUMES=VOL001,VOL002
+SG2  STATUS=DISABLE  VOLUMES=VOL010
+
+$ inventory sms-storclas
+FAST  AVAILABILITY=STANDARD,PERFORMANCE=1
+STANDARD  AVAILABILITY=STANDARD,ACCESSIBILITY=CONTINUOUS,PERFORMANCE=3
+
+$ inventory sms-mgmtclas
+MCDEFLT  EXPIRE=NOLIMIT,MIGRATE=030
+```
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -439,8 +468,9 @@ and is also not yet cross-referenced (e.g. matching `STARTED`-class
 resource profiles against `started_tasks`) for the same reason. USS mounts
 (`uss_mounts_parser.parse_uss_mounts`), JES2 init statements
 (`jes2parm_parser.parse_dump`), VTAM major nodes/start options
-(`vtam_parser.parse_vtam`), and TCP/IP home addresses/profile statements
-(`tcpip_parser.parse_tcpip`) are likewise independent, freshly-added
+(`vtam_parser.parse_vtam`), TCP/IP home addresses/profile statements
+(`tcpip_parser.parse_tcpip`), and SMS storage groups/classes
+(`sms_parser.parse_sms`) are likewise independent, freshly-added
 dimensions with no cross-referencing yet.
 
 ## Tests
@@ -488,14 +518,20 @@ home-address lines, a `PROFILE.TCPIP` excerpt with a comment line that
 must be skipped, and confirming the `##PROFILE` block/`source_dsn` is
 simply absent when a dump has no profile fetch) — **both also built
 against hand-constructed fixtures, not a real system reply; see
-`vtam_parser.py`/`tcpip_parser.py`'s module docstrings.**
+`vtam_parser.py`/`tcpip_parser.py`'s module docstrings.** Also SMS parsing
+(`sample_sms.txt`, covering storage groups with multi-volume continuation
+lines, storage/management classes with generically-captured
+`KEYWORD(VALUE)` attributes, and message-ID banner lines like `IGD002I`/
+`END` proven not to be mistaken for a class name) — **also built against
+a hand-constructed fixture, not a real system reply; see
+`sms_parser.py`'s module docstring.**
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
   `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
   `*catalog*.txt` / `*uss_mounts*.txt` / `*jes2parm*.txt` / `*vtam*.txt` /
-  `*tcpip*.txt` files in the input directory — just keep adding files as
+  `*tcpip*.txt` / `*sms*.txt` files in the input directory — just keep adding files as
   you extract more PROCLIB/PARMLIB concatenation entries, more SMP/E
   zones, more HLQ/pattern groups, or more JES2 PARMLIB concatenation
   entries; `ingest` merges them all into one inventory. `lnklst.txt` and

@@ -101,7 +101,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
-`sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `smplist`,
+`sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `smplist`,
 `activity`, `catalog`, `racf`.
 `smplist`/`catalog` only run on hosts where `zos_extract_smpe_csi`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
@@ -360,6 +360,35 @@ to also exercise the profile fetch) against a real system and check the
 resulting `vtam.txt`/`tcpip.txt` against what the parsers assume before
 relying on any of these dimensions.
 
+### SMS (not yet validated against a real reply)
+
+`sms.yml` issues `D SMS,STORGRP(*),LISTVOL`, `D SMS,SC(*)`, and
+`D SMS,MC(*)` and bundles all three raw console replies into one
+`sms.txt` via the same `##BLOCKNAME`-sentinel convention `vtam.yml`/
+`tcpip.yml` use. **None of the three commands has been confirmed against
+a real reply from an actual system** -- same situation as VTAM/TCPIP
+above. ACS routine *source* is explicitly out of scope: reading those
+needs ISMF, not a read-only `D`-command. Runs unconditionally (like
+`lnklst`/`apf`), not gated behind an enablement flag.
+
+- `D SMS,STORGRP(*),LISTVOL` rows are matched the same way USS mounts'
+  `D OMVS,F` rows are: a header line (storage group name + an
+  `ENABLE`/`DISABLE`/`NOTCNCT` status token) followed by indented
+  continuation lines listing that group's VOLSERs, tolerant of exact
+  column spacing rather than fixed-offset.
+- `D SMS,SC(*)`/`D SMS,MC(*)` are captured generically (class name +
+  `KEYWORD(VALUE)` attribute pairs, ISMF's own display convention) via
+  `inventory/inventory/sms_parser.py`, the same "capture everything
+  generically" approach `VtamStartOption`/`Jes2InitStatement` use rather
+  than hand-modeling every storage/management class attribute. Message-ID
+  banner/footer lines (e.g. `IGD002I`, `END`) are excluded from being
+  mistaken for a class name via a generic z/OS message-ID pattern
+  (letters+digits+optional-letter), not a specific confirmed ID.
+
+Run `ansible-playbook playbooks/site.yml --tags sms --limit lpar1`
+against a real system and check the resulting `sms.txt` against what
+`sms_parser.py` assumes before relying on this dimension.
+
 ### A performance note on `catalog`
 
 Unlike `zoautil_py`'s `datasets.list_datasets()` (which returns DSORG/RECFM/
@@ -444,6 +473,10 @@ roles/zos_extract/
                                 # PROFILE.TCPIP fetch, bundled into one
                                 # tcpip.txt (see above) -- not yet
                                 # validated against a real reply
+    sms.yml                    # 'D SMS,STORGRP(*),LISTVOL' + 'D SMS,SC(*)'
+                                # + 'D SMS,MC(*)' bundled into one sms.txt
+                                # (see above) -- not yet validated against
+                                # a real reply
     activity.yml             # direct `jls -o id,name,status,jobtype,asid`
                               # (not zos_job_query, see above) + `ps -ef`
                               # for the live jobs/processes snapshot

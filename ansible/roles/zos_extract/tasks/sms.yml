@@ -1,0 +1,48 @@
+---
+# SMS storage groups, storage classes, and management classes
+# (unconditional -- same "bundle several D-commands into one
+# ##BLOCKNAME-sentinel file, parse off-host" idiom vtam.yml/tcpip.yml
+# already use). ACS routine *source* is explicitly out of scope here --
+# that needs ISMF, not a read-only D-command.
+#
+# NOT YET CONFIRMED against a real system: none of 'D SMS,STORGRP(*),
+# LISTVOL', 'D SMS,SC(*)', or 'D SMS,MC(*)' has been checked against an
+# actual reply from this site (same situation vtam.yml/tcpip.yml
+# document for their own commands) -- sms_parser.py's module docstring
+# carries the full caveat.
+
+- name: Issue D SMS,STORGRP(*),LISTVOL
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D SMS,STORGRP(*),LISTVOL"
+  register: zos_extract_sms_storgrp_reply
+
+- name: Issue D SMS,SC(*)
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D SMS,SC(*)"
+  register: zos_extract_sms_storclas_reply
+
+- name: Issue D SMS,MC(*)
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D SMS,MC(*)"
+  register: zos_extract_sms_mgmtclas_reply
+
+- name: Join the D SMS,... reply lines into plain text
+  # Deliberately double-quoted scalars, not block scalars -- same \n-escape
+  # pitfall documented in sysinfo.yml/vtam.yml/tcpip.yml.
+  ansible.builtin.set_fact:
+    zos_extract_sms_storgrp_text: "{{ zos_extract_sms_storgrp_reply.stdout_lines | join('\n') }}"
+    zos_extract_sms_storclas_text: "{{ zos_extract_sms_storclas_reply.stdout_lines | join('\n') }}"
+    zos_extract_sms_mgmtclas_text: "{{ zos_extract_sms_mgmtclas_reply.stdout_lines | join('\n') }}"
+
+- name: Write {{ zos_extract_sms_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_sms_outfile }}"
+    mode: "0644"
+    content: |-
+      ##STORGRP
+      {{ zos_extract_sms_storgrp_text }}
+      ##STORCLAS
+      {{ zos_extract_sms_storclas_text }}
+      ##MGMTCLAS
+      {{ zos_extract_sms_mgmtclas_text }}
+  delegate_to: localhost
