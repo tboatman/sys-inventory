@@ -101,7 +101,8 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
-`sysinfo`, `smplist`, `activity`, `catalog`, `racf`.
+`sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `smplist`,
+`activity`, `catalog`, `racf`.
 `smplist`/`catalog` only run on hosts where `zos_extract_smpe_csi`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
@@ -288,6 +289,77 @@ This role won't run it unless you both set `zos_extract_racf_database_dsn` in
 ansible-playbook playbooks/site.yml --tags racf --limit lpar1
 ```
 
+### USS mounts / JES2 init parameters (not yet validated against a real reply)
+
+`uss_mounts.yml` (`D OMVS,F`) and `discover_jes2_parmlib.yml`/`jes2parm.yml`
+(`$D PARMLIB`, JES2's own command -- distinct from `discover_parmlib.yml`'s
+plain MVS `D PARMLIB` and from `discover_proclib.yml`'s `$D PROCLIB`) are
+both implemented and unit-tested against hand-built fixtures the same way
+RACF was, but **neither has been confirmed against a real reply from an
+actual system yet** -- unlike `$D PROCLIB`, which this role's own comments
+note was confirmed against a real JES2 reply. Specifically:
+
+- `uss_mounts.yml` writes `D OMVS,F`'s raw console reply verbatim (same
+  "capture raw, parse off-host" approach as `sysinfo.yml`) rather than
+  parsing it in Jinja -- the real regex work lives entirely in
+  `inventory/inventory/uss_mounts_parser.py`, whose docstring carries the
+  validation caveat.
+- `discover_jes2_parmlib.yml` assumes `$D PARMLIB` wraps its reply the
+  same `$HASPnnn`-prefixed way `$D PROCLIB` does, but matches any
+  `$HASPnnn` message ID generically (`\$HASP\d+`) rather than a specific
+  confirmed number, since the exact ID this command replies with isn't
+  known here.
+
+Run `ansible-playbook playbooks/site.yml --tags uss_mounts,jes2parm
+--limit lpar1` against a real system and check the resulting
+`uss_mounts.txt`/`*_jes2parm.txt` against what the parsers assume before
+relying on either dimension.
+
+### VTAM/APPN/TCPIP (not yet validated against a real reply)
+
+`vtam.yml` (`D NET,MAJNODES` + `D NET,VTAMOPTS`) and `tcpip.yml`
+(`D TCPIP,,NETSTAT,HOME`, plus an opt-in `PROFILE.TCPIP` dataset fetch)
+are implemented and unit-tested against hand-built fixtures the same way
+USS mounts/JES2 init parameters were, but **none of the three commands
+(nor a real `PROFILE.TCPIP` sample) has been confirmed against a real
+reply from an actual system** -- IBM's own docs site 403'd on direct
+fetch and no secondary source turned up real sample output for any of
+them while writing this either. Specifically:
+
+- `vtam.yml` bundles both D-commands' raw console replies into one
+  `vtam.txt` via the same `##BLOCKNAME`-sentinel convention `sysinfo.yml`
+  uses for `D SYMBOLS`/`D IPLINFO` -- the real parsing lives entirely in
+  `inventory/inventory/vtam_parser.py`, whose docstring carries the
+  validation caveat. `D NET,MAJNODES` rows are matched by a name token
+  followed by a known status value (`ACTIV`/`ACT/S`/`INACT`/`PEND*`)
+  rather than fixed columns; `D NET,VTAMOPTS` is captured generically as
+  `KEYWORD=VALUE` pairs (same idiom `discover_active_members.yml` uses
+  for IEASYSxx), not a narrow `nodetype`/`cpname`-only model -- **APPN
+  enablement/role is answered by filtering that generic table for the
+  `NODETYPE`/`CPNAME` keywords**, not a dedicated field.
+- `D NET,TOPO` (the APPN topology database -- adjacent/known network
+  nodes) is deliberately **not** captured this round: its reply shape is
+  even less certain than the two commands above, and this was an
+  explicit call to not guess at it rather than ship an unreliable parser
+  for the one piece with the least documentation to go on. A candidate
+  follow-up once a real reply can be checked against it.
+- `tcpip.yml`'s `D TCPIP,,NETSTAT,HOME` capture always runs; the
+  `PROFILE.TCPIP` fetch only runs if `zos_extract_tcpip_profile_dsn` is
+  set (it can name either a sequential dataset or a PDS member, e.g.
+  `TCPIP.TCPPARMS(PROFILE1)` -- `zos_fetch`'s own documented behavior
+  flattens either shape to just the dataset/member name locally, which
+  `zos_extract_tcpip_profile_local_filename` accounts for). Profile
+  statements are captured generically (statement name + raw operand
+  text) since `PROFILE.TCPIP` syntax is positional
+  (`DEVICE`/`LINK`/`HOME`/`PORT` ...), not uniform `KEYWORD=VALUE` like
+  `VTAMOPTS`.
+
+Run `ansible-playbook playbooks/site.yml --tags vtam,tcpip --limit
+lpar1` (add `-e '{"zos_extract_tcpip_profile_dsn": "YOUR.PROFILE.DSN"}'`
+to also exercise the profile fetch) against a real system and check the
+resulting `vtam.txt`/`tcpip.txt` against what the parsers assume before
+relying on any of these dimensions.
+
 ### A performance note on `catalog`
 
 Unlike `zoautil_py`'s `datasets.list_datasets()` (which returns DSORG/RECFM/
@@ -356,6 +428,22 @@ roles/zos_extract/
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs
+    uss_mounts.yml            # 'D OMVS,F' captured raw (see above) --
+                               # not yet validated against a real reply
+    discover_jes2_parmlib.yml # auto-discovers zos_extract_jes2_parmlibs via
+                               # JES2's '$D PARMLIB' if it isn't set
+                               # explicitly -- message ID not confirmed,
+                               # see the task file's own header comment
+    jes2parm.yml               # dumps every member of every JES2 PARMLIB
+                                # entry (see _member_dump.yml) -- JES2's
+                                # own init deck, not yet validated
+    vtam.yml                   # 'D NET,MAJNODES' + 'D NET,VTAMOPTS'
+                                # bundled into one vtam.txt (see above) --
+                                # not yet validated against a real reply
+    tcpip.yml                  # 'D TCPIP,,NETSTAT,HOME' (always) + opt-in
+                                # PROFILE.TCPIP fetch, bundled into one
+                                # tcpip.txt (see above) -- not yet
+                                # validated against a real reply
     activity.yml             # direct `jls -o id,name,status,jobtype,asid`
                               # (not zos_job_query, see above) + `ps -ef`
                               # for the live jobs/processes snapshot

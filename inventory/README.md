@@ -1,17 +1,23 @@
 # inventory
 
-Off-host half of the pipeline: parses the text dumped by `zos-extract/` and
-resolves each PROCLIB/PARMLIB member's full execution path back to the
-SMP/E FMID that owns each program it runs, flags whether each resolved
-load library is APF-authorized, and separately inventories defined
-subsystems, auto-started tasks, the LPAR/sysplex identity of the system
-the dump came from, product enablement status (IFAPRDxx), a live
-snapshot of currently-running jobs/tasks and USS processes, an
-HLQ/pattern-scoped dataset catalog (non-VSAM attributes + VSAM cluster/
-component detail), and a RACF security snapshot (users, groups, dataset
-and general-resource access — **implementation only, not yet
-production-validated**, see below). Everything lands in one small SQLite
-database you query from the command line.
+Off-host half of the pipeline: parses the text dumped by `zos-extract/`
+(or, for domains with no standalone `zos-extract/python` script yet --
+USS mounted filesystems, JES2's own initialization parameters, VTAM
+major-node status/start options, and TCP/IP home addresses/PROFILE.TCPIP
+-- the `ansible/` role directly; see
+[`../ansible/README.md`](../ansible/README.md)) and resolves each
+PROCLIB/PARMLIB member's full execution path back to the SMP/E FMID that
+owns each program it runs, flags whether each resolved load library is
+APF-authorized, and separately inventories defined subsystems,
+auto-started tasks, the LPAR/sysplex identity of the system the dump came
+from, product enablement status (IFAPRDxx), a live snapshot of
+currently-running jobs/tasks and USS processes, an HLQ/pattern-scoped
+dataset catalog (non-VSAM attributes + VSAM cluster/component detail),
+mounted USS filesystems, JES2's own initialization statements, VTAM/APPN
+status, TCP/IP configuration, and a RACF security snapshot (users,
+groups, dataset and general-resource access — **implementation only, not
+yet production-validated**, see below). Everything lands in one small
+SQLite database you query from the command line.
 
 This half runs on any ordinary computer — Mac, Linux, Windows (WSL),
 CI runner — nothing here needs to touch a mainframe. If you just want to
@@ -62,7 +68,11 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
   cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt && \
   cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt && \
-  cp tests/fixtures/sample_racf.txt        /tmp/demo/racf.txt
+  cp tests/fixtures/sample_racf.txt        /tmp/demo/racf.txt && \
+  cp tests/fixtures/sample_uss_mounts.txt  /tmp/demo/uss_mounts.txt && \
+  cp tests/fixtures/sample_jes2parm.txt    /tmp/demo/jes2parm.txt && \
+  cp tests/fixtures/sample_vtam.txt        /tmp/demo/vtam.txt && \
+  cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -80,7 +90,17 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
-   file naming and how to produce each file.
+   file naming and how to produce each file. Four more files —
+   `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
+   `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
+   (VTAM major-node status and start options, incl. APPN
+   enablement/role), and `tcpip.txt` (TCP/IP home addresses and, if
+   configured, `PROFILE.TCPIP` text) — have no standalone
+   `zos-extract/python` script yet and are only produced by the
+   `ansible/` role's `uss_mounts`/`jes2parm`/`vtam`/`tcpip` tags; see
+   [`../ansible/README.md`](../ansible/README.md)'s Layout section. All
+   four are implementation-only, same caveat as RACF below — not yet
+   validated against a real system's actual command output.
 
 2. Ingest and resolve:
 
@@ -95,7 +115,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -294,6 +314,89 @@ STARTED/CICSPROD.STC  CICSRACF=READ
 itself has no selective-unload option, so every other class is dropped
 off-host during parsing, not at extraction time.
 
+### `inventory uss-mounts` (not yet production-validated)
+
+Every mounted USS filesystem, if you ingested a `uss_mounts.txt` — see
+`ansible/roles/zos_extract/tasks/uss_mounts.yml` for how it's produced.
+**Built and tested against a hand-constructed fixture, not a real `D
+OMVS,F` reply — see `uss_mounts_parser.py`'s module docstring for the
+same kind of caveat `racf_parser.py` carries.**
+
+```
+$ inventory uss-mounts
+/  NAME=OMVS.ROOT.ZFS TYPE=ZFS DEVICE=1 STATUS=ACTIVE MODE=RDWR
+/etc  NAME=OMVS.ETC.ZFS TYPE=ZFS DEVICE=2 STATUS=ACTIVE MODE=RDWR
+/legacy  NAME=OMVS.LEGACY.HFS TYPE=HFS DEVICE=3 STATUS=ACTIVE MODE=READ
+```
+
+### `inventory jes2parm` (not yet production-validated)
+
+Every JES2 initialization statement, if you ingested a `jes2parm.txt` —
+JES2's own PARMLIB-equivalent init deck, distinct from both SYS1.PARMLIB's
+IEFSSNxx/COMMNDxx and the JES2 *PROCLIB* concatenation `subsystems`/
+`report` already cover. Captured generically (statement name + optional
+subscript + a raw keyword=value map), not modeled per statement type — see
+`Jes2InitStatement` in `models.py`. **Also not yet validated against a
+real JES2 init deck — see `jes2parm_parser.py`'s module docstring.**
+
+```
+$ inventory jes2parm
+JOBCLASS(1)  JOBPRTY=16,COMMAND=NO  [JES2PARM]
+JOBDEF  JOBNUM=(999,999,1),RESTART=YES  [JES2PARM]
+MASDEF  OWNMASN=1,NAME=NJE1  [JES2PARM]
+OUTCLASS(A)  QUEUE=YES,BURST=YES  [JES2PARM]
+```
+
+### `inventory vtam-majnodes` / `inventory vtam-options` (not yet production-validated)
+
+VTAM major-node status (`D NET,MAJNODES`) and start options (`D
+NET,VTAMOPTS`), if you ingested a `vtam.txt`. `vtam-options` is where
+APPN coverage lives this round: rather than a dedicated `nodetype`/
+`cpname` field, every `KEYWORD = VALUE` pair VTAM's start-option display
+exposes is captured generically (`VtamStartOption` in `models.py`) — look
+for the `NODETYPE`/`CPNAME` rows to see whether APPN is enabled and as
+what role (NN/EN/LEN vs. subarea-only). `D NET,TOPO` (the APPN topology
+database itself) isn't captured yet — see `vtam_parser.py`'s module
+docstring for why. **Neither command's reply has been checked against a
+real system — see `vtam_parser.py`'s module docstring.**
+
+```
+$ inventory vtam-majnodes
+APPLMAJ  STATUS=INACT
+NCPMAJ  STATUS=ACTIV
+VTAMLST  STATUS=ACT/S
+
+$ inventory vtam-options
+CPNAME=NN01
+NETID=USIBMSC
+NODETYPE=NN
+SSCPID=1
+```
+
+### `inventory tcpip-home` / `inventory tcpip-profile` (not yet production-validated)
+
+TCP/IP home addresses (`D TCPIP,,NETSTAT,HOME`, always captured) and
+`PROFILE.TCPIP` configuration statements (only if
+`zos_extract_tcpip_profile_dsn` was configured), if you ingested a
+`tcpip.txt`. `tcpip-profile` rows are captured generically (statement
+name + raw operand text, `TcpipProfileStatement` in `models.py`) since
+`PROFILE.TCPIP` syntax is positional (`DEVICE`/`LINK`/`HOME`/`PORT` ...),
+not uniform `KEYWORD=VALUE` — see `tcpip_parser.py`'s module docstring.
+**Neither piece has been checked against a real system or a real
+`PROFILE.TCPIP` sample.**
+
+```
+$ inventory tcpip-home
+ETH0LINK  10.1.1.2
+LOOPBACK  127.0.0.1
+
+$ inventory tcpip-profile
+DEVICE OSA2080 MPCIPA  [TCPIP.TCPPARMS(PROFILE1)]
+HOME 10.1.1.2 ETH0LINK  [TCPIP.TCPPARMS(PROFILE1)]
+HOSTNAME MVSTCPIP  [TCPIP.TCPPARMS(PROFILE1)]
+LINK ETH0LINK IPAQENET OSA2080  [TCPIP.TCPPARMS(PROFILE1)]
+```
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -333,7 +436,12 @@ some member's execution path), though that's a natural follow-up once
 this dimension has real-world data to check it against. The RACF snapshot
 (`racf_parser.parse_racf`) is independent of everything else the same way,
 and is also not yet cross-referenced (e.g. matching `STARTED`-class
-resource profiles against `started_tasks`) for the same reason.
+resource profiles against `started_tasks`) for the same reason. USS mounts
+(`uss_mounts_parser.parse_uss_mounts`), JES2 init statements
+(`jes2parm_parser.parse_dump`), VTAM major nodes/start options
+(`vtam_parser.parse_vtam`), and TCP/IP home addresses/profile statements
+(`tcpip_parser.parse_tcpip`) are likewise independent, freshly-added
+dimensions with no cross-referencing yet.
 
 ## Tests
 
@@ -362,16 +470,36 @@ RESTRICTED one, a group, group connections, a dataset profile + access
 list, and general-resource profiles/access across two curated classes
 plus one non-curated class proven to be filtered out) — **built against a
 hand-constructed fixture, not a real IRRDBU00 unload; see "How resolution
-works" for the specific field this is least confident about.**
+works" for the specific field this is least confident about.** Also USS
+mount parsing (`sample_uss_mounts.txt`, covering a read-write zFS root and
+`/etc` mount plus a read-only HFS mount, and proving header/summary lines
+aren't mistaken for mount records) and JES2 init-statement parsing
+(`sample_jes2parm.txt`, covering a comment line that must be skipped, a
+statement whose continuation spans two lines, a parenthesized statement
+subscript, and a parameter value with inner commas that must not be split
+as separate parameters) — **both built against hand-constructed fixtures,
+not a real system reply; see `uss_mounts_parser.py`/`jes2parm_parser.py`'s
+module docstrings.** Also VTAM parsing (`sample_vtam.txt`, covering major
+nodes across ACTIV/ACT\/S/INACT statuses plus banner/header lines proven
+not to be mistaken for data rows, and start options incl. the
+`NODETYPE`/`CPNAME` pair that answers the APPN-enablement question) and
+TCP/IP parsing (`sample_tcpip.txt`, covering paired `LINKNAME:`/`ADDRESS:`
+home-address lines, a `PROFILE.TCPIP` excerpt with a comment line that
+must be skipped, and confirming the `##PROFILE` block/`source_dsn` is
+simply absent when a dump has no profile fetch) — **both also built
+against hand-constructed fixtures, not a real system reply; see
+`vtam_parser.py`/`tcpip_parser.py`'s module docstrings.**
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
   `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
-  `*catalog*.txt` files in the input directory — just keep adding files as
+  `*catalog*.txt` / `*uss_mounts*.txt` / `*jes2parm*.txt` / `*vtam*.txt` /
+  `*tcpip*.txt` files in the input directory — just keep adding files as
   you extract more PROCLIB/PARMLIB concatenation entries, more SMP/E
-  zones, or more HLQ/pattern groups; `ingest` merges them all into one
-  inventory. `lnklst.txt` and `apf.txt` are each a single flat list.
+  zones, more HLQ/pattern groups, or more JES2 PARMLIB concatenation
+  entries; `ingest` merges them all into one inventory. `lnklst.txt` and
+  `apf.txt` are each a single flat list.
 - `system_info` (from `sysinfo.txt`), `active_jobs` (from
   `active_jobs.txt`), `uss_processes` (from `processes.txt`), and the
   seven `racf_*` tables (from `racf.txt`) are the exceptions: each is
