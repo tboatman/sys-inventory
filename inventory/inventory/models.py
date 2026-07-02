@@ -210,6 +210,27 @@ class ParmlibDataset:
 
 
 @dataclass
+class IeasysStatement:
+    """One KEYWORD=value statement from an active IEASYSxx PARMLIB
+    member -- the actual system parameters ("the parms") active at IPL,
+    as opposed to ParmlibDataset above (which is just the PARMLIB
+    dataset search order, all 'D PARMLIB' can report). Dumped by
+    ansible/roles/zos_extract/tasks/ieasys_snapshot.yml (which reuses
+    discover_active_members.yml's own active-member fetch, previously
+    used only to pull out SSN=/CMD=/PROD=/MSTRJCL= internally and then
+    discarded) and parsed by ieasys_parser.py.
+
+    Generic capture, same rationale as Jes2InitStatement/VtamStartOption/
+    CicsSitOverride: IEASYSxx's real keyword surface is large (100+
+    documented keywords) and this project doesn't attempt to hand-model
+    each one."""
+
+    keyword: str
+    value: str | None = None
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

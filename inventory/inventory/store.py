@@ -18,6 +18,7 @@ from .models import (
     Db2Plan,
     GeneralResourceAccess,
     GeneralResourceProfile,
+    IeasysStatement,
     Jes2InitStatement,
     LineageStep,
     ParmlibDataset,
@@ -101,6 +102,13 @@ CREATE TABLE IF NOT EXISTS parmlib_datasets (
     volume  TEXT,
     dsn     TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS ieasys_statements (
+    keyword        TEXT NOT NULL,
+    value          TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ieasys_statements_keyword ON ieasys_statements(keyword);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -463,6 +471,22 @@ def save_parmlib_datasets(conn: sqlite3.Connection, datasets: list[ParmlibDatase
 def all_parmlib_datasets(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM parmlib_datasets ORDER BY CAST(entry AS INTEGER)")
+    return cur.fetchall()
+
+
+def save_ieasys_statements(conn: sqlite3.Connection, statements: list[IeasysStatement]) -> None:
+    conn.execute("DELETE FROM ieasys_statements")
+    rows = [(s.keyword, s.value, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO ieasys_statements (keyword, value, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_ieasys_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM ieasys_statements ORDER BY keyword")
     return cur.fetchall()
 
 

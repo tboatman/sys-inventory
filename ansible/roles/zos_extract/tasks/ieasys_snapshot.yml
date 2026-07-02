@@ -1,0 +1,25 @@
+---
+# Explicit, always-saved capture of the active IEASYSxx member(s)' full
+# content -- the real "actual parms" (system parameters active at IPL),
+# as opposed to parmlib_snapshot.yml's D PARMLIB (just the PARMLIB
+# dataset search order, all that console command can report at all).
+#
+# discover_active_members.yml already fetches this exact content (via
+# _fetch_active_ieasys_member.yml) to pull out SSN=/CMD=/PROD=/MSTRJCL=
+# for its own internal use, then discards it -- same "computed,
+# consumed narrowly, thrown away" situation discover_parmlib.yml's own
+# implicit 'D PARMLIB' call was in before parmlib_snapshot.yml. This
+# tag pulls in that same discovery chain (see main.yml: the
+# ieasys_snapshot tag is added to discover_active_parmlib_suffixes.yml/
+# discover_active_members.yml too, so it runs standalone) and just
+# writes what's already been fetched, generically, to
+# ieasys_snapshot.txt -- parsed by inventory/ieasys_parser.py into every
+# KEYWORD=value statement in the member(s), not just the three this
+# pipeline already cared about internally.
+
+- name: Write ieasys_snapshot.txt (active IEASYSxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/ieasys_snapshot.txt"
+    mode: "0644"
+    content: "{{ (zos_extract_ieasys_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

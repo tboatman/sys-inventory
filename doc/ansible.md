@@ -101,6 +101,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
+`ieasys_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -119,6 +120,19 @@ this always issues `D PARMLIB` and writes the raw reply to
 `parmlib_snapshot.txt`, ingested as its own dimension (`inventory
 parmlib`) -- request it explicitly with `--tags parmlib_snapshot`, or via
 an untagged full run.
+
+**`D PARMLIB` only reports the PARMLIB dataset search order, not any
+member's actual content** -- that's not what the command is for. The
+real system parameters ("the parms") live in the active IEASYSxx
+member(s), and `ieasys_snapshot` is the tag for those: `discover_active_
+members.yml` already fetches that exact content internally (to pull out
+just `SSN=`/`CMD=`/`PROD=`/`MSTRJCL=` for its own use, then discards it)
+-- `ieasys_snapshot` reuses that same fetch (its tag is also added to
+`discover_active_parmlib_suffixes.yml`/`discover_active_members.yml`, so
+it pulls in that discovery chain standalone) and writes the full member
+content to `ieasys_snapshot.txt`, ingested generically (every
+`KEYWORD=value` statement, not just the three this pipeline already
+cared about) via `inventory ieasys`.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -783,7 +797,9 @@ roles/zos_extract/
                              # to fetch just those members instead of
                              # every one matching the broad wildcard
                              # filter, plus the active MSTJCLxx suffix,
-                             # used by discover_mstrjcl_proclibs.yml
+                             # used by discover_mstrjcl_proclibs.yml, and
+                             # (as zos_extract_ieasys_member_blocks) the
+                             # full IEASYSxx content, for ieasys_snapshot.yml
     discover_mstrjcl_proclibs.yml
                              # fetches the active MSTJCLxx member and
                              # appends any proclib DSN concatenated onto
@@ -799,7 +815,18 @@ roles/zos_extract/
                              # discover_parmlib.yml's own implicit,
                              # conditional call above; writes
                              # parmlib_snapshot.txt, ingested as its own
-                             # dimension (inventory parmlib)
+                             # dimension (inventory parmlib) -- just the
+                             # PARMLIB dataset search order, not any
+                             # member's actual content
+    ieasys_snapshot.yml      # explicit capture of the active IEASYSxx
+                             # member(s)' full content -- the real "actual
+                             # parms" D PARMLIB above can't show; tag
+                             # ieasys_snapshot (added to
+                             # discover_active_parmlib_suffixes.yml/
+                             # discover_active_members.yml too, so it
+                             # pulls in that discovery chain standalone);
+                             # writes ieasys_snapshot.txt, ingested via
+                             # inventory ieasys
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

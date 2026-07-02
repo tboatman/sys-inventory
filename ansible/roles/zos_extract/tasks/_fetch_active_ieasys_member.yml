@@ -65,6 +65,18 @@
     zos_extract_ieasys_member_texts: >-
       {{ (zos_extract_ieasys_member_texts | default([]))
          + [ lookup('ansible.builtin.file', zos_extract_ieasys_scratch.path ~ '/IEASYS' ~ zos_extract_ieasys_suffix) ] }}
+    # Same content, but wrapped in a '##MEMBER IEASYSxx' sentinel per
+    # entry -- a free byproduct of already fetching this member here,
+    # consumed only by ieasys_snapshot.yml (tag ieasys_snapshot) to write
+    # ieasys_snapshot.txt for inventory/ieasys_parser.py. Unlike
+    # zos_extract_ieasys_member_texts above (used internally, same run,
+    # to pull out just SSN=/CMD=/PROD=/MSTRJCL= and then discarded), this
+    # is what makes the *whole* member's content an explicit, saved,
+    # ingestible dimension -- see doc/TODO.md's PARMLIB-snapshot follow-on
+    # note.
+    zos_extract_ieasys_member_blocks: >-
+      {{ (zos_extract_ieasys_member_blocks | default([]))
+         + [ '##MEMBER IEASYS' ~ zos_extract_ieasys_suffix ~ '\n' ~ lookup('ansible.builtin.file', zos_extract_ieasys_scratch.path ~ '/IEASYS' ~ zos_extract_ieasys_suffix) ] }}
   when: zos_extract_ieasys_dsn | length > 0
 
 - name: Remove scratch directory for IEASYS{{ zos_extract_ieasys_suffix }}

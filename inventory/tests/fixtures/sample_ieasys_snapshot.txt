@@ -1,0 +1,4 @@
+##MEMBER IEASYSBN
+SSN=(BN),CMD=(BN),PROD=(BN),
+REAL=(4096,ONLINE),CLPA,        /* CLPA is a bare flag, no value */
+SQA=(16,32)

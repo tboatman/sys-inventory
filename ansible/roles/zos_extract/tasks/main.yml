@@ -39,11 +39,11 @@
 
 - name: Determine the active IEASYSxx/IEASYMxx suffixes
   ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
-  tags: [proclib, ssn_commnd, ifaprd]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot]
 
-- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml)
+- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, and the full IEASYSxx content, for ieasys_snapshot.yml)
   ansible.builtin.import_tasks: discover_active_members.yml
-  tags: [proclib, ssn_commnd, ifaprd]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot]
 
 - name: Auto-discover proclib datasets concatenated onto MSTRJCL's IEFPDSI DD, invisible to '$D PROCLIB'
   ansible.builtin.import_tasks: discover_mstrjcl_proclibs.yml
@@ -64,6 +64,10 @@
 - name: Explicit PARMLIB concatenation snapshot -- own tag, not bundled with discover_parmlib.yml's implicit discovery call above (step 20, see parmlib_snapshot.yml)
   ansible.builtin.import_tasks: parmlib_snapshot.yml
   tags: [parmlib_snapshot]
+
+- name: Explicit active IEASYSxx member snapshot -- the actual system parameters, not just the PARMLIB dataset list above (step 21, see ieasys_snapshot.yml)
+  ansible.builtin.import_tasks: ieasys_snapshot.yml
+  tags: [ieasys_snapshot]
 
 - name: LNKLST dataset list (step 4)
   ansible.builtin.import_tasks: lnklst.yml
