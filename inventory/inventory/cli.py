@@ -6,10 +6,12 @@
 `inventory racf-dataset-profiles`, `inventory racf-dataset-access`,
 `inventory racf-resource-profiles`, `inventory racf-resource-access`,
 `inventory uss-mounts`, `inventory jes2parm`, `inventory vtam-majnodes`,
-`inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`,
-`inventory sms-storgrps`, `inventory sms-storclas`, `inventory sms-mgmtclas`,
+`inventory vtam-options`, `inventory vtam-topology`,
+`inventory tcpip-home`, `inventory tcpip-profile`,
+`inventory sms-storgrps`,
 `inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
-`inventory wlm-zosmf`."""
+`inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
+`inventory cics-csd`."""
 from __future__ import annotations
 
 import argparse
@@ -21,6 +23,8 @@ from pathlib import Path
 from . import (
     activity_parser,
     catalog_parser,
+    cics_csdup_parser,
+    cics_proc_parser,
     db2_catalog_parser,
     ifaprd_parser,
     jcl_parser,
@@ -38,7 +42,7 @@ from . import (
     wlm_zosmf_parser,
 )
 from .models import RacfSnapshot
-from .resolver import resolve_all
+from .resolver import dataset_zone, resolve_all
 
 DEFAULT_DB = Path("inventory.db")
 
@@ -111,10 +115,17 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     vtam_major_nodes = []
     vtam_start_options = []
-    for path in sorted(input_dir.glob("*vtam*.txt")):
-        nodes, options = vtam_parser.parse_vtam(path)
+    vtam_topology_summary = None
+    vtam_files = sorted(input_dir.glob("*vtam*.txt"))
+    if len(vtam_files) > 1:
+        print(f"inventory: {len(vtam_files)} vtam files found, using {vtam_files[0]} "
+              f"for the (single-record) topology summary", file=sys.stderr)
+    for path in vtam_files:
+        nodes, options, topology = vtam_parser.parse_vtam(path)
         vtam_major_nodes.extend(nodes)
         vtam_start_options.extend(options)
+        if vtam_topology_summary is None:
+            vtam_topology_summary = topology
 
     tcpip_home_addresses = []
     tcpip_profile_statements = []
@@ -124,13 +135,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         tcpip_profile_statements.extend(statements)
 
     sms_storage_groups = []
-    sms_storage_classes = []
-    sms_management_classes = []
     for path in sorted(input_dir.glob("*sms*.txt")):
-        storgrps, storclas, mgmtclas = sms_parser.parse_sms(path)
-        sms_storage_groups.extend(storgrps)
-        sms_storage_classes.extend(storclas)
-        sms_management_classes.extend(mgmtclas)
+        sms_storage_groups.extend(sms_parser.parse_sms(path))
 
     # Excludes '*wlm_zosmf*' matches -- that's a separate dimension (see
     # below), and '*wlm*' would otherwise also match its filename.
@@ -150,6 +156,21 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     wlm_zosmf_entries = [e for path in sorted(input_dir.glob("*wlm_zosmf*.txt"))
                          for e in wlm_zosmf_parser.parse_wlm_zosmf(path)]
 
+    cics_dfhrpl_entries = []
+    cics_sit_overrides = []
+    cics_csd_definitions = []
+    for path in sorted(input_dir.glob("*cics_deepening*.txt")):
+        dfhrpl, sit = cics_proc_parser.parse_cics_proc(path)
+        cics_dfhrpl_entries.extend(dfhrpl)
+        cics_sit_overrides.extend(sit)
+        cics_csd_definitions.extend(cics_csdup_parser.parse_cics_csdup(path))
+    # Resolve each DFHRPL dataset to its owning SMP/E zone/APF status the
+    # same way STEPLIB/JOBLIB/LNKLST hops already are in resolve_all()
+    # above, via the same public helper (see resolver.dataset_zone()).
+    for entry in cics_dfhrpl_entries:
+        entry.zone = dataset_zone(entry.dsn, zones)
+        entry.apf_authorized = None if apf is None else entry.dsn in apf
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -165,15 +186,17 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_jes2_init_statements(conn, jes2_init_statements)
     store.save_vtam_major_nodes(conn, vtam_major_nodes)
     store.save_vtam_start_options(conn, vtam_start_options)
+    store.save_vtam_topology_summary(conn, vtam_topology_summary)
     store.save_tcpip_home_addresses(conn, tcpip_home_addresses)
     store.save_tcpip_profile_statements(conn, tcpip_profile_statements)
     store.save_sms_storage_groups(conn, sms_storage_groups)
-    store.save_sms_storage_classes(conn, sms_storage_classes)
-    store.save_sms_management_classes(conn, sms_management_classes)
     store.save_wlm_policy(conn, wlm_policy)
     store.save_db2_packages(conn, db2_packages)
     store.save_db2_plans(conn, db2_plans)
     store.save_wlm_zosmf_entries(conn, wlm_zosmf_entries)
+    store.save_cics_dfhrpl_entries(conn, cics_dfhrpl_entries)
+    store.save_cics_sit_overrides(conn, cics_sit_overrides)
+    store.save_cics_csd_definitions(conn, cics_csd_definitions)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -192,11 +215,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(tcpip_home_addresses)} TCPIP home addresses, "
           f"{len(tcpip_profile_statements)} TCPIP profile statements, "
           f"{len(sms_storage_groups)} SMS storage groups, "
-          f"{len(sms_storage_classes)} SMS storage classes, "
-          f"{len(sms_management_classes)} SMS management classes, "
           f"{len(db2_packages)} DB2 packages, "
           f"{len(db2_plans)} DB2 plans, "
-          f"{len(wlm_zosmf_entries)} WLM z/OSMF entries -> {args.db}")
+          f"{len(wlm_zosmf_entries)} WLM z/OSMF entries, "
+          f"{len(cics_dfhrpl_entries)} CICS DFHRPL entries, "
+          f"{len(cics_sit_overrides)} CICS SIT overrides, "
+          f"{len(cics_csd_definitions)} CICS CSD definitions -> {args.db}")
     return 0
 
 
@@ -510,6 +534,28 @@ def cmd_vtam_options(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_vtam_topology(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    row = store.get_vtam_topology_summary(conn)
+    conn.close()
+
+    if row is None:
+        print("inventory: no VTAM topology summary ingested", file=sys.stderr)
+        return 1
+
+    print(f"LAST CHECKPOINT: {row['last_checkpoint'] or '?'}")
+    print(f"ADJ={row['adj'] if row['adj'] is not None else '?'} "
+          f"NN={row['nn'] if row['nn'] is not None else '?'} "
+          f"EN={row['en'] if row['en'] is not None else '?'} "
+          f"SERVED EN={row['served_en'] if row['served_en'] is not None else '?'} "
+          f"CDSERVR={row['cdservr'] if row['cdservr'] is not None else '?'} "
+          f"ICN={row['icn'] if row['icn'] is not None else '?'} "
+          f"BN={row['bn'] if row['bn'] is not None else '?'}")
+    print(f"INITDB CHECKPOINT DATASET: {row['initdb_checkpoint_dataset'] or '?'}")
+    print(f"LAST GARBAGE COLLECTION: {row['last_garbage_collection'] or '?'}")
+    return 0
+
+
 def cmd_tcpip_home(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_tcpip_home_addresses(conn)
@@ -538,29 +584,8 @@ def cmd_sms_storgrps(args: argparse.Namespace) -> int:
 
     for row in rows:
         volumes = ",".join(json.loads(row["volumes_json"]))
-        print(f"{row['name']}  STATUS={row['status'] or '?'}  VOLUMES={volumes or '?'}")
-    return 0
-
-
-def cmd_sms_storclas(args: argparse.Namespace) -> int:
-    conn = store.connect(Path(args.db))
-    rows = store.all_sms_storage_classes(conn)
-    conn.close()
-
-    for row in rows:
-        params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
-        print(f"{row['name']}  {params}")
-    return 0
-
-
-def cmd_sms_mgmtclas(args: argparse.Namespace) -> int:
-    conn = store.connect(Path(args.db))
-    rows = store.all_sms_management_classes(conn)
-    conn.close()
-
-    for row in rows:
-        params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
-        print(f"{row['name']}  {params}")
+        group_type = row["group_type"] or "?"
+        print(f"{row['name']}  TYPE={group_type}  STATUS={row['status'] or '?'}  VOLUMES={volumes or '?'}")
     return 0
 
 
@@ -609,6 +634,39 @@ def cmd_wlm_zosmf(args: argparse.Namespace) -> int:
 
     for row in rows:
         print(f"{row['name']}  {row['raw_json']}")
+    return 0
+
+
+def cmd_cics_dfhrpl(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_cics_dfhrpl_entries(conn)
+    conn.close()
+
+    for row in rows:
+        zone = row["zone"] or "?"
+        apf = _apf_str(row["apf_authorized"])
+        print(f"{row['dsn']}  ZONE={zone} [{apf}]  [{row['proc']}]")
+    return 0
+
+
+def cmd_cics_sit(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_cics_sit_overrides(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['keyword']}={row['value']}  [{row['proc']}]")
+    return 0
+
+
+def cmd_cics_csd(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_cics_csd_definitions(conn)
+    conn.close()
+
+    for row in rows:
+        group = row["grp"] or "?"
+        print(f"{row['def_type']} {row['name']}  GROUP={group}  [{row['csd_dsn']}]")
     return 0
 
 
@@ -686,20 +744,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_vtam_options = sub.add_parser("vtam-options", help="list VTAM start options incl. NODETYPE/CPNAME (APPN enablement/role) (not yet production-validated)")
     p_vtam_options.set_defaults(func=cmd_vtam_options)
 
+    p_vtam_topology = sub.add_parser("vtam-topology", help="show the APPN topology database summary (D NET,TOPO) -- confirmed against a real reply")
+    p_vtam_topology.set_defaults(func=cmd_vtam_topology)
+
     p_tcpip_home = sub.add_parser("tcpip-home", help="list TCP/IP stack home addresses (not yet production-validated)")
     p_tcpip_home.set_defaults(func=cmd_tcpip_home)
 
     p_tcpip_profile = sub.add_parser("tcpip-profile", help="list PROFILE.TCPIP configuration statements, if configured (not yet production-validated)")
     p_tcpip_profile.set_defaults(func=cmd_tcpip_profile)
 
-    p_sms_storgrps = sub.add_parser("sms-storgrps", help="list SMS storage groups and their volumes (not yet production-validated)")
+    p_sms_storgrps = sub.add_parser("sms-storgrps", help="list SMS storage groups, type, per-system status, and volumes (confirmed against a real reply)")
     p_sms_storgrps.set_defaults(func=cmd_sms_storgrps)
-
-    p_sms_storclas = sub.add_parser("sms-storclas", help="list SMS storage classes (not yet production-validated)")
-    p_sms_storclas.set_defaults(func=cmd_sms_storclas)
-
-    p_sms_mgmtclas = sub.add_parser("sms-mgmtclas", help="list SMS management classes (not yet production-validated)")
-    p_sms_mgmtclas.set_defaults(func=cmd_sms_mgmtclas)
 
     p_wlm = sub.add_parser("wlm", help="show the active WLM policy name/mode (not yet production-validated)")
     p_wlm.set_defaults(func=cmd_wlm)
@@ -712,6 +767,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_wlm_zosmf = sub.add_parser("wlm-zosmf", help="list WLM entries fetched via z/OSMF's REST API (most speculative dimension, not yet production-validated)")
     p_wlm_zosmf.set_defaults(func=cmd_wlm_zosmf)
+
+    p_cics_dfhrpl = sub.add_parser("cics-dfhrpl", help="list deepened CICS DFHRPL load-library entries, zone/APF-resolved (opt-in, not yet production-validated)")
+    p_cics_dfhrpl.set_defaults(func=cmd_cics_dfhrpl)
+
+    p_cics_sit = sub.add_parser("cics-sit", help="list deepened CICS SIT (System Initialization Table) overrides (opt-in, not yet production-validated)")
+    p_cics_sit.set_defaults(func=cmd_cics_sit)
+
+    p_cics_csd = sub.add_parser("cics-csd", help="list deepened CICS resource definitions from a DFHCSDUP LIST report (opt-in, most speculative dimension alongside db2/wlm-zosmf, not yet production-validated)")
+    p_cics_csd.set_defaults(func=cmd_cics_csd)
 
     return parser
 
