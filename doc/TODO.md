@@ -741,11 +741,29 @@ sub-parameters, or whole indented tables like `PORT`'s ~80-row
 reservation list), which the original one-line-per-statement guess
 didn't account for at all.
 
-Still outstanding from the original "not yet validated" list: the
-content of a real JES2 init-deck member (the *discovery* mechanism
-above is now confirmed, but `jes2parm_parser.py`'s own
-statement-parsing regexes still haven't seen real member text),
-DSNTEP2 (DB2), IRRDBU00 (RACF), IDCAMS `LISTCAT` (catalog), and
-DFHCSDUP's LIST report format (CICS) -- the last four aren't console
+The content of a real JES2 init-deck member is now confirmed too, against
+two real members (`JES2PARM` and the `JES2NJE` member it pulls in via an
+`INCLUDE` statement) -- and it needed a real parser fix, not just
+re-flagging. The real members are a site copy of IBM's own
+HASPPARM-derived template, comments and all (a common, legitimate way
+shops build their real init deck): `/* ... */` comments trailing on the
+same line as real content, and comments spanning multiple physical lines
+(decorative section-divider boxes), weren't stripped by the original
+"skip a line that's *entirely* a comment" check -- a trailing same-line
+comment got glued onto real parameter text (corrupting the params dict
+with a garbage key), and a multi-line comment's non-`/*`-prefixed
+continuation line got fed to the statement parser as if it were real
+content. Fixed by stripping every `/* ... */` span from the whole
+member's raw text up front (regex, DOTALL so a multi-line span is
+stripped as a whole) before any line-based processing. Also found: a
+statement can legitimately have a subscript and zero live parameters if
+its only real parameters are documented-but-commented-out in this
+particular member (`FSS(PRINTOFF)`, `LOADMOD(JESEXIT5)`) -- the original
+regex required at least one parameter and silently dropped these; the
+trailing params group is now optional.
+
+Still outstanding from the original "not yet validated" list: DSNTEP2
+(DB2), IRRDBU00 (RACF), IDCAMS `LISTCAT` (catalog), and DFHCSDUP's LIST
+report format (CICS) -- these four aren't console
 `D`-commands runnable via a quick `opercmd` paste (they all need a
 batch JCL run instead).

@@ -119,8 +119,10 @@ class Jes2InitStatement:
     discover_active_members.yml's KEYWORD=value pass both use, rather than
     hand-modeling a dataclass per JES2 statement.
 
-    NOT YET VALIDATED against a real JES2 init deck -- see
-    jes2parm_parser.py's module docstring."""
+    CONFIRMED against a real JES2 init deck on 2026-07-02. params can be
+    empty for a statement whose only real parameters are documented but
+    commented out in this particular member -- see jes2parm_parser.py's
+    module docstring for the full detail."""
 
     stmt: str                                   # e.g. "MASDEF", "JOBCLASS"
     subscript: str | None = None                # e.g. "1" from "JOBCLASS(1)"

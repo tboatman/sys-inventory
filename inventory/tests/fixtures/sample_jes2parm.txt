@@ -1,7 +1,38 @@
 ##MEMBER JES2PARM
-/* sample JES2 init deck excerpt */
-MASDEF   OWNMASN=1,
-         NAME=NJE1
-JOBCLASS(1) JOBPRTY=16,COMMAND=NO
-JOBDEF   JOBNUM=(999,999,1),RESTART=YES
-OUTCLASS(A) QUEUE=YES,BURST=YES
+/*****PROPRIETARY-STATEMENT*******************************************/
+/*     LICENSED MATERIALS-PROPERTY OF IBM                            */
+/*****END-OF-PROPRIETARY-STATEMENT************************************/
+/*                           *---------------------------------------*
+                             *    Checkpoint Parameters              *
+                             *---------------------------------------*
+                                                                     */
+CKPTDEF  CKPT1=(DSNAME=SYS1.BES2.HASPCKPT,
+                             /* NAME FOR CKPT &DSNPRFX           ONC*/
+         VOLSER=BES2W1,      /* SYS1.BES2.HASPCKPT               ONC*/
+         INUSE=YES),         /*                                   onc*/
+         DUPLEX=ON           /* NO DUPLEXING        &CHKPT2       NC*/
+/*                                                                   */
+CKPTSPACE BERTNUM=6500,      /* Number of BERTs                    oc*/
+          BERTWARN=80        /* $HASP050 threshold for BERTs    ohwnc*/
+/*                            *--------------------------------------*
+                              *    Functional Subsystem Definition   *
+                              *--------------------------------------*
+                                                                     */
+FSS(PRINTOFF)                /* FSS TOKEN FOR PRINTERNN FSS=    aownc*/
+/*       PROC=PRINT,            FSS PROCEDURE TO START FSA       ownc*/
+/*       HASPFSSM=HASPFSSM      FSS Load Module FSS Support      ownc*/
+INIT(1)  NAME=1,             /* INITIATOR NAME                    wnc*/
+         CLASS=QE,           /* INITIAL JOB CLASSES              ownc*/
+         START               /* Start Automatically               wnc*/
+INCLUDE DSNAME=SYS1.BES2.PARMLIB(JES2NJE),VOLSER=BES2W1
+##MEMBER JES2NJE
+/*              *--------------------------------------*
+                |    NETWORK SERVER DEFINITIONS        |
+                *--------------------------------------*
+                                                                     */
+NETSRV(1)  SOCKET=LOCAL
+NODE(1)    NAME=SYSP,PATHMGR=NO,NETSRV=1
+/*                                                                   */
+SOCKET(SYSP) IPADDR=SYSP.BMC.COM,
+             PORT=175,
+             NODE=1

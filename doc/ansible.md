@@ -292,7 +292,7 @@ This role won't run it unless you both set `zos_extract_racf_database_dsn` in
 ansible-playbook playbooks/site.yml --tags racf --limit lpar1
 ```
 
-### USS mounts and JES2 init member discovery (both confirmed against real replies)
+### USS mounts and JES2 init parameters (all confirmed against real replies)
 
 `uss_mounts.yml` (`D OMVS,F`) and `discover_jes2_parmlib.yml`/`jes2parm.yml`
 (JES2's own `$DINITINFO` command -- distinct from `discover_parmlib.yml`'s
@@ -329,14 +329,32 @@ RACF was. **Both are now confirmed against real replies.** Specifically:
   to `zos_extract_jes2_init_members` (a list of `{dsn, member}` pairs,
   not `{dsn, prefix}`) to reflect this.
 
-The command/discovery mechanism above is now confirmed; what still isn't
-is the *content* of a real JES2 init-deck member (`jes2parm_parser.py`'s
-own regexes) -- that needs a real member's text, not just its name, to
-confirm.
-
-Run `ansible-playbook playbooks/site.yml --tags jes2parm --limit lpar1`
-against a real system and check the resulting `*_jes2parm.txt` against
-what `jes2parm_parser.py` assumes before relying on that dimension.
+The command/discovery mechanism above is confirmed, and so now is the
+*content* of a real JES2 init-deck member -- two real members
+(`SYS1.BES2.PARMLIB(JES2PARM)` and the `JES2NJE` member it pulls in via
+an `INCLUDE` statement) were checked against `jes2parm_parser.py` on
+2026-07-02, and needed a real fix, not just re-flagging: the real
+member turned out to be a site copy of IBM's own HASPPARM-derived
+template, comments and all -- a common, legitimate way shops build
+their real init deck. That meant '/* ... */' comments trailing on the
+same line as real content (most commonly right after a parameter's
+continuation comma), and comments spanning multiple physical lines
+(decorative section-divider boxes, and a couple of cases where a `/*`
+opened on one line and didn't close until `*/` several lines later).
+The original parser only skipped a line if its *entire* stripped text
+started with `/*`, so a trailing same-line comment got glued onto real
+parameter text (corrupting the params dict with a garbage key), and a
+multi-line comment's non-`/*`-prefixed continuation line got fed to the
+statement parser as if it were real content. Fixed by stripping every
+`/* ... */` span from the whole member's raw text up front (DOTALL, so
+a multi-line span is stripped as a whole) before any line-based
+processing. Also found: a statement can legitimately have a subscript
+and zero live parameters if its only real parameters happen to be
+documented-but-commented-out in this particular member (`FSS(PRINTOFF)`
+and `LOADMOD(JESEXIT5)` in the real member) -- the original regex
+required at least one parameter and silently dropped these; now the
+trailing params group is optional. See `jes2parm_parser.py`'s module
+docstring for the full detail.
 
 ### VTAM/APPN/TCPIP (all confirmed against real replies)
 
@@ -751,14 +769,14 @@ roles/zos_extract/
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs
     uss_mounts.yml            # 'D OMVS,F' captured raw (see above) --
-                               # not yet validated against a real reply
-    discover_jes2_parmlib.yml # auto-discovers zos_extract_jes2_parmlibs via
-                               # JES2's '$D PARMLIB' if it isn't set
-                               # explicitly -- message ID not confirmed,
-                               # see the task file's own header comment
-    jes2parm.yml               # dumps every member of every JES2 PARMLIB
-                                # entry (see _member_dump.yml) -- JES2's
-                                # own init deck, not yet validated
+                               # confirmed against a real reply
+    discover_jes2_parmlib.yml # issues JES2's '$DINITINFO' and extracts the
+                               # exact dsn/member pairs it reports reading
+                               # at startup -- confirmed against a real
+                               # reply (see above)
+    jes2parm.yml               # zos_fetch's exactly the pairs discover_
+                                # jes2_parmlib.yml found -- JES2's own init
+                                # deck, confirmed against real members
     vtam.yml                   # 'D NET,MAJNODES' + 'D NET,VTAMOPTS' +
                                 # 'D NET,TOPO' bundled into one vtam.txt
                                 # (see above) -- all three confirmed

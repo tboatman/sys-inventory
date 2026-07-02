@@ -140,7 +140,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -355,22 +355,33 @@ $ inventory uss-mounts
 /legacy  NAME=OMVS.LEGACY.HFS TYPE=HFS DEVICE=115 STATUS=ACTIVE MODE=READ
 ```
 
-### `inventory jes2parm` (not yet production-validated)
+### `inventory jes2parm` (confirmed against real init-deck members)
 
 Every JES2 initialization statement, if you ingested a `jes2parm.txt` —
 JES2's own PARMLIB-equivalent init deck, distinct from both SYS1.PARMLIB's
 IEFSSNxx/COMMNDxx and the JES2 *PROCLIB* concatenation `subsystems`/
 `report` already cover. Captured generically (statement name + optional
 subscript + a raw keyword=value map), not modeled per statement type — see
-`Jes2InitStatement` in `models.py`. **Also not yet validated against a
-real JES2 init deck — see `jes2parm_parser.py`'s module docstring.**
+`Jes2InitStatement` in `models.py`. **Confirmed against two real init-deck
+members on 2026-07-02** (`JES2PARM` and the `JES2NJE` member it pulls in
+via an `INCLUDE` statement) — the real members are a site copy of IBM's
+own HASPPARM-derived template, comments and all, which needed a real
+parser fix, not just re-flagging: `/* ... */` comments trailing on the
+same line as real content, and comments spanning multiple physical lines
+(decorative section-divider boxes), weren't stripped by the original
+"skip a line that's *entirely* a comment" check — see
+`jes2parm_parser.py`'s module docstring for the full detail.
 
 ```
 $ inventory jes2parm
-JOBCLASS(1)  JOBPRTY=16,COMMAND=NO  [JES2PARM]
-JOBDEF  JOBNUM=(999,999,1),RESTART=YES  [JES2PARM]
-MASDEF  OWNMASN=1,NAME=NJE1  [JES2PARM]
-OUTCLASS(A)  QUEUE=YES,BURST=YES  [JES2PARM]
+CKPTDEF  CKPT1=(DSNAME=SYS1.BES2.HASPCKPT, VOLSER=BES2W1, INUSE=YES),DUPLEX=ON  [JES2PARM]
+CKPTSPACE  BERTNUM=6500,BERTWARN=80  [JES2PARM]
+FSS(PRINTOFF)    [JES2PARM]
+INCLUDE  DSNAME=SYS1.BES2.PARMLIB(JES2NJE),VOLSER=BES2W1  [JES2PARM]
+INIT(1)  NAME=1,CLASS=QE,START=  [JES2PARM]
+NETSRV(1)  SOCKET=LOCAL  [JES2NJE]
+NODE(1)  NAME=SYSP,PATHMGR=NO,NETSRV=1  [JES2NJE]
+SOCKET(SYSP)  IPADDR=SYSP.BMC.COM,PORT=175,NODE=1  [JES2NJE]
 ```
 
 ### `inventory vtam-majnodes` / `inventory vtam-options` (both confirmed against real replies)
@@ -739,12 +750,19 @@ continuation lines (the real shape), a TFS mount with an extra `MOUNT
 PARM=` continuation line, and proving header/summary lines aren't
 mistaken for mount records) — **confirmed against a real `D OMVS,F`
 reply, see `uss_mounts_parser.py`'s module docstring** — and JES2
-init-statement parsing (`sample_jes2parm.txt`, covering a comment line
-that must be skipped, a statement whose continuation spans two lines, a
-parenthesized statement subscript, and a parameter value with inner
-commas that must not be split as separate parameters) — **still built
-against a hand-constructed fixture, not a real system reply; see
-`jes2parm_parser.py`'s module docstring.** Also VTAM parsing
+init-statement parsing (`sample_jes2parm.txt`, covering a decorative
+multi-line box comment and a trailing same-line comment right after a
+continuation comma (both proven not to corrupt or get merged into real
+statement content), a nested-parenthesized value built from several
+inner KEYWORD=VALUE pairs across multiple comment-interrupted
+continuation lines, a subscript-only statement with no live parameters
+(`FSS(PRINTOFF)`, real params documented but commented out) proven not
+to be dropped, a bare flag parameter with no `=` (`START`) captured
+with an empty value, an `INCLUDE` statement captured generically like
+any other, and a second real member (`JES2NJE`, the one `INCLUDE`
+pulls in) parsed with its own `source_member`) — **confirmed against
+two real init-deck members (2026-07-02); see `jes2parm_parser.py`'s
+module docstring for the full detail.** Also VTAM parsing
 (`sample_vtam.txt`, covering major nodes across ACT/S/ACTIV/INACT
 statuses in the real `IST089I ... TYPE = ..., STATUS` row shape (not the
 originally-guessed `IST486I NAME STATUS` shape) plus banner/summary lines

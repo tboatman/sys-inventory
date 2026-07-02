@@ -736,7 +736,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_uss_mounts = sub.add_parser("uss-mounts", help="list mounted USS filesystems (not yet production-validated)")
     p_uss_mounts.set_defaults(func=cmd_uss_mounts)
 
-    p_jes2parm = sub.add_parser("jes2parm", help="list JES2's own initialization statements (not yet production-validated)")
+    p_jes2parm = sub.add_parser("jes2parm", help="list JES2's own initialization statements (confirmed against a real init deck)")
     p_jes2parm.set_defaults(func=cmd_jes2parm)
 
     p_vtam_majnodes = sub.add_parser("vtam-majnodes", help="list VTAM major nodes and their status (not yet production-validated)")
