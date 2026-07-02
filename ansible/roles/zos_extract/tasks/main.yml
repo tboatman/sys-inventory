@@ -85,6 +85,14 @@
   ansible.builtin.import_tasks: jes2parm.yml
   tags: [jes2parm]
 
+- name: VTAM major-node status and start options, incl. APPN enablement/role (step 13)
+  ansible.builtin.import_tasks: vtam.yml
+  tags: [vtam]
+
+- name: TCP/IP home addresses and (opt-in) PROFILE.TCPIP configuration (step 14)
+  ansible.builtin.import_tasks: tcpip.yml
+  tags: [tcpip]
+
 - name: Candidate SMP/E CSI discovery -- naming-heuristic only, opt-in (see discover_smpe_csis.yml)
   ansible.builtin.import_tasks: discover_smpe_csis.yml
   tags: [smpe_csi_discovery]

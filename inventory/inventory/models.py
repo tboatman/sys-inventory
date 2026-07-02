@@ -225,6 +225,74 @@ class UssMount:
 
 
 @dataclass
+class VtamMajorNode:
+    """One VTAM major node, as dumped by 'D NET,MAJNODES' (see
+    ansible/roles/zos_extract/tasks/vtam.yml) and parsed by
+    vtam_parser.py.
+
+    NOT YET VALIDATED against a real 'D NET,MAJNODES' reply -- see
+    vtam_parser.py's module docstring for the same caveat
+    racf_parser.py carries for its own unconfirmed byte offsets."""
+
+    name: str
+    status: str | None = None   # e.g. ACTIV, ACT/S, INACT, PEND...
+
+
+@dataclass
+class VtamStartOption:
+    """One VTAM start option KEYWORD=VALUE pair, as dumped by
+    'D NET,VTAMOPTS' (see ansible/roles/zos_extract/tasks/vtam.yml) and
+    parsed by vtam_parser.py.
+
+    Captured generically (every keyword found, not a hand-modeled
+    subset) the same way Jes2InitStatement captures JES2 init
+    statements -- the full VTAMOPTS keyword set isn't confirmed here.
+    APPN enablement/role is answered by querying this table for the
+    NODETYPE/CPNAME keywords rather than a dedicated field.
+
+    NOT YET VALIDATED against a real 'D NET,VTAMOPTS' reply -- see
+    vtam_parser.py's module docstring."""
+
+    keyword: str
+    value: str
+
+
+@dataclass
+class TcpipHomeAddress:
+    """One TCP/IP stack home address, as dumped by
+    'D TCPIP,,NETSTAT,HOME' (see ansible/roles/zos_extract/tasks/tcpip.yml)
+    and parsed by tcpip_parser.py.
+
+    NOT YET VALIDATED against a real 'D TCPIP,,NETSTAT,HOME' reply --
+    see tcpip_parser.py's module docstring."""
+
+    link_name: str
+    ip_address: str
+
+
+@dataclass
+class TcpipProfileStatement:
+    """One PROFILE.TCPIP configuration statement, as fetched directly
+    from the dataset named by zos_extract_tcpip_profile_dsn (see
+    ansible/roles/zos_extract/tasks/tcpip.yml) and parsed by
+    tcpip_parser.py.
+
+    Captured generically (statement name + raw remaining operand text)
+    rather than modeled per statement type, the same "capture
+    everything generically" approach Jes2InitStatement/VtamStartOption
+    use -- PROFILE.TCPIP statement syntax is positional and varied
+    (DEVICE/LINK/HOME/PORT ...), not uniform KEYWORD=VALUE, so there's
+    no single generic split like VTAMOPTS gets.
+
+    NOT YET VALIDATED against a real PROFILE.TCPIP sample -- see
+    tcpip_parser.py's module docstring."""
+
+    stmt: str
+    operands: str
+    source_dsn: str = ""
+
+
+@dataclass
 class CatalogDataset:
     """One non-VSAM dataset under an operator-supplied HLQ/pattern, as
     dumped by zos-extract/python/extrcat.py via ZOAU's

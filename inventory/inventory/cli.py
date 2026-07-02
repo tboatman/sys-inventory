@@ -5,7 +5,8 @@
 `inventory racf-groups`, `inventory racf-connections`,
 `inventory racf-dataset-profiles`, `inventory racf-dataset-access`,
 `inventory racf-resource-profiles`, `inventory racf-resource-access`,
-`inventory uss-mounts`, `inventory jes2parm`."""
+`inventory uss-mounts`, `inventory jes2parm`, `inventory vtam-majnodes`,
+`inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`."""
 from __future__ import annotations
 
 import argparse
@@ -25,7 +26,9 @@ from . import (
     ssn_parser,
     store,
     sysinfo_parser,
+    tcpip_parser,
     uss_mounts_parser,
+    vtam_parser,
 )
 from .models import RacfSnapshot
 from .resolver import resolve_all
@@ -99,6 +102,20 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     jes2_init_statements = [s for path in sorted(input_dir.glob("*jes2parm*.txt"))
                              for s in jes2parm_parser.parse_dump(path)]
 
+    vtam_major_nodes = []
+    vtam_start_options = []
+    for path in sorted(input_dir.glob("*vtam*.txt")):
+        nodes, options = vtam_parser.parse_vtam(path)
+        vtam_major_nodes.extend(nodes)
+        vtam_start_options.extend(options)
+
+    tcpip_home_addresses = []
+    tcpip_profile_statements = []
+    for path in sorted(input_dir.glob("*tcpip*.txt")):
+        addresses, statements = tcpip_parser.parse_tcpip(path)
+        tcpip_home_addresses.extend(addresses)
+        tcpip_profile_statements.extend(statements)
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -112,6 +129,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_racf_snapshot(conn, racf_snapshot)
     store.save_uss_mounts(conn, uss_mounts)
     store.save_jes2_init_statements(conn, jes2_init_statements)
+    store.save_vtam_major_nodes(conn, vtam_major_nodes)
+    store.save_vtam_start_options(conn, vtam_start_options)
+    store.save_tcpip_home_addresses(conn, tcpip_home_addresses)
+    store.save_tcpip_profile_statements(conn, tcpip_profile_statements)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -124,7 +145,11 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(racf_snapshot.users)} RACF users, "
           f"{len(racf_snapshot.groups)} RACF groups, "
           f"{len(uss_mounts)} USS mounts, "
-          f"{len(jes2_init_statements)} JES2 init statements -> {args.db}")
+          f"{len(jes2_init_statements)} JES2 init statements, "
+          f"{len(vtam_major_nodes)} VTAM major nodes, "
+          f"{len(vtam_start_options)} VTAM start options, "
+          f"{len(tcpip_home_addresses)} TCPIP home addresses, "
+          f"{len(tcpip_profile_statements)} TCPIP profile statements -> {args.db}")
     return 0
 
 
@@ -418,6 +443,47 @@ def cmd_jes2parm(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_vtam_majnodes(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_vtam_major_nodes(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['name']}  STATUS={row['status'] or '?'}")
+    return 0
+
+
+def cmd_vtam_options(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_vtam_start_options(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['keyword']}={row['value']}")
+    return 0
+
+
+def cmd_tcpip_home(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_tcpip_home_addresses(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['link_name']}  {row['ip_address']}")
+    return 0
+
+
+def cmd_tcpip_profile(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_tcpip_profile_statements(conn)
+    conn.close()
+
+    for row in rows:
+        source = f"  [{row['source_dsn']}]" if row["source_dsn"] else ""
+        print(f"{row['stmt']} {row['operands']}{source}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -485,6 +551,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_jes2parm = sub.add_parser("jes2parm", help="list JES2's own initialization statements (not yet production-validated)")
     p_jes2parm.set_defaults(func=cmd_jes2parm)
+
+    p_vtam_majnodes = sub.add_parser("vtam-majnodes", help="list VTAM major nodes and their status (not yet production-validated)")
+    p_vtam_majnodes.set_defaults(func=cmd_vtam_majnodes)
+
+    p_vtam_options = sub.add_parser("vtam-options", help="list VTAM start options incl. NODETYPE/CPNAME (APPN enablement/role) (not yet production-validated)")
+    p_vtam_options.set_defaults(func=cmd_vtam_options)
+
+    p_tcpip_home = sub.add_parser("tcpip-home", help="list TCP/IP stack home addresses (not yet production-validated)")
+    p_tcpip_home.set_defaults(func=cmd_tcpip_home)
+
+    p_tcpip_profile = sub.add_parser("tcpip-profile", help="list PROFILE.TCPIP configuration statements, if configured (not yet production-validated)")
+    p_tcpip_profile.set_defaults(func=cmd_tcpip_profile)
 
     return parser
 

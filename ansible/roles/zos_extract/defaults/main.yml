@@ -38,6 +38,14 @@ zos_extract_catalog_outfile: "catalog.txt"
 
 zos_extract_uss_mounts_outfile: "uss_mounts.txt"
 
+zos_extract_vtam_outfile: "vtam.txt"
+
+zos_extract_tcpip_outfile: "tcpip.txt"
+# Optional: DSN of the PROFILE.TCPIP-style dataset (sequential, or a PDS
+# member e.g. "TCPIP.TCPPARMS(PROFILE1)") to fetch verbatim -- see
+# tcpip.yml. Leave blank to skip; D TCPIP,,NETSTAT,HOME still runs either way.
+zos_extract_tcpip_profile_dsn: ""
+
 zos_extract_racf_database_dsn: ""
 
 # Opt-in live "what's running" CICS/DB2 discovery -- see

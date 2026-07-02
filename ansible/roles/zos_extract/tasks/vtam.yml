@@ -1,0 +1,51 @@
+---
+# VTAM major-node status and start options (incl. APPN enablement/role),
+# unconditional -- same "capture raw, bundle two D-commands into one
+# ##BLOCKNAME-sentinel file, parse off-host" idiom sysinfo.yml already
+# uses for 'D SYMBOLS'/'D IPLINFO' (vtam_parser.py's job is to parse
+# vtam.txt the way sysinfo_parser.py parses sysinfo.txt).
+#
+# NOT YET CONFIRMED against a real system: neither 'D NET,MAJNODES' nor
+# 'D NET,VTAMOPTS' has been checked against an actual reply from this
+# site (IBM's docs site 403'd on direct fetch and no secondary source had
+# real sample output while writing this either) -- vtam_parser.py's
+# module docstring carries the full caveat. Confirm before trusting this
+# blindly, same as racf_parser.py's own "implementation only" caveat.
+#
+# APPN coverage is deliberately narrow this round: 'D NET,VTAMOPTS'
+# reveals whether APPN is enabled and as what role (its NODETYPE/CPNAME
+# fields), but 'D NET,TOPO' (the APPN topology database itself) is
+# skipped -- its reply shape is even less certain, and this was an
+# explicit call to not guess at it this round.
+
+- name: Issue D NET,MAJNODES
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D NET,MAJNODES"
+  register: zos_extract_vtam_majnodes_reply
+
+- name: Issue D NET,VTAMOPTS
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D NET,VTAMOPTS"
+  register: zos_extract_vtam_options_reply
+
+- name: Join the D NET,MAJNODES/D NET,VTAMOPTS reply lines into plain text
+  # Deliberately double-quoted scalars, not block scalars: YAML resolves
+  # the \n escape below to a real newline before Jinja sees it. A block
+  # scalar leaves it as literal backslash-n text instead (confirmed by
+  # testing both forms, same pitfall sysinfo.yml's own comment
+  # documents), which would corrupt the ##MAJNODES/##VTAMOPTS sentinel
+  # format vtam_parser.py expects.
+  ansible.builtin.set_fact:
+    zos_extract_vtam_majnodes_text: "{{ zos_extract_vtam_majnodes_reply.stdout_lines | join('\n') }}"
+    zos_extract_vtam_options_text: "{{ zos_extract_vtam_options_reply.stdout_lines | join('\n') }}"
+
+- name: Write {{ zos_extract_vtam_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_vtam_outfile }}"
+    mode: "0644"
+    content: |-
+      ##MAJNODES
+      {{ zos_extract_vtam_majnodes_text }}
+      ##VTAMOPTS
+      {{ zos_extract_vtam_options_text }}
+  delegate_to: localhost

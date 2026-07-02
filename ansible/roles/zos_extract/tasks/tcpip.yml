@@ -1,0 +1,79 @@
+---
+# Live TCP/IP home addresses (unconditional), plus the actual
+# PROFILE.TCPIP-style configuration text (opt-in, only if
+# zos_extract_tcpip_profile_dsn is set) -- bundled into one tcpip.txt via
+# the same ##BLOCKNAME sentinel convention sysinfo.yml/vtam.yml use.
+# tcpip_parser.py (off-host) does the real parsing, same "capture raw,
+# parse off-host" split as everywhere else in this pipeline.
+#
+# NOT YET CONFIRMED against a real system or a real PROFILE.TCPIP sample:
+# neither 'D TCPIP,,NETSTAT,HOME' nor the profile statement parsing has
+# been checked against actual output from this site (IBM's docs site
+# 403'd on direct fetch and no secondary source had real sample output
+# while writing this either) -- tcpip_parser.py's module docstring
+# carries the full caveat.
+#
+# zos_fetch's own documented behavior (its EXAMPLES block): fetching a
+# sequential data set with flat:true names the local file after the full
+# DSN; fetching a PDS member flattens to just the member name (parens
+# stripped) -- same behavior _fetch_active_ieasys_member.yml already
+# relies on for IEASYSxx. zos_extract_tcpip_profile_local_filename below
+# picks whichever shape applies so the later lookup() knows what to read.
+
+- name: Issue D TCPIP,,NETSTAT,HOME
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D TCPIP,,NETSTAT,HOME"
+  register: zos_extract_tcpip_netstat_reply
+
+- name: Create a scratch directory for the TCPIP profile fetch
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_tcpip_profile_scratch
+  delegate_to: localhost
+  when: zos_extract_tcpip_profile_dsn | length > 0
+
+- name: Fetch the TCPIP profile dataset
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_tcpip_profile_dsn }}"
+    dest: "{{ zos_extract_tcpip_profile_scratch.path }}/"
+    flat: true
+  when: zos_extract_tcpip_profile_dsn | length > 0
+
+- name: Determine the fetched profile's local filename
+  ansible.builtin.set_fact:
+    zos_extract_tcpip_profile_local_filename: >-
+      {{ (zos_extract_tcpip_profile_dsn | regex_replace('^.*\(([^)]+)\)$', '\1'))
+         if '(' in zos_extract_tcpip_profile_dsn
+         else zos_extract_tcpip_profile_dsn }}
+  when: zos_extract_tcpip_profile_dsn | length > 0
+
+- name: Join the D TCPIP,,NETSTAT,HOME reply lines into plain text
+  # Deliberately a double-quoted scalar, not a block scalar -- same
+  # \n-escape pitfall documented in sysinfo.yml/vtam.yml: a block scalar
+  # would leave this as literal backslash-n text instead of a real
+  # newline, corrupting the ##NETSTAT_HOME sentinel format
+  # tcpip_parser.py expects.
+  ansible.builtin.set_fact:
+    zos_extract_tcpip_netstat_text: "{{ zos_extract_tcpip_netstat_reply.stdout_lines | join('\n') }}"
+
+- name: Write {{ zos_extract_tcpip_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_tcpip_outfile }}"
+    mode: "0644"
+    content: |-
+      ##NETSTAT_HOME
+      {{ zos_extract_tcpip_netstat_text }}
+      {% if zos_extract_tcpip_profile_dsn | length > 0 %}
+      ##PROFILE
+      ;;SOURCE_DSN={{ zos_extract_tcpip_profile_dsn }}
+      {{ lookup('ansible.builtin.file', zos_extract_tcpip_profile_scratch.path ~ '/' ~ zos_extract_tcpip_profile_local_filename) }}
+      {% endif %}
+  delegate_to: localhost
+
+- name: Remove scratch directory for the TCPIP profile fetch
+  ansible.builtin.file:
+    path: "{{ zos_extract_tcpip_profile_scratch.path }}"
+    state: absent
+  delegate_to: localhost
+  when: zos_extract_tcpip_profile_scratch.path is defined

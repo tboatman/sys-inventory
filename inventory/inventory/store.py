@@ -23,9 +23,13 @@ from .models import (
     StartedTask,
     Subsystem,
     SystemInfo,
+    TcpipHomeAddress,
+    TcpipProfileStatement,
     UssMount,
     UssProcess,
     VsamCluster,
+    VtamMajorNode,
+    VtamStartOption,
 )
 
 _SCHEMA = """
@@ -213,6 +217,31 @@ CREATE TABLE IF NOT EXISTS jes2_init_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_jes2_init_statements_stmt ON jes2_init_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS vtam_major_nodes (
+    name    TEXT NOT NULL,
+    status  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_vtam_major_nodes_name ON vtam_major_nodes(name);
+
+CREATE TABLE IF NOT EXISTS vtam_start_options (
+    keyword  TEXT NOT NULL,
+    value    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vtam_start_options_keyword ON vtam_start_options(keyword);
+
+CREATE TABLE IF NOT EXISTS tcpip_home_addresses (
+    link_name   TEXT NOT NULL,
+    ip_address  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tcpip_home_addresses_link ON tcpip_home_addresses(link_name);
+
+CREATE TABLE IF NOT EXISTS tcpip_profile_statements (
+    stmt        TEXT NOT NULL,
+    operands    TEXT NOT NULL,
+    source_dsn  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tcpip_profile_statements_stmt ON tcpip_profile_statements(stmt);
 """
 
 
@@ -543,4 +572,59 @@ def save_jes2_init_statements(conn: sqlite3.Connection, statements: list[Jes2Ini
 def all_jes2_init_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM jes2_init_statements ORDER BY stmt, subscript")
+    return cur.fetchall()
+
+
+def save_vtam_major_nodes(conn: sqlite3.Connection, nodes: list[VtamMajorNode]) -> None:
+    conn.execute("DELETE FROM vtam_major_nodes")
+    rows = [(n.name, n.status) for n in nodes]
+    conn.executemany("INSERT INTO vtam_major_nodes (name, status) VALUES (?, ?)", rows)
+    conn.commit()
+
+
+def all_vtam_major_nodes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM vtam_major_nodes ORDER BY name")
+    return cur.fetchall()
+
+
+def save_vtam_start_options(conn: sqlite3.Connection, options: list[VtamStartOption]) -> None:
+    conn.execute("DELETE FROM vtam_start_options")
+    rows = [(o.keyword, o.value) for o in options]
+    conn.executemany("INSERT INTO vtam_start_options (keyword, value) VALUES (?, ?)", rows)
+    conn.commit()
+
+
+def all_vtam_start_options(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM vtam_start_options ORDER BY keyword")
+    return cur.fetchall()
+
+
+def save_tcpip_home_addresses(conn: sqlite3.Connection, addresses: list[TcpipHomeAddress]) -> None:
+    conn.execute("DELETE FROM tcpip_home_addresses")
+    rows = [(a.link_name, a.ip_address) for a in addresses]
+    conn.executemany("INSERT INTO tcpip_home_addresses (link_name, ip_address) VALUES (?, ?)", rows)
+    conn.commit()
+
+
+def all_tcpip_home_addresses(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM tcpip_home_addresses ORDER BY link_name")
+    return cur.fetchall()
+
+
+def save_tcpip_profile_statements(conn: sqlite3.Connection, statements: list[TcpipProfileStatement]) -> None:
+    conn.execute("DELETE FROM tcpip_profile_statements")
+    rows = [(s.stmt, s.operands, s.source_dsn) for s in statements]
+    conn.executemany(
+        "INSERT INTO tcpip_profile_statements (stmt, operands, source_dsn) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_tcpip_profile_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM tcpip_profile_statements ORDER BY stmt")
     return cur.fetchall()
