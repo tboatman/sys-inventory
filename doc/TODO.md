@@ -644,6 +644,122 @@ DSNTEP2's authorization/PLAN requirements needed a real DB2 subsystem.
 
 ---
 
+## 8. SMP/E traceability: CSI-aware zones + started-task lineage
+
+**Context:** gap analysis (2026-07-02) of the SMP/E side of the pipeline,
+prompted by the user needing full traceability from started task -> PROCLIB
+member -> program -> SMP/E holding CSI. Found that the started-task ->
+lineage join doesn't exist anywhere in code, and the CSI itself isn't
+modeled at all despite this site having (at least) four real CSIs --
+`ansible/output/bes2/smpe_csi_candidates.txt` shows separate CPWR, IOA,
+OPSDATAI, and ACOM100 GLOBAL CSIs, each presumably with its own
+target/dlib zones. Seven items below, in the priority order the user
+picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
+8g.
+
+### 8a. `Zone.csi` field (do first)
+
+- `models.py`: add `csi: str = ""` to `Zone`.
+- `smpe_parser.py`: recognize an optional `##CSI <name>` sentinel as the
+  first line of a `*smplist*.txt` file (same `##BLOCKNAME`-prefix
+  convention `sysinfo.yml`/`vtam.yml`/`cics_deepening.yml` already use
+  elsewhere) and stamp every `Zone` parsed from that file with it; a file
+  with no header defaults to `csi=""` (backward compatible with the
+  existing fixture and any already-captured real files that predate this).
+- `merge_zones()`: copy `csi` across when combining zone maps
+  (`target.csi = zone.csi or target.csi`).
+- Extraction side, both paths that produce `*.smplist.txt` need to emit
+  the header: `zos-extract/python/smplist.py` (prepend `##CSI {csi}\n`
+  before writing `report_text`) and
+  `ansible/roles/zos_extract/tasks/_smplist_zone.yml` (prepend the same
+  line in its `content:` template, using `zos_extract_smpe_csi`).
+- Known limitation accepted for now: `merge_zones()` still keys purely on
+  zone *name*, so two same-named zones from two different CSIs would
+  collide -- 8c is what actually fixes that; 8a just makes the CSI
+  visible/queryable for the common single-CSI-per-run case this pipeline
+  handles today.
+
+### 8b. `inventory trace NAME`: started task -> proclib -> program -> zone -> FMID -> CSI (do first, alongside 8a)
+
+- `LineageStep` gets a `csi: str | None = None` field; `resolver.py`'s
+  `resolve_member()` sets it from `zones[zone_name].csi` alongside the
+  existing `fmid`/status lookup.
+- `store.py`: add a `csi TEXT` column to the `lineage` table, update
+  `save_lineage()`'s INSERT accordingly.
+- `cli.py`: new `cmd_trace(name)` -- looks up `started_tasks` rows
+  matching `name` (case-insensitive), `active_jobs` rows matching `name`
+  (is it running right now, and as what ASID), and
+  `lineage_for_member(name)` (reusing the existing member->steps query,
+  since `StartedTask.task_name` is actually the PROC member name per real
+  MVS `START procname[.identifier]` syntax) -- printed as one combined
+  narrative, with each lineage step now also showing `CSI=`.
+- Also surface `csi` in the existing `lineage`/`report` output -- it's the
+  same data, just was never plumbed through to those commands before.
+- Known gap flagged, not fixed this round: `S task,PROC=realproc` override
+  syntax isn't parsed by `ssn_parser.py`'s `_COM_START` regex -- a task
+  started that way won't join correctly by name alone. Note this in
+  `ssn_parser.py`'s docstring as a follow-up.
+
+### 8c. Multi-CSI ingest (do second, with 8d)
+
+- Extraction: `zos_extract_smpe_csi`/`zos_extract_smpe_zones` become a
+  list of `{csi, zones}` pairs (or reuse `discover_smpe_csis.yml`'s
+  candidate output directly), looping `smplist.yml` once per CSI so each
+  CSI's zones land tagged correctly via 8a's `##CSI` header.
+- `merge_zones()` needs a real fix here, not just 8a's workaround: key
+  merged zones on a `(csi, name)` composite once multiple CSIs are
+  actually in play in one ingest, since zone *names* aren't guaranteed
+  unique across CSIs (e.g. two different vendor products could each
+  define a `TZONE1`).
+- `resolver.py`/`store.py`/the `lineage` table share the same composite-key
+  implication -- worth checking whether `dataset_zone()`'s dataset->zone
+  DDDEF match still works unambiguously once two CSIs are loaded together
+  (a DDDEF's DSN should still be unique in practice across a real site,
+  but flag and confirm this rather than assume it).
+
+### 8d. Zone discovery via `LIST ZONES` instead of manual config (do second, with 8c)
+
+- Replace the hand-maintained `zos_extract_smpe_zones` list with a
+  `LIST ZONES` GIMSMP call (per CSI) to enumerate real zones, feeding
+  that output into the existing per-zone `LIST DDDEF`/`MOD`/`SYSMOD` loop
+  -- same relationship `discover_smpe_csis.yml` already has to
+  `smplist.yml`, just one step earlier in the chain.
+- `smpe_parser.py`: parse a `LIST ZONES` report shape (zone name + type:
+  GLOBAL/TARGET/DLIB) -- new, not yet attempted anywhere in this pipeline.
+
+### 8e. Capture `LMOD=` for module resolution
+
+- `smpe_parser.py`'s `LIST MOD` section currently keys `module_fmid` by
+  the *element* name (from the `LASTUPD` line) and ignores the
+  `LIBRARIES`/`LMOD` lines entirely. Real load-module names can differ
+  from element names (one SYSMOD can package an element under a different
+  load-module name). Add an `lmod_fmid: dict[str, str]` to `Zone` (or
+  repoint `module_fmid`'s key), and have `resolver._fmid_for_module()`
+  look up by the actual `PGM=` name against LMOD, falling back to the
+  element name for backward compatibility with the existing fixture.
+
+### 8f. Standalone `zones`/`fmids` tables + CLI
+
+- `store.py`: new `zones` table (name, csi, dddef count or raw dddefs as
+  JSON) and `fmids` table (fmid, zone, csi, status), populated directly
+  from the parsed `Zone` objects at ingest time -- not derived from
+  lineage, so this is queryable independent of whether any PROCLIB step
+  happens to reference the FMID.
+- `cli.py`: `inventory zones` / `inventory fmids` commands -- a full
+  SMP/E software inventory, not just what lineage resolution touches.
+- Retire or wire up the currently-dead `Fmid` dataclass in `models.py`
+  (defined, never instantiated anywhere today) as this table's row shape.
+
+### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt`
+
+- Every other console/text parser in this pipeline has been confirmed
+  against real output this round except this one -- get a real
+  `LIST DDDEF`/`MOD`/`SYSMOD` (and, once 8d lands, `LIST ZONES`) report
+  from this site and diff it against the regex assumptions here, the same
+  process already used for VTAM/TCPIP/JES2/WLM/SMS above.
+
+---
+
 ## Cross-cutting work (applies to whichever domain(s) get picked up)
 
 - **README updates**, every time: `zos-extract/README.md`'s numbered
