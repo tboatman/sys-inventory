@@ -1,0 +1,67 @@
+---
+# WLM deepening via z/OSMF's REST API (step 18): full service-class/goal
+# definitions, which 'D WLM,POLICY' (wlm.yml above) can't expose --
+# console D-commands only ever show the active policy's name/mode, not
+# its actual service-class/resource-group/classification content. This
+# is the "materially bigger follow-up" the plan called out when wlm.yml
+# was first implemented: a genuinely different transport (HTTPS/JSON via
+# z/OSMF's REST API, not a console command run over the existing
+# ibm.ibm_zos_core connection) with its own separate credentials.
+#
+# Pure REST call -- runs via ansible.builtin.uri, delegate_to: localhost,
+# the same way this role already delegates its output-file writes to the
+# control node. No ZOAU/zos_mvs_raw/zos_operator involved, so this
+# doesn't need to execute anything on the target LPAR at all.
+#
+# Opt-in and gated 'never' (same convention as racf.yml): only runs when
+# explicitly requested via '--tags wlm_zosmf', and only once
+# zos_extract_zosmf_username is populated -- normally via
+# playbooks/wlm_zosmf.yml, which prompts for z/OSMF credentials at
+# runtime rather than storing them in hosts.yml (see that playbook's own
+# header comment). Never run as part of an ordinary site.yml/
+# interactive.yml pass.
+#
+# zos_extract_zosmf_validate_certs defaults to false: many internal
+# z/OSMF instances present a self-signed or internal-CA certificate, and
+# requiring a CA bundle to be supplied would block this from working out
+# of the box. Set it to true (and trust your site's real CA chain,
+# however your control node normally does that) if your z/OSMF endpoint
+# has a certificate a normal HTTPS client would already trust.
+#
+# THE SINGLE MOST SPECULATIVE PIECE IN THIS ENTIRE PIPELINE: unlike every
+# other domain here (which at least reuses a well-documented, stable
+# console command or MVS program), the exact z/OSMF WLM REST API path
+# (zos_extract_wlm_zosmf_path, defaulted to a best guess) and its
+# response JSON schema are NOT confirmed against real z/OSMF
+# documentation or a real response -- there's no other REST/JSON
+# precedent anywhere else in this codebase to lean on either (every other
+# domain parses console text). wlm_zosmf_parser.py's module docstring
+# carries the full caveat, including how it copes if the real schema
+# doesn't match what's guessed here. Check IBM's current z/OSMF REST API
+# reference ("Workload Management services") for your z/OS release
+# before trusting zos_extract_wlm_zosmf_path's default, and override it
+# here if it's wrong.
+
+- name: Query the z/OSMF WLM REST API
+  ansible.builtin.uri:
+    url: "https://{{ zos_extract_zosmf_host }}:{{ zos_extract_zosmf_port }}{{ zos_extract_wlm_zosmf_path }}"
+    method: GET
+    url_username: "{{ zos_extract_zosmf_username }}"
+    url_password: "{{ zos_extract_zosmf_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ zos_extract_zosmf_validate_certs }}"
+    headers:
+      Accept: application/json
+      X-CSRF-ZOSMF-HEADER: ""
+    return_content: true
+    status_code: [200]
+  register: zos_extract_wlm_zosmf_reply
+  delegate_to: localhost
+  no_log: true
+
+- name: Write {{ zos_extract_wlm_zosmf_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_wlm_zosmf_outfile }}"
+    mode: "0644"
+    content: "{{ zos_extract_wlm_zosmf_reply.content }}"
+  delegate_to: localhost

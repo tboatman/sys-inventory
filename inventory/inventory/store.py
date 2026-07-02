@@ -36,6 +36,7 @@ from .models import (
     VtamMajorNode,
     VtamStartOption,
     WlmPolicy,
+    WlmZosmfEntry,
 )
 
 _SCHEMA = """
@@ -288,6 +289,12 @@ CREATE TABLE IF NOT EXISTS db2_plans (
     ssid            TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_db2_plans_name ON db2_plans(name);
+
+CREATE TABLE IF NOT EXISTS wlm_zosmf_entries (
+    name      TEXT NOT NULL,
+    raw_json  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wlm_zosmf_entries_name ON wlm_zosmf_entries(name);
 """
 
 
@@ -769,4 +776,20 @@ def save_db2_plans(conn: sqlite3.Connection, plans: list[Db2Plan]) -> None:
 def all_db2_plans(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM db2_plans ORDER BY name")
+    return cur.fetchall()
+
+
+def save_wlm_zosmf_entries(conn: sqlite3.Connection, entries: list[WlmZosmfEntry]) -> None:
+    conn.execute("DELETE FROM wlm_zosmf_entries")
+    rows = [(e.name, json.dumps(e.raw)) for e in entries]
+    conn.executemany(
+        "INSERT INTO wlm_zosmf_entries (name, raw_json) VALUES (?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_wlm_zosmf_entries(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM wlm_zosmf_entries ORDER BY name")
     return cur.fetchall()

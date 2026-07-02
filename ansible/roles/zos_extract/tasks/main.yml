@@ -101,6 +101,11 @@
   ansible.builtin.import_tasks: wlm.yml
   tags: [wlm]
 
+- name: Deepened WLM service-class/goal definitions via z/OSMF -- opt-in, materially different transport, not run unless requested (step 18, see wlm_zosmf.yml)
+  ansible.builtin.import_tasks: wlm_zosmf.yml
+  tags: [wlm_zosmf, never]
+  when: zos_extract_zosmf_username | length > 0
+
 - name: Candidate SMP/E CSI discovery -- naming-heuristic only, opt-in (see discover_smpe_csis.yml)
   ansible.builtin.import_tasks: discover_smpe_csis.yml
   tags: [smpe_csi_discovery]

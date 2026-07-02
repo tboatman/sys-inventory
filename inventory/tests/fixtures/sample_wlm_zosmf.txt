@@ -1,0 +1,16 @@
+{
+  "policies": [
+    {
+      "policy_name": "WLMPOL01",
+      "description": "Standard goal-mode policy",
+      "service_classes": [
+        {"name": "SYSSTC", "importance": 1},
+        {"name": "PRODBAT", "importance": 2}
+      ]
+    },
+    {
+      "policy_name": "WLMPOL02",
+      "description": "Backup policy"
+    }
+  ]
+}

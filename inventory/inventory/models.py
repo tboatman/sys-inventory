@@ -384,6 +384,29 @@ class WlmPolicy:
 
 
 @dataclass
+class WlmZosmfEntry:
+    """One entry returned by z/OSMF's WLM REST API (see
+    ansible/roles/zos_extract/tasks/wlm_zosmf.yml and playbooks/
+    wlm_zosmf.yml) and parsed by wlm_zosmf_parser.py -- full
+    service-class/goal/resource-group definitions, which 'D WLM,POLICY'
+    (WlmPolicy above) can't expose. Not necessarily one row per "service
+    class" specifically -- see the parser's own docstring for why this
+    stays deliberately vague about what a "row" represents.
+
+    Captured maximally generically (a best-guess `name` plus the entire
+    raw JSON object for that entry) rather than modeling individual
+    fields -- THE SINGLE MOST SPECULATIVE PIECE IN THE PIPELINE: neither
+    the REST API path nor its response JSON schema is confirmed against
+    real z/OSMF documentation or a real response, and there's no other
+    REST/JSON precedent anywhere else in this codebase to lean on (every
+    other domain parses console text). See wlm_zosmf_parser.py's module
+    docstring for the full caveat."""
+
+    name: str
+    raw: dict = field(default_factory=dict)
+
+
+@dataclass
 class CatalogDataset:
     """One non-VSAM dataset under an operator-supplied HLQ/pattern, as
     dumped by zos-extract/python/extrcat.py via ZOAU's

@@ -8,7 +8,8 @@
 `inventory uss-mounts`, `inventory jes2parm`, `inventory vtam-majnodes`,
 `inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`,
 `inventory sms-storgrps`, `inventory sms-storclas`, `inventory sms-mgmtclas`,
-`inventory wlm`, `inventory db2-packages`, `inventory db2-plans`."""
+`inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
+`inventory wlm-zosmf`."""
 from __future__ import annotations
 
 import argparse
@@ -34,6 +35,7 @@ from . import (
     uss_mounts_parser,
     vtam_parser,
     wlm_parser,
+    wlm_zosmf_parser,
 )
 from .models import RacfSnapshot
 from .resolver import resolve_all
@@ -130,7 +132,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         sms_storage_classes.extend(storclas)
         sms_management_classes.extend(mgmtclas)
 
-    wlm_files = sorted(input_dir.glob("*wlm*.txt"))
+    # Excludes '*wlm_zosmf*' matches -- that's a separate dimension (see
+    # below), and '*wlm*' would otherwise also match its filename.
+    wlm_files = sorted(p for p in input_dir.glob("*wlm*.txt") if "zosmf" not in p.name)
     if len(wlm_files) > 1:
         print(f"inventory: {len(wlm_files)} wlm files found, using {wlm_files[0]}",
               file=sys.stderr)
@@ -142,6 +146,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         packages, plans = db2_catalog_parser.parse_db2_catalog(path)
         db2_packages.extend(packages)
         db2_plans.extend(plans)
+
+    wlm_zosmf_entries = [e for path in sorted(input_dir.glob("*wlm_zosmf*.txt"))
+                         for e in wlm_zosmf_parser.parse_wlm_zosmf(path)]
 
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
@@ -166,6 +173,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_wlm_policy(conn, wlm_policy)
     store.save_db2_packages(conn, db2_packages)
     store.save_db2_plans(conn, db2_plans)
+    store.save_wlm_zosmf_entries(conn, wlm_zosmf_entries)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -187,7 +195,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(sms_storage_classes)} SMS storage classes, "
           f"{len(sms_management_classes)} SMS management classes, "
           f"{len(db2_packages)} DB2 packages, "
-          f"{len(db2_plans)} DB2 plans -> {args.db}")
+          f"{len(db2_plans)} DB2 plans, "
+          f"{len(wlm_zosmf_entries)} WLM z/OSMF entries -> {args.db}")
     return 0
 
 
@@ -593,6 +602,16 @@ def cmd_db2_plans(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_wlm_zosmf(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_wlm_zosmf_entries(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['name']}  {row['raw_json']}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -690,6 +709,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_db2_plans = sub.add_parser("db2-plans", help="list installed DB2 plans (not yet production-validated)")
     p_db2_plans.set_defaults(func=cmd_db2_plans)
+
+    p_wlm_zosmf = sub.add_parser("wlm-zosmf", help="list WLM entries fetched via z/OSMF's REST API (most speculative dimension, not yet production-validated)")
+    p_wlm_zosmf.set_defaults(func=cmd_wlm_zosmf)
 
     return parser
 

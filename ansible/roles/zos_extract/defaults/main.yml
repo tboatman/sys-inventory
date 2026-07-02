@@ -50,6 +50,24 @@ zos_extract_sms_outfile: "sms.txt"
 
 zos_extract_wlm_outfile: "wlm.txt"
 
+# Opt-in WLM deepening via z/OSMF's REST API (full service-class/goal
+# definitions, not just the active policy name/mode above) -- see
+# wlm_zosmf.yml and playbooks/wlm_zosmf.yml. Credentials are deliberately
+# NOT defaulted/stored here; playbooks/wlm_zosmf.yml prompts for them at
+# runtime instead.
+zos_extract_zosmf_host: "{{ ansible_host }}"
+zos_extract_zosmf_port: 443
+zos_extract_zosmf_username: ""
+zos_extract_zosmf_password: ""
+# validate_certs defaults to false: many internal z/OSMF instances present
+# a self-signed/internal-CA cert. Set true if yours is trusted normally.
+zos_extract_zosmf_validate_certs: false
+# Best guess only -- NOT confirmed against IBM's z/OSMF REST API
+# reference or a real response; see wlm_zosmf.yml's own header comment
+# and wlm_zosmf_parser.py's module docstring before trusting this.
+zos_extract_wlm_zosmf_path: "/zosmf/wlm/policies"
+zos_extract_wlm_zosmf_outfile: "wlm_zosmf.txt"
+
 zos_extract_racf_database_dsn: ""
 
 # Opt-in live "what's running" CICS/DB2 discovery -- see

@@ -1,0 +1,56 @@
+---
+# Standalone entry point for the opt-in WLM z/OSMF REST API deepening
+# (tag 'wlm_zosmf', gated 'never' in roles/zos_extract/tasks/main.yml so
+# an ordinary site.yml/interactive.yml run never attempts it by
+# accident -- same convention racf.yml's own 'never' tag uses).
+#
+# Prompts for z/OSMF connection details at runtime rather than storing
+# them in hosts.yml, same pattern playbooks/interactive.yml already uses
+# for SSH connection details -- the difference here is these are
+# REST/HTTPS credentials for z/OSMF itself, not SSH credentials for the
+# target LPAR, so they're kept entirely separate from
+# ansible_user/ansible_password and registered as their own
+# zos_extract_zosmf_* vars via add_host (interactive.yml's own idiom for
+# threading per-run values onto hosts, reused here to inject vars onto
+# hosts *already* defined in inventory/hosts.yml rather than registering
+# a brand new one).
+#
+# Run against every LPAR already in inventory/hosts.yml's 'zos' group:
+#   ansible-playbook playbooks/wlm_zosmf.yml --tags wlm_zosmf
+# (add --limit lpar1 to scope to just one). Each host defaults
+# zos_extract_zosmf_host to its own ansible_host (z/OSMF commonly runs
+# reachable at the same address as the LPAR itself) -- override
+# zos_extract_zosmf_host/zos_extract_zosmf_port per-host in hosts.yml if
+# your site's z/OSMF endpoint differs (e.g. a single shared instance for
+# the whole sysplex on its own hostname/port).
+
+- name: Prompt for z/OSMF connection details
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: zos_extract_zosmf_username
+      prompt: "z/OSMF username"
+      private: false
+
+    - name: zos_extract_zosmf_password
+      prompt: "z/OSMF password"
+      private: true
+
+  tasks:
+    - name: Register z/OSMF credentials on every host in the zos group
+      ansible.builtin.add_host:
+        name: "{{ item }}"
+        groups: zos
+        zos_extract_zosmf_username: "{{ zos_extract_zosmf_username }}"
+        zos_extract_zosmf_password: "{{ zos_extract_zosmf_password }}"
+      loop: "{{ groups['zos'] | default([]) }}"
+      no_log: true
+      tags: always
+
+- name: Run the WLM z/OSMF REST API deepening on each registered LPAR
+  hosts: zos
+  gather_facts: false
+  environment: "{{ zos_extract_env }}"
+  roles:
+    - zos_extract

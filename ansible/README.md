@@ -102,7 +102,10 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
-`smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`.
+`smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
+`wlm_zosmf` (like `racf`) is gated `never` -- it only runs when
+explicitly requested with `--tags wlm_zosmf`, normally via the dedicated
+`playbooks/wlm_zosmf.yml` entry point (see below), not `site.yml`.
 `smplist`/`catalog` only run on hosts where `zos_extract_smpe_csi`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
@@ -411,7 +414,7 @@ Run `ansible-playbook playbooks/site.yml --tags wlm --limit lpar1`
 against a real system and check the resulting `wlm.txt` against what
 `wlm_parser.py` assumes before relying on this dimension.
 
-### Deepened DB2 catalog view (opt-in, the most speculative domain in the pipeline)
+### Deepened DB2 catalog view (opt-in, the most speculative *console/MVS-program* domain in the pipeline)
 
 `db2_catalog.yml` (tag `db2`, same tag as `db2.yml` above, but gated
 separately by `zos_extract_db2_ssid`) deepens `db2.yml`'s "is a DB2
@@ -440,14 +443,15 @@ dependency).
   `tcpip.yml`'s `;;SOURCE_DSN=` marker uses) tags each block with which
   subsystem it ran against.
 
-**THIS IS THE MOST SPECULATIVE DOMAIN IN THE ENTIRE PIPELINE**: beyond
-the usual "not yet confirmed against a real reply" caveat every
-implementation-only domain above carries, DSNTEP2's exact
-authorization/PLAN/STEPLIB requirements themselves vary by site DB2
-setup, on top of report-format uncertainty. `inventory/inventory/
-db2_catalog_parser.py`'s docstring carries the full caveat, including
-what to check first if a real run's report layout doesn't match a simple
-whitespace-split row.
+**THIS IS THE MOST SPECULATIVE *CONSOLE/MVS-PROGRAM* DOMAIN IN THE
+PIPELINE** (the WLM z/OSMF deepening below is more speculative still,
+being a different transport entirely): beyond the usual "not yet
+confirmed against a real reply" caveat every implementation-only domain
+above carries, DSNTEP2's exact authorization/PLAN/STEPLIB requirements
+themselves vary by site DB2 setup, on top of report-format uncertainty.
+`inventory/inventory/db2_catalog_parser.py`'s docstring carries the full
+caveat, including what to check first if a real run's report layout
+doesn't match a simple whitespace-split row.
 
 Run `ansible-playbook playbooks/site.yml --tags db2 --limit lpar1
 -e '{"zos_extract_db2_ssid": "YOUR_SSID"}'` (add
@@ -455,6 +459,51 @@ Run `ansible-playbook playbooks/site.yml --tags db2 --limit lpar1
 fit your site) against a real DB2 subsystem and check the resulting
 `db2_catalog.txt` against what `db2_catalog_parser.py` assumes before
 relying on this dimension at all.
+
+### WLM deepening via z/OSMF (opt-in, the single most speculative dimension in the entire pipeline)
+
+`wlm_zosmf.yml` (tag `wlm_zosmf`, gated `never`) goes beyond `wlm.yml`'s
+active-policy-name/mode first cut to the full service-class/goal/
+resource-group definitions WLM actually enforces -- but only reachable
+via z/OSMF's REST API, not any console command. This is a **materially
+different mechanism** from every other domain in this pipeline: an
+HTTPS/JSON REST call (`ansible.builtin.uri`, `delegate_to: localhost`)
+with its own separate credentials, rather than a console command or MVS
+program run over the existing SSH-based connection.
+
+- **Not part of `site.yml`/`interactive.yml`**: run it via the dedicated
+  `playbooks/wlm_zosmf.yml` entry point instead --
+  `ansible-playbook playbooks/wlm_zosmf.yml --tags wlm_zosmf` (add
+  `--limit lpar1` to scope to one host). That playbook prompts for your
+  z/OSMF username/password at runtime (same `vars_prompt` pattern
+  `playbooks/interactive.yml` already uses for SSH credentials) rather
+  than storing them in `hosts.yml` -- credentials are registered onto
+  each targeted host via `add_host` and never written to disk.
+- `zos_extract_zosmf_host` defaults to that host's own `ansible_host`
+  (z/OSMF commonly runs reachable at the same address as the LPAR
+  itself); override it in `hosts.yml` if your site has one shared z/OSMF
+  instance on its own hostname/port instead.
+- `zos_extract_zosmf_validate_certs` defaults to `false` -- many internal
+  z/OSMF instances present a self-signed/internal-CA certificate. Set it
+  `true` (and make sure your control node actually trusts that CA chain)
+  if yours is trusted normally; leaving it `false` means this connection
+  has no protection against a MITM between your control node and z/OSMF.
+- The response is saved verbatim to `wlm_zosmf.txt` (raw JSON text,
+  despite the `.txt` extension -- kept consistent with every other
+  dimension's ingest-glob convention, same as `active_jobs.txt` already
+  being JSON Lines despite its own `.txt` name).
+
+**THIS IS THE SINGLE MOST SPECULATIVE PIECE IN THE ENTIRE PIPELINE.**
+Every other domain here at least reuses a well-documented, stable console
+command or MVS program; this one instead guesses at both the z/OSMF WLM
+REST API's endpoint path (`zos_extract_wlm_zosmf_path`, defaulted to
+`/zosmf/wlm/policies`) and its response JSON schema, with **no other
+REST/JSON precedent anywhere else in this codebase** to lean on. Check
+IBM's current z/OSMF REST API reference ("Workload Management services")
+for your z/OS release before trusting the default path, and see
+`inventory/inventory/wlm_zosmf_parser.py`'s module docstring for exactly
+how loosely the response JSON is interpreted (and how to fix it once you
+know the real shape).
 
 ### A performance note on `catalog`
 
@@ -472,8 +521,14 @@ that advice matters even more here.
 ```
 ansible.cfg
 requirements.yml           # ibm.ibm_zos_core collection pin, plus
-                            # ibm.ibm_zos_cics/ibm.ibm_zos_ims/ibm.ibm_zosmf
-                            # for future expansion (all unused today)
+                            # ibm.ibm_zos_cics/ibm.ibm_zos_ims for future
+                            # expansion (both still unused today) --
+                            # ibm.ibm_zosmf is pinned too, but not
+                            # actually needed by wlm_zosmf.yml below
+                            # (that uses plain ansible.builtin.uri, not
+                            # any module from this collection); kept
+                            # pinned for whichever future domain does
+                            # need one of its actual modules
 inventory/hosts.yml.example
 inventory/group_vars/zos.yml  # shared ZOAU/Python env + local output path
                                # (must live beside the inventory file --
@@ -481,6 +536,10 @@ inventory/group_vars/zos.yml  # shared ZOAU/Python env + local output path
 playbooks/site.yml         # entry point; sets the ZOAU env at the play level
 playbooks/interactive.yml  # same, but prompts for connection details for a
                             # one-off system instead of reading hosts.yml
+playbooks/wlm_zosmf.yml    # standalone entry point for the opt-in WLM
+                            # z/OSMF deepening (see below) -- prompts for
+                            # z/OSMF credentials, never run as part of
+                            # site.yml/interactive.yml
 playbooks/roles            # symlink to ../roles -- ansible.cfg's roles_path
                             # setting only applies when a tool's cwd is this
                             # ansible/ directory (so it finds ansible.cfg at

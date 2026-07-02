@@ -19,9 +19,12 @@ collections:
   # databases, transactions) if this ever expands past CICS/PROCLIB/PARMLIB.
   - name: ibm.ibm_zos_ims
     version: ">=1.4.0"
-  # Not used by any task yet -- pinned for future z/OSMF REST API-based
-  # discovery (an alternative path to some of what this role already gets
-  # via console commands/ZOAU, e.g. job/dataset/console queries over HTTPS
-  # instead of SSH).
+  # Still no task actually uses one of this collection's own modules --
+  # wlm_zosmf.yml (the WLM service-class/goal deepening, tag 'wlm_zosmf')
+  # hits z/OSMF's REST API directly via plain ansible.builtin.uri instead,
+  # since that endpoint's exact shape isn't confirmed enough yet to be
+  # worth wrapping in one of this collection's own higher-level modules.
+  # Kept pinned for whichever future domain actually needs one of those
+  # (e.g. job/dataset/console queries over HTTPS instead of SSH).
   - name: ibm.ibm_zosmf
     version: ">=1.6.0"

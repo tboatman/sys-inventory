@@ -5,8 +5,8 @@ Off-host half of the pipeline: parses the text dumped by `zos-extract/`
 USS mounted filesystems, JES2's own initialization parameters, VTAM
 major-node status/start options, TCP/IP home addresses/PROFILE.TCPIP, SMS
 storage groups/storage classes/management classes, the active WLM policy
-name/mode, and deepened DB2 packages/plans -- the `ansible/` role
-directly; see
+name/mode, deepened DB2 packages/plans, and WLM service-class/goal
+definitions via z/OSMF -- the `ansible/` role directly; see
 [`../ansible/README.md`](../ansible/README.md)) and resolves each
 PROCLIB/PARMLIB member's full execution path back to the SMP/E FMID that
 owns each program it runs, flags whether each resolved load library is
@@ -17,8 +17,9 @@ currently-running jobs/tasks and USS processes, an HLQ/pattern-scoped
 dataset catalog (non-VSAM attributes + VSAM cluster/component detail),
 mounted USS filesystems, JES2's own initialization statements, VTAM/APPN
 status, TCP/IP configuration, SMS storage groups/classes, the active WLM
-policy name/mode, deepened DB2 packages/plans, and a RACF security
-snapshot (users, groups, dataset and general-resource access —
+policy name/mode, deepened DB2 packages/plans, WLM service-class/goal
+definitions via z/OSMF, and a RACF security snapshot (users, groups,
+dataset and general-resource access —
 **implementation only, not
 yet production-validated**, see below). Everything lands in one small
 SQLite database you query from the command line.
@@ -79,7 +80,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt && \
   cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt && \
   cp tests/fixtures/sample_wlm.txt         /tmp/demo/wlm.txt && \
-  cp tests/fixtures/sample_db2_catalog.txt /tmp/demo/db2_catalog.txt
+  cp tests/fixtures/sample_db2_catalog.txt /tmp/demo/db2_catalog.txt && \
+  cp tests/fixtures/sample_wlm_zosmf.txt   /tmp/demo/wlm_zosmf.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -97,22 +99,27 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
-   file naming and how to produce each file. Seven more files —
+   file naming and how to produce each file. Eight more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
    enablement/role), `tcpip.txt` (TCP/IP home addresses and, if
    configured, `PROFILE.TCPIP` text), `sms.txt` (SMS storage groups,
    storage classes, and management classes), `wlm.txt` (the active WLM
-   policy name/mode, first cut only), and `db2_catalog.txt` (installed
-   DB2 packages/plans, opt-in) — have no standalone `zos-extract/python`
-   script yet and are only produced by the `ansible/` role's
-   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2` tags; see
-   [`../ansible/README.md`](../ansible/README.md)'s Layout section. All
-   seven are implementation-only, same caveat as RACF below — not yet
-   validated against a real system's actual command output.
-   `db2_catalog.txt` carries the strongest version of that caveat: see
-   its own section below.
+   policy name/mode, first cut only), `db2_catalog.txt` (installed DB2
+   packages/plans, opt-in), and `wlm_zosmf.txt` (WLM service-class/goal
+   definitions via z/OSMF's REST API, opt-in, raw JSON text despite the
+   `.txt` name) — have no standalone `zos-extract/python` script yet and
+   are only produced by the `ansible/` role's
+   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`
+   tags; see [`../ansible/README.md`](../ansible/README.md)'s Layout
+   section. `wlm_zosmf.txt` specifically comes from
+   `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
+   `interactive.yml` — see that README's own section on it. All eight are
+   implementation-only, same caveat as RACF below — not yet validated
+   against a real system's actual command/API output. `db2_catalog.txt`
+   and especially `wlm_zosmf.txt` carry the strongest versions of that
+   caveat: see their own sections below.
 
 2. Ingest and resolve:
 
@@ -127,7 +134,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 2 SMS storage groups, 2 SMS storage classes, 1 SMS management classes, 2 DB2 packages, 1 DB2 plans -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 2 SMS storage groups, 2 SMS storage classes, 1 SMS management classes, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -452,18 +459,19 @@ MODE: GOAL
 If you didn't ingest a `wlm.txt`, this prints `no WLM policy ingested`
 and exits with a non-zero status — same as `inventory sysinfo`.
 
-### `inventory db2-packages` / `inventory db2-plans` (opt-in, the most speculative dimension, not yet production-validated)
+### `inventory db2-packages` / `inventory db2-plans` (opt-in, the most speculative *console/MVS-program* dimension, not yet production-validated)
 
 Installed DB2 packages (`SYSIBM.SYSPACKAGE`) and plans (`SYSIBM.SYSPLAN`),
 if you ingested a `db2_catalog.txt` — deepens `db2.yml`'s "is a DB2
 address space up right now" live heuristic with real catalog content, via
 a read-only DSNTEP2 batch SQL query. **This is the most speculative
-dimension in the whole pipeline**: beyond the reply not being checked
-against a real system, DSNTEP2's exact authorization/PLAN/STEPLIB
-requirements themselves vary by site DB2 setup — see
-`db2_catalog_parser.py`'s module docstring for the full caveat, including
-what to check first if a real run's report layout doesn't match the
-simple whitespace-split row parsing used here.
+console/MVS-program-based dimension in the pipeline** (`wlm-zosmf` below
+is more speculative still, being a different transport entirely): beyond
+the reply not being checked against a real system, DSNTEP2's exact
+authorization/PLAN/STEPLIB requirements themselves vary by site DB2
+setup — see `db2_catalog_parser.py`'s module docstring for the full
+caveat, including what to check first if a real run's report layout
+doesn't match the simple whitespace-split row parsing used here.
 
 ```
 $ inventory db2-packages
@@ -472,6 +480,35 @@ PKG2  CREATOR=COLLID2 BINDTIME=2024-02-20-11.15.30.000000  [DB2A]
 
 $ inventory db2-plans
 PLAN01  CREATOR=SYSADM BINDTIME=2023-11-01-09.00.00.000000  [DB2A]
+```
+
+### `inventory wlm-zosmf` (opt-in, the single most speculative dimension in the entire pipeline)
+
+Full WLM service-class/goal/resource-group definitions fetched via
+z/OSMF's REST API, if you ingested a `wlm_zosmf.txt` — deepens `wlm.txt`'s
+active-policy-name/mode first cut with the actual policy content WLM
+enforces. Produced only by the standalone `playbooks/wlm_zosmf.yml` entry
+point (`ansible-playbook playbooks/wlm_zosmf.yml --tags wlm_zosmf`), not
+`site.yml`/`interactive.yml` — see
+[`../ansible/README.md`](../ansible/README.md)'s own section on it for
+why (separate REST/HTTPS credentials, prompted at runtime rather than
+stored in `hosts.yml`).
+
+Captured maximally generically (`WlmZosmfEntry` in `models.py`: a
+best-guess `name` plus the entire raw JSON object for that entry,
+preserved verbatim) since **neither the z/OSMF WLM REST API's endpoint
+path nor its response JSON schema is confirmed** against IBM's own
+current REST API reference or a real response — there's no other
+REST/JSON precedent anywhere else in this codebase to lean on either
+(every other domain parses console text). See
+`wlm_zosmf_parser.py`'s module docstring for exactly how loosely the
+response is interpreted, and what to check/rewrite first once you have a
+real response to compare against.
+
+```
+$ inventory wlm-zosmf
+WLMPOL01  {"policy_name": "WLMPOL01", "description": "Standard goal-mode policy", "service_classes": [{"name": "SYSSTC", "importance": 1}, {"name": "PRODBAT", "importance": 2}]}
+WLMPOL02  {"policy_name": "WLMPOL02", "description": "Backup policy"}
 ```
 
 ## How resolution works
@@ -519,8 +556,9 @@ resource profiles against `started_tasks`) for the same reason. USS mounts
 (`vtam_parser.parse_vtam`), TCP/IP home addresses/profile statements
 (`tcpip_parser.parse_tcpip`), SMS storage groups/classes
 (`sms_parser.parse_sms`), the WLM policy record (`wlm_parser.parse_wlm`,
-a single record like `system_info`), and DB2 packages/plans
-(`db2_catalog_parser.parse_db2_catalog`) are likewise independent,
+a single record like `system_info`), DB2 packages/plans
+(`db2_catalog_parser.parse_db2_catalog`), and WLM z/OSMF entries
+(`wlm_zosmf_parser.parse_wlm_zosmf`) are likewise independent,
 freshly-added dimensions with no cross-referencing yet.
 
 ## Tests
@@ -583,19 +621,32 @@ catalog parsing (`sample_db2_catalog.txt`, covering DSNTEP2-shaped
 packages/plans, the `;;SSID=` marker line, and dashed separator/column-
 header/`DSNE6xxI` message lines proven not to be mistaken for data rows)
 — **also built against a hand-constructed fixture, not a real DB2
-subsystem reply, and the single most speculative parser in the pipeline;
-see `db2_catalog_parser.py`'s module docstring.**
+subsystem reply, and the most speculative console/MVS-program-based
+parser in the pipeline; see `db2_catalog_parser.py`'s module docstring.**
+Also WLM z/OSMF entry parsing (`sample_wlm_zosmf.txt`, a JSON fixture
+covering the `policies`-key response shape, plus separate tests -- built
+directly against `tmp_path`-generated JSON rather than fixture files --
+for a bare top-level list, a single bare object wrapped as one entry,
+missing name keys falling back to `"?"`, and malformed/non-JSON content
+returning an empty list rather than raising) — **built against hand-
+constructed JSON, not a real z/OSMF response, and the single most
+speculative parser in the entire pipeline: see
+`wlm_zosmf_parser.py`'s module docstring for why even the response shape
+itself is a guess.**
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
   `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
   `*catalog*.txt` / `*uss_mounts*.txt` / `*jes2parm*.txt` / `*vtam*.txt` /
-  `*tcpip*.txt` / `*sms*.txt` / `*db2_catalog*.txt` files in the input
-  directory — just keep adding files as you extract more PROCLIB/PARMLIB
-  concatenation entries, more SMP/E zones, more HLQ/pattern groups, or
-  more JES2 PARMLIB concatenation entries; `ingest` merges them all into
-  one inventory. `lnklst.txt` and
+  `*tcpip*.txt` / `*sms*.txt` / `*db2_catalog*.txt` / `*wlm_zosmf*.txt`
+  files in the input directory — just keep adding files as you extract
+  more PROCLIB/PARMLIB concatenation entries, more SMP/E zones, more
+  HLQ/pattern groups, or more JES2 PARMLIB concatenation entries;
+  `ingest` merges them all into one inventory. Note `*wlm*.txt` (the
+  single-record `wlm.txt` policy name/mode file) explicitly excludes any
+  filename containing `zosmf` so it doesn't also match `wlm_zosmf.txt` —
+  see `cmd_ingest()`'s own comment in `cli.py`. `lnklst.txt` and
   `apf.txt` are each a single flat list.
 - `system_info` (from `sysinfo.txt`), `wlm_policy` (from `wlm.txt`),
   `active_jobs` (from `active_jobs.txt`), `uss_processes` (from
