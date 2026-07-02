@@ -1,22 +1,28 @@
 ---
 collections:
-  # >=1.14.0, not just >=1.10.0: catalog.yml's zos_stat call (the
-  # non-VSAM attribute lookup) doesn't exist before 1.14.0 -- confirmed
-  # the hard way, 1.12.0 installs cleanly under the old ">=1.10.0" pin
-  # but fails at playbook-parse time with "couldn't resolve module/
-  # action 'ibm.ibm_zos_core.zos_stat'" (import_tasks resolves every
-  # task's module at parse time regardless of --tags, so this broke
-  # even tag-scoped runs that never touch catalog.yml).
+  # >=2.0.0, not just >=1.14.0: this project's tasks were rewritten to
+  # match 2.0.0's breaking changes (zos_operator's `content` return value
+  # -> `stdout`/`stdout_lines`; zos_find's `pds_patterns`/`patterns`
+  # split collapsed into a single dataset-name-only `patterns`) --
+  # confirmed against 2.0.0's own changelog. A bare ">=1.14.0" floor would
+  # still let a resolver land on a pre-2.0.0 release with the *old* field
+  # names, which every task here would fail against -- 1.14.0 was only
+  # ever the floor for zos_stat existing at all (added that release),
+  # not for the current field names. 2.0.0 is also the latest release as
+  # of this writing.
   - name: ibm.ibm_zos_core
-    version: ">=1.14.0"
+    version: ">=2.0.0"
   # Not used by any task yet -- pinned for future CMCI-based CICS resource
   # discovery (transactions, programs, files, regions defined in a CSD) if
   # this site ever enables CICSplex SM. cics.yml's current CICS discovery
   # is zos_job_query-based (ibm.ibm_zos_core) and doesn't need this.
+  # 2.2.1 is the latest release as of this writing (no breaking changes
+  # matter here either way, since nothing in this repo calls into it yet).
   - name: ibm.ibm_zos_cics
-    version: ">=2.0.0"
+    version: ">=2.2.1"
   # Not used by any task yet -- pinned for future IMS discovery (regions,
   # databases, transactions) if this ever expands past CICS/PROCLIB/PARMLIB.
+  # 1.4.0 is already the latest release as of this writing.
   - name: ibm.ibm_zos_ims
     version: ">=1.4.0"
   # Still no task actually uses one of this collection's own modules --
@@ -26,5 +32,6 @@ collections:
   # worth wrapping in one of this collection's own higher-level modules.
   # Kept pinned for whichever future domain actually needs one of those
   # (e.g. job/dataset/console queries over HTTPS instead of SSH).
+  # 1.6.0 is already the latest release as of this writing.
   - name: ibm.ibm_zosmf
     version: ">=1.6.0"
