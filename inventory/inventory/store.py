@@ -38,6 +38,7 @@ from .models import (
     VsamCluster,
     VtamMajorNode,
     VtamStartOption,
+    VtamTopologySummary,
     WlmPolicy,
     WlmZosmfEntry,
 )
@@ -239,6 +240,19 @@ CREATE TABLE IF NOT EXISTS vtam_start_options (
     value    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_vtam_start_options_keyword ON vtam_start_options(keyword);
+
+CREATE TABLE IF NOT EXISTS vtam_topology_summary (
+    last_checkpoint             TEXT,
+    adj                         INTEGER,
+    nn                          INTEGER,
+    en                          INTEGER,
+    served_en                   INTEGER,
+    cdservr                     INTEGER,
+    icn                         INTEGER,
+    bn                          INTEGER,
+    initdb_checkpoint_dataset   TEXT,
+    last_garbage_collection     TEXT
+);
 
 CREATE TABLE IF NOT EXISTS tcpip_home_addresses (
     link_name   TEXT NOT NULL,
@@ -678,6 +692,26 @@ def all_vtam_start_options(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM vtam_start_options ORDER BY keyword")
     return cur.fetchall()
+
+
+def save_vtam_topology_summary(conn: sqlite3.Connection, summary: VtamTopologySummary | None) -> None:
+    conn.execute("DELETE FROM vtam_topology_summary")
+    if summary is not None:
+        conn.execute(
+            "INSERT INTO vtam_topology_summary (last_checkpoint, adj, nn, en, served_en, "
+            "cdservr, icn, bn, initdb_checkpoint_dataset, last_garbage_collection) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (summary.last_checkpoint, summary.adj, summary.nn, summary.en, summary.served_en,
+             summary.cdservr, summary.icn, summary.bn, summary.initdb_checkpoint_dataset,
+             summary.last_garbage_collection),
+        )
+    conn.commit()
+
+
+def get_vtam_topology_summary(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM vtam_topology_summary LIMIT 1")
+    return cur.fetchone()
 
 
 def save_tcpip_home_addresses(conn: sqlite3.Connection, addresses: list[TcpipHomeAddress]) -> None:

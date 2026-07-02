@@ -230,9 +230,8 @@ class VtamMajorNode:
     ansible/roles/zos_extract/tasks/vtam.yml) and parsed by
     vtam_parser.py.
 
-    NOT YET VALIDATED against a real 'D NET,MAJNODES' reply -- see
-    vtam_parser.py's module docstring for the same caveat
-    racf_parser.py carries for its own unconfirmed byte offsets."""
+    CONFIRMED against a real 'D NET,MAJNODES' reply -- see
+    vtam_parser.py's module docstring for the confirmed shape."""
 
     name: str
     status: str | None = None   # e.g. ACTIV, ACT/S, INACT, PEND...
@@ -246,15 +245,42 @@ class VtamStartOption:
 
     Captured generically (every keyword found, not a hand-modeled
     subset) the same way Jes2InitStatement captures JES2 init
-    statements -- the full VTAMOPTS keyword set isn't confirmed here.
-    APPN enablement/role is answered by querying this table for the
-    NODETYPE/CPNAME keywords rather than a dedicated field.
+    statements. APPN enablement/role is answered by querying this table
+    for the NODETYPE/CPNAME keywords rather than a dedicated field.
 
-    NOT YET VALIDATED against a real 'D NET,VTAMOPTS' reply -- see
-    vtam_parser.py's module docstring."""
+    CONFIRMED against a real 'D NET,VTAMOPTS' reply -- see
+    vtam_parser.py's module docstring for the confirmed shape and one
+    minor, documented limitation (a couple of keywords have two-token
+    values; only the first token is captured)."""
 
     keyword: str
     value: str
+
+
+@dataclass
+class VtamTopologySummary:
+    """Single-record APPN topology database summary, from 'D NET,TOPO'
+    (see ansible/roles/zos_extract/tasks/vtam.yml) and parsed by
+    vtam_parser.py.
+
+    CONFIRMED against a real 'D NET,TOPO' reply -- unlike
+    VtamMajorNode/VtamStartOption above, this one isn't a "not yet
+    validated" guess. The real reply is a topology *database summary*
+    (counts of known adjacent/NN/EN nodes plus checkpoint/
+    garbage-collection metadata), not a list of individual known nodes by
+    name -- contrary to what was originally assumed (and used to justify
+    skipping this command entirely in an earlier round)."""
+
+    last_checkpoint: str | None = None            # e.g. "NONE"
+    adj: int | None = None
+    nn: int | None = None
+    en: int | None = None
+    served_en: int | None = None
+    cdservr: int | None = None
+    icn: int | None = None
+    bn: int | None = None
+    initdb_checkpoint_dataset: str | None = None   # e.g. "NONE"
+    last_garbage_collection: str | None = None     # e.g. "07/01/26 21:44:28"
 
 
 @dataclass
