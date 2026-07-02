@@ -733,16 +733,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_racf_gr_access = sub.add_parser("racf-resource-access", help="list RACF general-resource access lists, curated classes only (implementation only, not yet production-validated)")
     p_racf_gr_access.set_defaults(func=cmd_racf_resource_access)
 
-    p_uss_mounts = sub.add_parser("uss-mounts", help="list mounted USS filesystems (not yet production-validated)")
+    p_uss_mounts = sub.add_parser("uss-mounts", help="list mounted USS filesystems (confirmed against a real reply)")
     p_uss_mounts.set_defaults(func=cmd_uss_mounts)
 
     p_jes2parm = sub.add_parser("jes2parm", help="list JES2's own initialization statements (confirmed against a real init deck)")
     p_jes2parm.set_defaults(func=cmd_jes2parm)
 
-    p_vtam_majnodes = sub.add_parser("vtam-majnodes", help="list VTAM major nodes and their status (not yet production-validated)")
+    p_vtam_majnodes = sub.add_parser("vtam-majnodes", help="list VTAM major nodes and their status (confirmed against a real reply)")
     p_vtam_majnodes.set_defaults(func=cmd_vtam_majnodes)
 
-    p_vtam_options = sub.add_parser("vtam-options", help="list VTAM start options incl. NODETYPE/CPNAME (APPN enablement/role) (not yet production-validated)")
+    p_vtam_options = sub.add_parser("vtam-options", help="list VTAM start options incl. NODETYPE/CPNAME (APPN enablement/role) (confirmed against a real reply)")
     p_vtam_options.set_defaults(func=cmd_vtam_options)
 
     p_vtam_topology = sub.add_parser("vtam-topology", help="show the APPN topology database summary (D NET,TOPO) -- confirmed against a real reply")
@@ -757,7 +757,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sms_storgrps = sub.add_parser("sms-storgrps", help="list SMS storage groups, type, per-system status, and volumes (confirmed against a real reply)")
     p_sms_storgrps.set_defaults(func=cmd_sms_storgrps)
 
-    p_wlm = sub.add_parser("wlm", help="show the active WLM policy name/mode (not yet production-validated)")
+    p_wlm = sub.add_parser("wlm", help="show the active WLM policy name/mode (confirmed against a real reply)")
     p_wlm.set_defaults(func=cmd_wlm)
 
     p_db2_packages = sub.add_parser("db2-packages", help="list installed DB2 packages (not yet production-validated)")
