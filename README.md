@@ -17,8 +17,8 @@ configuration/definition data — a live snapshot of what's actually
 running right now (active jobs/tasks and USS processes).
 
 If you're new to any of the z/OS terms used below (PROCLIB, PARMLIB,
-SMP/E, APF, LPAR, ...), see the [Glossary](zos-extract/README.md#glossary)
-in `zos-extract/README.md` — it's written for exactly that.
+SMP/E, APF, LPAR, ...), see the [Glossary](doc/zos-extract.md#glossary)
+in `doc/zos-extract.md` — it's written for exactly that.
 
 ## Why this exists / who it's for
 
@@ -46,7 +46,7 @@ your laptop, a CI runner, wherever.
    APF-authorized library lists, basic system identity, SMP/E's catalog, an
    HLQ/pattern-scoped dataset catalog, and a live snapshot of what's
    currently running — and writes what it finds out as plain text files. See
-   [`zos-extract/README.md`](zos-extract/README.md) for exactly what to
+   [`doc/zos-extract.md`](doc/zos-extract.md) for exactly what to
    run and in what order; it's written assuming no prior familiarity with
    any of this.
 2. You copy those text files off the mainframe (plain `scp`/`sftp`/FTP —
@@ -55,7 +55,7 @@ your laptop, a CI runner, wherever.
    files, resolves the full PROCLIB → program → load library → SMP/E
    zone/FMID chain for every member, and loads the result into a small
    SQLite database you can query from the command line. See
-   [`inventory/README.md`](inventory/README.md) for install and usage.
+   [`doc/inventory.md`](doc/inventory.md) for install and usage.
 
 ```
   z/OS system                          your computer (anywhere)
@@ -143,11 +143,11 @@ use.
 
 ## Running it against a real system
 
-1. Read [`zos-extract/README.md`](zos-extract/README.md) and run those
+1. Read [`doc/zos-extract.md`](doc/zos-extract.md) and run those
    scripts on your z/OS system (needs an OMVS shell, ZOAU, and read
    access to the datasets you're inventorying — all covered there).
 2. Copy the resulting directory of text files to your own machine.
-3. Follow [`inventory/README.md`](inventory/README.md): `pip install -e .`
+3. Follow [`doc/inventory.md`](doc/inventory.md): `pip install -e .`
    then `inventory ingest path/to/that/directory/`.
 4. Query it with `inventory lineage`/`report`/`subsystems`/
    `started-tasks`/`sysinfo`/`products`/`active`/`processes`/`catalog`/
@@ -164,7 +164,7 @@ HLQ/pattern-scoped dataset catalog (non-VSAM + VSAM), proven end-to-end
 against the test fixtures in `inventory/tests/fixtures/`. The design
 scales to multiple concatenation entries and multiple zones (Global +
 every target zone) without code changes — see "Scaling" in
-`inventory/README.md`.
+`doc/inventory.md`.
 
 A seventh dimension, a RACF security snapshot (users, groups, dataset and
 curated general-resource access), is implemented and unit-tested against a
@@ -174,18 +174,18 @@ database read authorization this environment can't provide, and its
 parser's field layout was derived from a third-party reference rather than
 IBM's own documentation or a real unload sample. Treat it as
 implementation-only until checked against a real system. See
-`zos-extract/README.md`'s RACF step and `inventory/README.md`'s "How
+`doc/zos-extract.md`'s RACF step and `doc/inventory.md`'s "How
 resolution works" for specifics.
 
 ## Sub-project docs
 
-- [`zos-extract/README.md`](zos-extract/README.md) — beginner-friendly
+- [`doc/zos-extract.md`](doc/zos-extract.md) — beginner-friendly
   walkthrough of what to run on z/OS, a glossary of z/OS terms, exact
   parameters, output format, download instructions, and troubleshooting.
-- [`inventory/README.md`](inventory/README.md) — install, CLI usage
+- [`doc/inventory.md`](doc/inventory.md) — install, CLI usage
   (with example output for every command), resolution algorithm, test
   suite, and troubleshooting.
-- [`ansible/README.md`](ansible/README.md) — optional: run
+- [`doc/ansible.md`](doc/ansible.md) — optional: run
   `zos-extract/`'s step 1 across one or more LPARs with Ansible instead of
   by hand, and fetch the results straight into a directory ready for
   `inventory ingest`.
