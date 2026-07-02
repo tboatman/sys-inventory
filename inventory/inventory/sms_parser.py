@@ -1,103 +1,137 @@
-"""Parse SMS dumps produced by ansible/roles/zos_extract/tasks/sms.yml
-into SmsStorageGroup/SmsStorageClass/SmsManagementClass records.
+"""Parse SMS storage group dumps produced by
+ansible/roles/zos_extract/tasks/sms.yml into SmsStorageGroup records.
 
-Dump format: three blocks, each introduced by a "##BLOCKNAME" sentinel
-line ("##STORGRP", "##STORCLAS", "##MGMTCLAS") followed by that command's
-raw reply text, unchanged -- same bare-sentinel vocabulary
-sysinfo_parser.py/vtam_parser.py/tcpip_parser.py already share, split via
-blocks.split_named_blocks().
+Dump format: the raw 'D SMS,STORGRP(ALL),LISTVOL' console reply, unchanged
+-- no sentinel headers needed, since this captures exactly one command's
+output (same "single command, no bundling" shape uss_mounts_parser.py
+already uses for 'D OMVS,F').
 
-NOT YET VALIDATED against a real system: none of 'D SMS,STORGRP(*),
-LISTVOL', 'D SMS,SC(*)', or 'D SMS,MC(*)' has been checked against real
-sample output while writing this (same situation vtam_parser.py/
-tcpip_parser.py document for their own commands). Treat the patterns
-below as a starting point -- run sms.yml against a real system, diff the
-actual reply text against what's expected here, and tune accordingly
-before relying on this in production.
+This module ONLY covers storage groups now -- it originally also parsed
+'D SMS,SC(*)'/'D SMS,MC(*)' (storage classes/management classes), but
+both commands were confirmed INVALID against a real system (and IBM's
+own 'D SMS' syntax reference confirms there's no console D-command for
+either at all -- see sms.yml's own header comment for the full
+explanation). That parsing was removed rather than left as dead code for
+commands that don't exist.
 
-'D SMS,STORGRP(*),LISTVOL' reply (expected shape, not confirmed): one
-header line per storage group (a NAME token followed somewhere by an
-ENABLE/DISABLE/NOTCNCT status token), followed by one or more indented
-continuation lines listing that group's VOLSERs -- the same "header line
-+ indented continuation lines" shape uss_mounts_parser.py already
-tolerates for 'D OMVS,F'.
+CONFIRMED against a real reply (via the 'SG' alias for 'STORGRP', both
+documented as equivalent) -- and the real reply's shape turned out to be
+completely different from the original guess, not just a formatting
+variation. Rewritten from scratch against the real text, which has TWO
+separate sections rather than one "header + indented VOLSER lines" shape
+per group:
 
-'D SMS,SC(*)'/'D SMS,MC(*)' replies (expected shape, not confirmed): one
-header line per class (just the class name, alone on its own line),
-followed by indented attribute lines in "KEYWORD(VALUE)" form (ISMF's own
-storage/management class display convention) -- captured generically via
-one regex_findall pass per class, the same "one generic keyword pass,
-not per-field regexes" idiom VtamStartOption/Jes2InitStatement use.
+1. A storage-group summary table, one or more repeats of a "STORGRP TYPE
+   SYSTEM= 1 2" header (not always once per group -- several groups can
+   share one header run) followed by data rows:
+
+       STORGRP  TYPE    SYSTEM= 1 2
+       BESCLD   POOL            + +
+         SPACE INFORMATION:
+         TOTAL SPACE = 53110MB USAGE% = 0 ALERT% = 0
+         TRACK-MANAGED SPACE = 53110MB USAGE% = 0 ALERT% = 0
+       STORGRP  TYPE    SYSTEM= 1 2
+       IBMVTS   TAPE            + +
+       MISC     POOL            + +
+         SPACE INFORMATION:
+         ...
+
+   Each data row is NAME, TYPE (POOL/TAPE/OBJECT/OBJECT BACKUP/DUMMY),
+   then one status *symbol* per configured system (not an ENABLE/DISABLE/
+   NOTCNCT word as originally guessed) -- '+' enabled, '-' disabled, '*'
+   quiesced, and several more per the reply's own LEGEND section at the
+   end. `SmsStorageGroup.status` stores this raw symbol sequence verbatim
+   (e.g. "+ +") rather than decoding it into an English word, since the
+   real reply doesn't summarize multi-system status as a single token and
+   guessing at that mapping isn't worth it when the raw symbols plus the
+   LEGEND already answer the question. Indented "SPACE INFORMATION:" /
+   "TOTAL SPACE .../"TRACK-MANAGED SPACE ..." lines aren't captured (not
+   part of this model) -- only TAPE-type groups skip them, which is
+   itself informative but not modeled as a dedicated field beyond
+   `group_type`.
+
+2. A completely separate, flat VOLUME-to-STORGRP mapping table, NOT
+   indented continuation lines under each group as originally guessed:
+
+       VOLUME UNIT MVS  SYSTEM= 1 2                             STORGRP NAME
+       BESCS1 A335 ONRW         + +                               BESCLD
+       BESCS2                   + +                               BESCLD
+       ...
+       LISTVOL IS IGNORED FOR OBJECT, OBJECT BACKUP, AND TAPE STORAGE GROUPS
+       ***************************** LEGEND *****************************
+       ...
+
+   Each row's first token is the VOLSER, its last token is the owning
+   storage group's name -- middle columns (UNIT, MVS status, per-system
+   symbols) vary in width/presence (blank UNIT/MVS for most volumes in
+   the real reply) and aren't captured. The "LISTVOL IS IGNORED FOR
+   OBJECT, OBJECT BACKUP, AND TAPE STORAGE GROUPS" line is used as the
+   real, stable end-of-table marker (confirmed present, and explains why
+   TAPE-type groups like IBMVTS/SGM9CDS never get volume rows) rather
+   than trying to pattern-match the LEGEND text itself.
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Callable, TypeVar
 
-from .blocks import split_named_blocks
-from .models import SmsManagementClass, SmsStorageClass, SmsStorageGroup
+from .models import SmsStorageGroup
 
-_STATUS_TOKENS = r"ENABLE|DISABLE|NOTCNCT"
-_STORGRP_HEADER = re.compile(
-    r"^(?P<name>[A-Z0-9$#@]{1,8})\b.*?\b(?P<status>" + _STATUS_TOKENS + r")\b",
+_STORGRP_HEADER_LINE = re.compile(r"^\s*STORGRP\s+TYPE\s+SYSTEM=", re.IGNORECASE)
+_STORGRP_DATA_ROW = re.compile(
+    r"^(?P<name>[A-Z0-9$#@]{1,8})\s+"
+    r"(?P<type>POOL|TAPE|OBJECT(?:\s+BACKUP)?|DUMMY)\s+"
+    r"(?P<status>[.+\-*DQ>/=\s]+)$",
     re.IGNORECASE,
 )
-_VOLSER = re.compile(r"\b([A-Z0-9$#@]{1,6})\b", re.IGNORECASE)
-_VOLSER_NOISE = {"ENABLE", "DISABLE", "NOTCNCT", "VOLUME", "VOLUMES", "STATUS"}
-
-# z/OS console message IDs (e.g. "IGD002I") -- excluded so banner/footer
-# lines aren't mistaken for a bare class-name header line below.
-_MSG_ID = re.compile(r"^[A-Z]{2,4}\d{3,5}[A-Z]?$")
-_CLASS_HEADER = re.compile(r"^(?P<name>[A-Z0-9$#@]{1,8}):?$", re.IGNORECASE)
-_CLASS_HEADER_NOISE = {"END", "DISPLAY"}
-_ATTR_PAREN = re.compile(r"([A-Z][A-Z0-9$#@]*)\(([^()]*)\)", re.IGNORECASE)
-
-T = TypeVar("T")
+_VOLUME_HEADER_LINE = re.compile(r"^\s*VOLUME\s+UNIT\s+MVS\s+SYSTEM=", re.IGNORECASE)
+_VOLUME_TABLE_END = "LISTVOL IS IGNORED"
+_VOLSER = re.compile(r"^[A-Z0-9$#@]{1,6}$", re.IGNORECASE)
 
 
-def _parse_storgrps(lines: list[str]) -> list[SmsStorageGroup]:
-    groups: list[SmsStorageGroup] = []
-    current: SmsStorageGroup | None = None
-    for line in lines:
-        header = _STORGRP_HEADER.match(line)
-        if header:
-            current = SmsStorageGroup(name=header.group("name").upper(), status=header.group("status").upper())
-            groups.append(current)
-            continue
-        if current is None or not line.startswith((" ", "\t")):
-            continue
-        current.volumes.extend(
-            token.upper() for token in _VOLSER.findall(line) if token.upper() not in _VOLSER_NOISE
-        )
-    return groups
+def _volume_row(line: str) -> tuple[str, str] | None:
+    tokens = line.split()
+    if len(tokens) < 2:
+        return None
+    volser, storgrp = tokens[0], tokens[-1]
+    if not _VOLSER.match(volser):
+        return None
+    return volser.upper(), storgrp.upper()
 
 
-def _parse_classes(lines: list[str], factory: Callable[..., T]) -> list[T]:
-    classes: list[T] = []
-    current: T | None = None
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not line.startswith((" ", "\t")):
-            header = _CLASS_HEADER.match(stripped)
-            if header and not _MSG_ID.match(header.group("name")) and \
-                    header.group("name").upper() not in _CLASS_HEADER_NOISE:
-                current = factory(name=header.group("name").upper())
-                classes.append(current)
-                continue
-        if current is None:
-            continue
-        for keyword, value in _ATTR_PAREN.findall(line):
-            current.params[keyword.upper()] = value.strip()
-    return classes
-
-
-def parse_sms(path: Path) -> tuple[list[SmsStorageGroup], list[SmsStorageClass], list[SmsManagementClass]]:
-    """Parse one sms.txt dump into (storage groups, storage classes, management classes)."""
+def parse_sms(path: Path) -> list[SmsStorageGroup]:
+    """Parse one sms.txt dump into a list of SmsStorageGroup."""
     text = path.read_text(errors="replace")
-    blocks = split_named_blocks(text)
-    return (
-        _parse_storgrps(blocks.get("STORGRP", [])),
-        _parse_classes(blocks.get("STORCLAS", []), SmsStorageClass),
-        _parse_classes(blocks.get("MGMTCLAS", []), SmsManagementClass),
-    )
+    groups: dict[str, SmsStorageGroup] = {}
+    order: list[str] = []
+    in_volume_table = False
+
+    for line in text.splitlines():
+        if _VOLUME_HEADER_LINE.match(line):
+            in_volume_table = True
+            continue
+        if _VOLUME_TABLE_END in line.upper():
+            in_volume_table = False
+            continue
+
+        if in_volume_table:
+            row = _volume_row(line)
+            if row:
+                volser, storgrp = row
+                if storgrp in groups:
+                    groups[storgrp].volumes.append(volser)
+            continue
+
+        if _STORGRP_HEADER_LINE.match(line):
+            continue
+        data = _STORGRP_DATA_ROW.match(line)
+        if data:
+            name = data.group("name").upper()
+            groups[name] = SmsStorageGroup(
+                name=name,
+                status=data.group("status").strip(),
+                group_type=data.group("type").upper(),
+            )
+            order.append(name)
+
+    return [groups[name] for name in order]

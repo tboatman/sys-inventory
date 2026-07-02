@@ -9,39 +9,42 @@ def load_sms():
     return sms_parser.parse_sms(FIXTURES / "sample_sms.txt")
 
 
-def test_storage_groups_parsed_with_volumes():
-    groups, _, _ = load_sms()
-    by_name = {g.name: (g.status, g.volumes) for g in groups}
+def test_storage_groups_parsed_with_type_and_status():
+    groups = load_sms()
+    by_name = {g.name: (g.group_type, g.status) for g in groups}
     assert by_name == {
-        "SG1": ("ENABLE", ["VOL001", "VOL002"]),
-        "SG2": ("DISABLE", ["VOL010"]),
+        "SG1": ("POOL", "+ +"),
+        "TAPEGRP": ("TAPE", "+ +"),
+        "SG2": ("POOL", "+ -"),
     }
 
 
-def test_banner_and_header_lines_not_treated_as_storage_groups():
-    groups, _, _ = load_sms()
-    assert len(groups) == 2
+def test_repeated_storgrp_header_does_not_break_consecutive_groups():
+    # Confirmed against a real reply: the "STORGRP TYPE SYSTEM= 1 2"
+    # header can appear once before several consecutive group rows
+    # (TAPEGRP and SG2 here), not once per group as originally guessed.
+    groups = load_sms()
+    assert len(groups) == 3
 
 
-def test_storage_classes_parsed_generically():
-    _, storclas, _ = load_sms()
-    by_name = {c.name: c.params for c in storclas}
-    assert by_name == {
-        "STANDARD": {"AVAILABILITY": "STANDARD", "ACCESSIBILITY": "CONTINUOUS", "PERFORMANCE": "3"},
-        "FAST": {"AVAILABILITY": "STANDARD", "PERFORMANCE": "1"},
-    }
+def test_volumes_come_from_a_separate_flat_table_not_indented_lines():
+    groups = load_sms()
+    by_name = {g.name: g.volumes for g in groups}
+    assert by_name["SG1"] == ["VOL001", "VOL002"]
+    assert by_name["SG2"] == ["VOL010"]
 
 
-def test_management_classes_parsed_generically():
-    _, _, mgmtclas = load_sms()
-    by_name = {c.name: c.params for c in mgmtclas}
-    assert by_name == {
-        "MCDEFLT": {"EXPIRE": "NOLIMIT", "MIGRATE": "030"},
-    }
+def test_tape_group_has_no_volumes_listvol_ignored():
+    # "LISTVOL IS IGNORED FOR OBJECT, OBJECT BACKUP, AND TAPE STORAGE
+    # GROUPS" -- confirmed real behavior, TAPEGRP never appears in the
+    # volume table.
+    groups = load_sms()
+    tapegrp = next(g for g in groups if g.name == "TAPEGRP")
+    assert tapegrp.volumes == []
 
 
-def test_message_id_lines_not_treated_as_class_names():
-    _, storclas, mgmtclas = load_sms()
-    names = {c.name for c in storclas} | {c.name for c in mgmtclas}
-    assert "IGD002I" not in names
-    assert "END" not in names
+def test_legend_and_footer_lines_not_treated_as_volume_rows():
+    groups = load_sms()
+    all_volumes = [v for g in groups for v in g.volumes]
+    assert "SYSTEM" not in all_volumes
+    assert len(all_volumes) == 3

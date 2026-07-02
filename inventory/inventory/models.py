@@ -319,48 +319,30 @@ class TcpipProfileStatement:
 
 @dataclass
 class SmsStorageGroup:
-    """One SMS storage group, as dumped by 'D SMS,STORGRP(*),LISTVOL'
+    """One SMS storage group, as dumped by 'D SMS,STORGRP(ALL),LISTVOL'
     (see ansible/roles/zos_extract/tasks/sms.yml) and parsed by
     sms_parser.py.
 
-    NOT YET VALIDATED against a real 'D SMS,STORGRP(*),LISTVOL' reply --
-    see sms_parser.py's module docstring for the same caveat
-    racf_parser.py carries for its own unconfirmed byte offsets."""
+    SMS storage classes and management classes were originally modeled
+    here too (SmsStorageClass/SmsManagementClass), but 'D SMS,SC(*)'/
+    'D SMS,MC(*)' were confirmed INVALID against a real system -- and
+    IBM's own 'D SMS' command syntax reference confirms there's no
+    console D-command for either at all (STORCLAS only appears as a
+    filter on the unrelated PDSE HSPSTATS command). Removed rather than
+    kept as dead code for commands that don't exist -- see sms.yml's own
+    header comment.
+
+    CONFIRMED against a real reply (via the 'SG' alias for 'STORGRP') --
+    and the real shape was different enough from the original guess that
+    `status`'s meaning changed and a new `group_type` field was added.
+    See sms_parser.py's module docstring for the full detail, including
+    why `status` is a raw per-system symbol sequence (e.g. "+ +") rather
+    than a decoded ENABLE/DISABLE/NOTCNCT word."""
 
     name: str
-    status: str | None = None   # e.g. ENABLE, DISABLE, NOTCNCT
+    status: str | None = None   # raw per-system status symbols, e.g. "+ +" -- see the reply's own LEGEND
+    group_type: str | None = None   # e.g. POOL, TAPE, OBJECT, OBJECT BACKUP, DUMMY
     volumes: list[str] = field(default_factory=list)
-
-
-@dataclass
-class SmsStorageClass:
-    """One SMS storage class, as dumped by 'D SMS,SC(*)' (see
-    ansible/roles/zos_extract/tasks/sms.yml) and parsed by sms_parser.py.
-
-    Captured generically (class name + a raw keyword->value map) rather
-    than modeled per attribute -- the same "capture everything
-    generically" approach Jes2InitStatement/VtamStartOption use, since
-    the full storage class attribute set isn't confirmed here.
-
-    NOT YET VALIDATED against a real 'D SMS,SC(*)' reply -- see
-    sms_parser.py's module docstring."""
-
-    name: str
-    params: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class SmsManagementClass:
-    """One SMS management class, as dumped by 'D SMS,MC(*)' (see
-    ansible/roles/zos_extract/tasks/sms.yml) and parsed by sms_parser.py.
-
-    Captured generically, same rationale as SmsStorageClass.
-
-    NOT YET VALIDATED against a real 'D SMS,MC(*)' reply -- see
-    sms_parser.py's module docstring."""
-
-    name: str
-    params: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

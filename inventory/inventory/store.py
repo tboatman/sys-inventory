@@ -25,8 +25,6 @@ from .models import (
     RacfGroupConnection,
     RacfSnapshot,
     RacfUser,
-    SmsManagementClass,
-    SmsStorageClass,
     SmsStorageGroup,
     StartedTask,
     Subsystem,
@@ -270,21 +268,10 @@ CREATE INDEX IF NOT EXISTS idx_tcpip_profile_statements_stmt ON tcpip_profile_st
 CREATE TABLE IF NOT EXISTS sms_storage_groups (
     name          TEXT NOT NULL,
     status        TEXT,
+    group_type    TEXT,
     volumes_json  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sms_storage_groups_name ON sms_storage_groups(name);
-
-CREATE TABLE IF NOT EXISTS sms_storage_classes (
-    name         TEXT NOT NULL,
-    params_json  TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_sms_storage_classes_name ON sms_storage_classes(name);
-
-CREATE TABLE IF NOT EXISTS sms_management_classes (
-    name         TEXT NOT NULL,
-    params_json  TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_sms_management_classes_name ON sms_management_classes(name);
 
 CREATE TABLE IF NOT EXISTS wlm_policy (
     policy_name  TEXT,
@@ -745,9 +732,9 @@ def all_tcpip_profile_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 def save_sms_storage_groups(conn: sqlite3.Connection, groups: list[SmsStorageGroup]) -> None:
     conn.execute("DELETE FROM sms_storage_groups")
-    rows = [(g.name, g.status, json.dumps(g.volumes)) for g in groups]
+    rows = [(g.name, g.status, g.group_type, json.dumps(g.volumes)) for g in groups]
     conn.executemany(
-        "INSERT INTO sms_storage_groups (name, status, volumes_json) VALUES (?, ?, ?)",
+        "INSERT INTO sms_storage_groups (name, status, group_type, volumes_json) VALUES (?, ?, ?, ?)",
         rows,
     )
     conn.commit()
@@ -756,38 +743,6 @@ def save_sms_storage_groups(conn: sqlite3.Connection, groups: list[SmsStorageGro
 def all_sms_storage_groups(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM sms_storage_groups ORDER BY name")
-    return cur.fetchall()
-
-
-def save_sms_storage_classes(conn: sqlite3.Connection, classes: list[SmsStorageClass]) -> None:
-    conn.execute("DELETE FROM sms_storage_classes")
-    rows = [(c.name, json.dumps(c.params)) for c in classes]
-    conn.executemany(
-        "INSERT INTO sms_storage_classes (name, params_json) VALUES (?, ?)",
-        rows,
-    )
-    conn.commit()
-
-
-def all_sms_storage_classes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    conn.row_factory = sqlite3.Row
-    cur = conn.execute("SELECT * FROM sms_storage_classes ORDER BY name")
-    return cur.fetchall()
-
-
-def save_sms_management_classes(conn: sqlite3.Connection, classes: list[SmsManagementClass]) -> None:
-    conn.execute("DELETE FROM sms_management_classes")
-    rows = [(c.name, json.dumps(c.params)) for c in classes]
-    conn.executemany(
-        "INSERT INTO sms_management_classes (name, params_json) VALUES (?, ?)",
-        rows,
-    )
-    conn.commit()
-
-
-def all_sms_management_classes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    conn.row_factory = sqlite3.Row
-    cur = conn.execute("SELECT * FROM sms_management_classes ORDER BY name")
     return cur.fetchall()
 
 
