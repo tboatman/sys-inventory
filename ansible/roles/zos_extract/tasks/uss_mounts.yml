@@ -13,10 +13,10 @@
 # bundles two separate D-commands under ##SYMBOLS/##IPLINFO) -- this
 # captures exactly one D-command's reply, so the raw text is written as-is.
 #
-# NOT YET CONFIRMED against a real 'D OMVS,F' reply at this site --
-# uss_mounts_parser.py's module docstring carries the same caveat. Confirm
-# the real field layout/spacing before trusting this blindly, same as
-# racf_parser.py's own "implementation only" caveat.
+# CONFIRMED against a real 'D OMVS,F' reply -- uss_mounts_parser.py's
+# module docstring has the real per-filesystem shape and what differed
+# from the original guess (NAME=/PATH= land on separate continuation
+# lines in practice, not combined on one line).
 
 - name: Issue D OMVS,F
   ibm.ibm_zos_core.zos_operator:

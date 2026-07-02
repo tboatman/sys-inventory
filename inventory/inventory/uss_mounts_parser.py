@@ -3,30 +3,38 @@ into UssMount records -- one per currently-mounted USS filesystem.
 
 Dump format: the raw console reply, unchanged -- no sentinel headers
 needed, since this captures exactly one D-command's output (unlike
-sysinfo.txt, which bundles two under ##SYMBOLS/##IPLINFO). Expected shape,
-based on IBM's own BPXO04xI message documentation (NOT yet independently
-confirmed against a real reply at this site -- see uss_mounts.yml's own
-header comment for the same caveat):
+sysinfo.txt, which bundles two under ##SYMBOLS/##IPLINFO).
 
-    BPXO047I 15.34.10 DISPLAY OMVS 678
-    OMVS     000E ACTIVE                          OMVS=(ZOS)
-    TYPENAME DEVICE ----------STATUS------------ MODE  LATCHES
-    ZFS           1 ACTIVE                        RDWR    L=136
-          NAME=OMVS.ROOT.ZFS               PATH=/
-          OWNER=ZOS      AUTOMOVE=Y    CLIENT=N
-    ZFS           2 ACTIVE                        RDWR    L=1
-          NAME=OMVS.ETC.ZFS                PATH=/etc
-          OWNER=ZOS      AUTOMOVE=Y    CLIENT=N
+CONFIRMED against a real 'D OMVS,F' reply. The real message ID seen was
+BPXO045I (not BPXO047I, the number originally guessed from IBM's generic
+BPXO04xI message documentation before a real reply was available -- the
+exact BPXO04xI number apparently varies; this parser never matched on the
+message ID itself, so that didn't matter). The real per-filesystem shape,
+confirmed:
 
-Each filesystem is one unindented "header" line (TYPENAME/DEVICE/STATUS/
-MODE) followed by one or more indented continuation lines carrying NAME=/
-PATH= (plus other attributes this parser doesn't capture). A header line
-is recognized generically -- a TYPENAME token, a numeric DEVICE, then a
-RDWR/READ/RDONLY MODE token somewhere on the line -- rather than by fixed
-column positions, since exact spacing isn't confirmed here the way
-racf_parser.py's byte offsets are (at least) confirmed against a working
-third-party reference. Tolerate reasonable drift in spacing/extra columns
-rather than being exact-match.
+    BPXO045I 06.25.08 DISPLAY OMVS 726
+    OMVS     0010 ACTIVE             OMVS=(00,BN)
+    TYPENAME   DEVICE ----------STATUS----------- MODE  MOUNTED    LATCHES
+    ZFS           117 ACTIVE                      RDWR  07/01/2026  L=77
+      NAME=USSHOME.BMCTYB                               12.05.52    Q=0
+      PATH=/home/bmctyb
+      OWNER=BES2     AUTOMOVE=Y CLIENT=N
+
+One notable difference from the originally-guessed shape: NAME= and PATH=
+land on *separate* continuation lines here, each with extra trailing
+fields this parser doesn't capture (a mount time next to NAME=, a queue
+count `Q=`, `OWNER=`/`AUTOMOVE=`/`CLIENT=`, and occasionally an extra
+`MOUNT PARM=...` line for some filesystem types e.g. TFS/AUTOMNT). None of
+that broke parsing: the loop below matches NAME=/PATH= independently per
+continuation line rather than requiring both on one line, so it handles
+this real shape (and the originally-guessed combined-line shape) the
+same way. Each filesystem is one unindented "header" line (TYPENAME/
+DEVICE/STATUS/MODE/MOUNTED date) followed by one or more indented
+continuation lines. The header line is recognized generically -- a
+TYPENAME token, a numeric DEVICE, then a RDWR/READ/RDONLY MODE token
+somewhere on the line -- confirmed tolerant of the real column
+spacing/widths, which don't line up exactly with the originally-guessed
+example.
 """
 from __future__ import annotations
 

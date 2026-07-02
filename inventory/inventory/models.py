@@ -211,9 +211,8 @@ class UssMount:
     ansible/roles/zos_extract/tasks/uss_mounts.yml) and parsed by
     uss_mounts_parser.py.
 
-    NOT YET VALIDATED against a real 'D OMVS,F' reply at this site --
-    see uss_mounts_parser.py's module docstring for the same caveat
-    racf_parser.py carries for its own unconfirmed byte offsets."""
+    CONFIRMED against a real 'D OMVS,F' reply -- see
+    uss_mounts_parser.py's module docstring for the real shape."""
 
     path: str
     name: str | None = None      # zFS/HFS dataset name (or device) backing the mount
