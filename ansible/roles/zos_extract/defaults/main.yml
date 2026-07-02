@@ -63,3 +63,12 @@ zos_extract_cics_job_patterns: ["CTS*", "ECB2*", "MTSEDUC*"]
 zos_extract_cics_outfile: "cics.txt"
 zos_extract_db2_job_patterns: ["DB2*"]
 zos_extract_db2_outfile: "db2.txt"
+
+# Opt-in deepened DB2 catalog view (installed packages/plans via a
+# read-only DSNTEP2 batch SQL query) -- see db2_catalog.yml. Distinct
+# from the live address-space heuristic above: requires a real DB2
+# subsystem ID and a plan already bound there for DSNTEP2.
+zos_extract_db2_ssid: ""
+zos_extract_db2_plan: "DSNTEP2"
+zos_extract_db2_steplib: ""
+zos_extract_db2_catalog_outfile: "db2_catalog.txt"

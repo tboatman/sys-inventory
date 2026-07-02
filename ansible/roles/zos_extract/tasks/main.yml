@@ -130,6 +130,11 @@
   tags: [db2]
   when: zos_extract_db2_job_patterns | length > 0
 
+- name: Deepened DB2 catalog view -- installed packages/plans, opt-in (step 17, see db2_catalog.yml)
+  ansible.builtin.import_tasks: db2_catalog.yml
+  tags: [db2]
+  when: zos_extract_db2_ssid | length > 0
+
 - name: Dataset catalog (step 9)
   ansible.builtin.import_tasks: catalog.yml
   tags: [catalog]

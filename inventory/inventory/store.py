@@ -11,6 +11,8 @@ from .models import (
     CatalogDataset,
     DatasetAccess,
     DatasetProfile,
+    Db2Package,
+    Db2Plan,
     GeneralResourceAccess,
     GeneralResourceProfile,
     Jes2InitStatement,
@@ -270,6 +272,22 @@ CREATE TABLE IF NOT EXISTS wlm_policy (
     policy_name  TEXT,
     mode         TEXT
 );
+
+CREATE TABLE IF NOT EXISTS db2_packages (
+    name            TEXT NOT NULL,
+    creator         TEXT,
+    bind_timestamp  TEXT,
+    ssid            TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_db2_packages_name ON db2_packages(name);
+
+CREATE TABLE IF NOT EXISTS db2_plans (
+    name            TEXT NOT NULL,
+    creator         TEXT,
+    bind_timestamp  TEXT,
+    ssid            TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_db2_plans_name ON db2_plans(name);
 """
 
 
@@ -720,3 +738,35 @@ def get_wlm_policy(conn: sqlite3.Connection) -> sqlite3.Row | None:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM wlm_policy LIMIT 1")
     return cur.fetchone()
+
+
+def save_db2_packages(conn: sqlite3.Connection, packages: list[Db2Package]) -> None:
+    conn.execute("DELETE FROM db2_packages")
+    rows = [(p.name, p.creator, p.bind_timestamp, p.ssid) for p in packages]
+    conn.executemany(
+        "INSERT INTO db2_packages (name, creator, bind_timestamp, ssid) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_db2_packages(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM db2_packages ORDER BY name")
+    return cur.fetchall()
+
+
+def save_db2_plans(conn: sqlite3.Connection, plans: list[Db2Plan]) -> None:
+    conn.execute("DELETE FROM db2_plans")
+    rows = [(p.name, p.creator, p.bind_timestamp, p.ssid) for p in plans]
+    conn.executemany(
+        "INSERT INTO db2_plans (name, creator, bind_timestamp, ssid) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_db2_plans(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM db2_plans ORDER BY name")
+    return cur.fetchall()

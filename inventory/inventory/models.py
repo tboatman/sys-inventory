@@ -339,6 +339,35 @@ class SmsManagementClass:
 
 
 @dataclass
+class Db2Package:
+    """One installed DB2 package (SYSIBM.SYSPACKAGE row), as dumped by a
+    DSNTEP2 batch SQL query (see
+    ansible/roles/zos_extract/tasks/db2_catalog.yml) and parsed by
+    db2_catalog_parser.py. Complements the live-activity address-space
+    heuristic in db2.yml with real DB2 catalog content.
+
+    THE MOST SPECULATIVE DOMAIN IN THE PIPELINE -- NOT YET VALIDATED
+    against a real DB2 subsystem; see db2_catalog_parser.py's module
+    docstring for the full caveat."""
+
+    name: str
+    creator: str | None = None
+    bind_timestamp: str | None = None
+    ssid: str = ""
+
+
+@dataclass
+class Db2Plan:
+    """One installed DB2 plan (SYSIBM.SYSPLAN row), same source/caveats
+    as Db2Package."""
+
+    name: str
+    creator: str | None = None
+    bind_timestamp: str | None = None
+    ssid: str = ""
+
+
+@dataclass
 class WlmPolicy:
     """Single-record active WLM policy identity, as dumped by
     'D WLM,POLICY' (see ansible/roles/zos_extract/tasks/wlm.yml) and

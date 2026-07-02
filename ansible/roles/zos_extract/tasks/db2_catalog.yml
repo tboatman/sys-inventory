@@ -1,0 +1,92 @@
+---
+# Deepened DB2 subsystem view (step 17): installed packages/plans via a
+# read-only DSNTEP2 batch SQL query -- genuinely reachable, unlike real
+# CICS resource definitions (blocked on missing CMCI/CICSplex SM at this
+# site, see cics.yml/ansible/README.md). Distinct from db2.yml above,
+# which only reports whether a DB2 address space is currently up (a
+# live-activity heuristic via 'D A,L', not real catalog content).
+#
+# Opt-in: skipped entirely unless zos_extract_db2_ssid is configured
+# (same convention as zos_extract_catalog_patterns/racf_database_dsn).
+# Requires a plan already bound at the target site for DSNTEP2
+# (zos_extract_db2_plan, default "DSNTEP2" -- IBM's own sample plan name,
+# but sites commonly rebind/rename it) and, if DSNTEP2 isn't already on
+# the default STEPLIB concatenation, zos_extract_db2_steplib naming the
+# one DB2 load library it needs (same single-DSN convention
+# _smplist_zone.yml already uses for zos_extract_smpe_steplib, not a
+# multi-dataset concatenation).
+#
+# zos_mvs_raw runs IKJEFT01 (TSO batch, the standard way to invoke
+# DSNTEP2) the same way racf.yml runs IRRDBU00 and catalog.yml runs
+# IDCAMS -- dd_input for SYSTSIN (the DSN/RUN command) and SYSIN (the
+# SELECT itself), dd_output for SYSPRINT (DSNTEP2's report), same
+# per-DD-list-built-in-Jinja idiom _smplist_zone.yml uses for its
+# optional STEPLIB. Two separate invocations (one per catalog table)
+# rather than one job with two SELECT statements, so each result can be
+# captured under its own unambiguous ##BLOCKNAME sentinel -- both queries
+# share the same NAME/CREATOR/BINDTIME column shape, so nothing in
+# DSNTEP2's own report output could otherwise tell the two blocks apart
+# the way vtam.yml's two different D-commands read differently. A
+# ";;SSID=" marker line (not part of DSNTEP2's own report, same idiom
+# tcpip.yml's ";;SOURCE_DSN=" marker uses) tags each block with which
+# subsystem it ran against, for db2_catalog_parser.py to pick up.
+#
+# THIS IS THE MOST SPECULATIVE DOMAIN IN THE PIPELINE: DSNTEP2's exact
+# authorization/PLAN/STEPLIB requirements vary by site DB2 setup, and
+# neither this task's SQL/JCL shape nor db2_catalog_parser.py's report
+# parsing has been checked against a real DB2 subsystem -- see that
+# module's docstring for the full caveat. Validate before relying on
+# this more than any other dimension in this pipeline.
+
+- name: Build the shared DSNTEP2 DD list (STEPLIB optional, SYSIN set per query below)
+  ansible.builtin.set_fact:
+    zos_extract_db2_base_dds: >-
+      {{
+        [
+          {'dd_input': {'dd_name': 'SYSTSIN', 'content': ['DSN SYSTEM(' ~ zos_extract_db2_ssid ~ ')',
+                                                            'RUN PROGRAM(DSNTEP2) PLAN(' ~ zos_extract_db2_plan ~ ')',
+                                                            'END']}},
+          {'dd_output': {'dd_name': 'SYSPRINT', 'return_content': {'type': 'text'}}},
+          {'dd_dummy': {'dd_name': 'SYSTSPRT'}}
+        ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_db2_steplib, 'disposition': 'shr'}}] if zos_extract_db2_steplib | length > 0 else [])
+      }}
+
+- name: Run DSNTEP2 against SYSIBM.SYSPACKAGE
+  ibm.ibm_zos_core.zos_mvs_raw:
+    program_name: IKJEFT01
+    auth: true
+    dds: >-
+      {{
+        zos_extract_db2_base_dds +
+        [{'dd_input': {'dd_name': 'SYSIN', 'content': ['SELECT NAME, CREATOR, BINDTIME FROM SYSIBM.SYSPACKAGE ORDER BY NAME;']}}]
+      }}
+  register: zos_extract_db2_syspackage_result
+
+- name: Run DSNTEP2 against SYSIBM.SYSPLAN
+  ibm.ibm_zos_core.zos_mvs_raw:
+    program_name: IKJEFT01
+    auth: true
+    dds: >-
+      {{
+        zos_extract_db2_base_dds +
+        [{'dd_input': {'dd_name': 'SYSIN', 'content': ['SELECT NAME, CREATOR, BINDTIME FROM SYSIBM.SYSPLAN ORDER BY NAME;']}}]
+      }}
+  register: zos_extract_db2_sysplan_result
+
+- name: Extract the DSNTEP2 SYSPRINT report text
+  ansible.builtin.set_fact:
+    zos_extract_db2_syspackage_text: "{{ (zos_extract_db2_syspackage_result.dd_names | selectattr('dd_name', 'equalto', 'SYSPRINT') | first).content | join('\n') }}"
+    zos_extract_db2_sysplan_text: "{{ (zos_extract_db2_sysplan_result.dd_names | selectattr('dd_name', 'equalto', 'SYSPRINT') | first).content | join('\n') }}"
+
+- name: Write {{ zos_extract_db2_catalog_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_db2_catalog_outfile }}"
+    mode: "0644"
+    content: |-
+      ##SYSPACKAGE
+      ;;SSID={{ zos_extract_db2_ssid }}
+      {{ zos_extract_db2_syspackage_text }}
+      ##SYSPLAN
+      ;;SSID={{ zos_extract_db2_ssid }}
+      {{ zos_extract_db2_sysplan_text }}
+  delegate_to: localhost

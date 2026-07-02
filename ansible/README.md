@@ -102,7 +102,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
-`smplist`, `activity`, `catalog`, `racf`.
+`smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`.
 `smplist`/`catalog` only run on hosts where `zos_extract_smpe_csi`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
@@ -411,6 +411,51 @@ Run `ansible-playbook playbooks/site.yml --tags wlm --limit lpar1`
 against a real system and check the resulting `wlm.txt` against what
 `wlm_parser.py` assumes before relying on this dimension.
 
+### Deepened DB2 catalog view (opt-in, the most speculative domain in the pipeline)
+
+`db2_catalog.yml` (tag `db2`, same tag as `db2.yml` above, but gated
+separately by `zos_extract_db2_ssid`) deepens `db2.yml`'s "is a DB2
+address space up right now" heuristic with real catalog content --
+installed packages and plans -- via a read-only DSNTEP2 batch SQL query
+against `SYSIBM.SYSPACKAGE`/`SYSIBM.SYSPLAN`. Unlike CICS, this is
+genuinely reachable without a new product (no CMCI/CICSplex SM
+dependency).
+
+- Opt-in: skipped entirely unless `zos_extract_db2_ssid` is set. Also
+  needs a plan already bound at the target site for DSNTEP2
+  (`zos_extract_db2_plan`, defaults to `DSNTEP2`, IBM's own sample plan
+  name -- sites commonly rebind/rename it) and, if DSNTEP2 isn't already
+  reachable via the default STEPLIB concatenation, the one DB2 load
+  library it needs (`zos_extract_db2_steplib`, a single DSN, same
+  single-dataset convention `_smplist_zone.yml` already uses for its own
+  optional STEPLIB).
+- `zos_mvs_raw` runs `IKJEFT01` (TSO batch, the standard way to invoke
+  DSNTEP2) the same way `racf.yml` runs `IRRDBU00` and `catalog.yml` runs
+  `IDCAMS`. Two separate invocations (one per catalog table) rather than
+  one job with two `SELECT`s, so each result lands under its own
+  unambiguous `##SYSPACKAGE`/`##SYSPLAN` sentinel -- both queries return
+  the same `NAME`/`CREATOR`/`BINDTIME` column shape, so nothing in
+  DSNTEP2's own report text could otherwise tell the two blocks apart. A
+  `;;SSID=` marker line (not part of DSNTEP2's own report, same idiom
+  `tcpip.yml`'s `;;SOURCE_DSN=` marker uses) tags each block with which
+  subsystem it ran against.
+
+**THIS IS THE MOST SPECULATIVE DOMAIN IN THE ENTIRE PIPELINE**: beyond
+the usual "not yet confirmed against a real reply" caveat every
+implementation-only domain above carries, DSNTEP2's exact
+authorization/PLAN/STEPLIB requirements themselves vary by site DB2
+setup, on top of report-format uncertainty. `inventory/inventory/
+db2_catalog_parser.py`'s docstring carries the full caveat, including
+what to check first if a real run's report layout doesn't match a simple
+whitespace-split row.
+
+Run `ansible-playbook playbooks/site.yml --tags db2 --limit lpar1
+-e '{"zos_extract_db2_ssid": "YOUR_SSID"}'` (add
+`zos_extract_db2_plan`/`zos_extract_db2_steplib` if the defaults don't
+fit your site) against a real DB2 subsystem and check the resulting
+`db2_catalog.txt` against what `db2_catalog_parser.py` assumes before
+relying on this dimension at all.
+
 ### A performance note on `catalog`
 
 Unlike `zoautil_py`'s `datasets.list_datasets()` (which returns DSORG/RECFM/
@@ -512,6 +557,10 @@ roles/zos_extract/
     cics.yml, db2.yml          # opt-in PROCSTEP/job-name filters over
                                # discover_active_address_spaces.yml's
                                # output -- not authoritative, see above
+    db2_catalog.yml            # opt-in zos_mvs_raw (DSNTEP2 via IKJEFT01)
+                                # deepened DB2 packages/plans view (see
+                                # above) -- the most speculative domain in
+                                # the pipeline, not yet validated
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)

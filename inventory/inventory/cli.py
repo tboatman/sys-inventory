@@ -8,7 +8,7 @@
 `inventory uss-mounts`, `inventory jes2parm`, `inventory vtam-majnodes`,
 `inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`,
 `inventory sms-storgrps`, `inventory sms-storclas`, `inventory sms-mgmtclas`,
-`inventory wlm`."""
+`inventory wlm`, `inventory db2-packages`, `inventory db2-plans`."""
 from __future__ import annotations
 
 import argparse
@@ -20,6 +20,7 @@ from pathlib import Path
 from . import (
     activity_parser,
     catalog_parser,
+    db2_catalog_parser,
     ifaprd_parser,
     jcl_parser,
     jes2parm_parser,
@@ -135,6 +136,13 @@ def cmd_ingest(args: argparse.Namespace) -> int:
               file=sys.stderr)
     wlm_policy = wlm_parser.parse_wlm(wlm_files[0]) if wlm_files else None
 
+    db2_packages = []
+    db2_plans = []
+    for path in sorted(input_dir.glob("*db2_catalog*.txt")):
+        packages, plans = db2_catalog_parser.parse_db2_catalog(path)
+        db2_packages.extend(packages)
+        db2_plans.extend(plans)
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -156,6 +164,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_sms_storage_classes(conn, sms_storage_classes)
     store.save_sms_management_classes(conn, sms_management_classes)
     store.save_wlm_policy(conn, wlm_policy)
+    store.save_db2_packages(conn, db2_packages)
+    store.save_db2_plans(conn, db2_plans)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -175,7 +185,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(tcpip_profile_statements)} TCPIP profile statements, "
           f"{len(sms_storage_groups)} SMS storage groups, "
           f"{len(sms_storage_classes)} SMS storage classes, "
-          f"{len(sms_management_classes)} SMS management classes -> {args.db}")
+          f"{len(sms_management_classes)} SMS management classes, "
+          f"{len(db2_packages)} DB2 packages, "
+          f"{len(db2_plans)} DB2 plans -> {args.db}")
     return 0
 
 
@@ -557,6 +569,30 @@ def cmd_wlm(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_db2_packages(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_db2_packages(conn)
+    conn.close()
+
+    for row in rows:
+        creator = row["creator"] or "?"
+        bind_timestamp = row["bind_timestamp"] or "?"
+        print(f"{row['name']}  CREATOR={creator} BINDTIME={bind_timestamp}  [{row['ssid']}]")
+    return 0
+
+
+def cmd_db2_plans(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_db2_plans(conn)
+    conn.close()
+
+    for row in rows:
+        creator = row["creator"] or "?"
+        bind_timestamp = row["bind_timestamp"] or "?"
+        print(f"{row['name']}  CREATOR={creator} BINDTIME={bind_timestamp}  [{row['ssid']}]")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -648,6 +684,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_wlm = sub.add_parser("wlm", help="show the active WLM policy name/mode (not yet production-validated)")
     p_wlm.set_defaults(func=cmd_wlm)
+
+    p_db2_packages = sub.add_parser("db2-packages", help="list installed DB2 packages (not yet production-validated)")
+    p_db2_packages.set_defaults(func=cmd_db2_packages)
+
+    p_db2_plans = sub.add_parser("db2-plans", help="list installed DB2 plans (not yet production-validated)")
+    p_db2_plans.set_defaults(func=cmd_db2_plans)
 
     return parser
 

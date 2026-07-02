@@ -1,0 +1,17 @@
+##SYSPACKAGE
+;;SSID=DB2A
+---------+---------+---------+---------+---------+---------+---------+----
+ NAME                CREATOR             BINDTIME
+---------+---------+---------+---------+---------+---------+---------+----
+ PKG1                COLLID1             2024-01-15-10.30.00.000000
+ PKG2                COLLID2             2024-02-20-11.15.30.000000
+DSNE610I NUMBER OF ROWS DISPLAYED IS 2
+DSNE616I STATEMENT EXECUTION WAS SUCCESSFUL, SQLCODE IS 0
+##SYSPLAN
+;;SSID=DB2A
+---------+---------+---------+---------+---------+---------+---------+----
+ NAME                CREATOR             BINDTIME
+---------+---------+---------+---------+---------+---------+---------+----
+ PLAN01              SYSADM              2023-11-01-09.00.00.000000
+DSNE610I NUMBER OF ROWS DISPLAYED IS 1
+DSNE616I STATEMENT EXECUTION WAS SUCCESSFUL, SQLCODE IS 0

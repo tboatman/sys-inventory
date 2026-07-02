@@ -3,9 +3,10 @@
 Off-host half of the pipeline: parses the text dumped by `zos-extract/`
 (or, for domains with no standalone `zos-extract/python` script yet --
 USS mounted filesystems, JES2's own initialization parameters, VTAM
-major-node status/start options, TCP/IP home addresses/PROFILE.TCPIP, and
-SMS storage groups/storage classes/management classes, and the active WLM
-policy name/mode -- the `ansible/` role directly; see
+major-node status/start options, TCP/IP home addresses/PROFILE.TCPIP, SMS
+storage groups/storage classes/management classes, the active WLM policy
+name/mode, and deepened DB2 packages/plans -- the `ansible/` role
+directly; see
 [`../ansible/README.md`](../ansible/README.md)) and resolves each
 PROCLIB/PARMLIB member's full execution path back to the SMP/E FMID that
 owns each program it runs, flags whether each resolved load library is
@@ -16,8 +17,9 @@ currently-running jobs/tasks and USS processes, an HLQ/pattern-scoped
 dataset catalog (non-VSAM attributes + VSAM cluster/component detail),
 mounted USS filesystems, JES2's own initialization statements, VTAM/APPN
 status, TCP/IP configuration, SMS storage groups/classes, the active WLM
-policy name/mode, and a RACF security snapshot (users, groups, dataset
-and general-resource access — **implementation only, not
+policy name/mode, deepened DB2 packages/plans, and a RACF security
+snapshot (users, groups, dataset and general-resource access —
+**implementation only, not
 yet production-validated**, see below). Everything lands in one small
 SQLite database you query from the command line.
 
@@ -76,7 +78,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_vtam.txt        /tmp/demo/vtam.txt && \
   cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt && \
   cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt && \
-  cp tests/fixtures/sample_wlm.txt         /tmp/demo/wlm.txt
+  cp tests/fixtures/sample_wlm.txt         /tmp/demo/wlm.txt && \
+  cp tests/fixtures/sample_db2_catalog.txt /tmp/demo/db2_catalog.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -94,19 +97,22 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
-   file naming and how to produce each file. Six more files —
+   file naming and how to produce each file. Seven more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
    enablement/role), `tcpip.txt` (TCP/IP home addresses and, if
    configured, `PROFILE.TCPIP` text), `sms.txt` (SMS storage groups,
-   storage classes, and management classes), and `wlm.txt` (the active
-   WLM policy name/mode, first cut only) — have no standalone
-   `zos-extract/python` script yet and are only produced by the
-   `ansible/` role's `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`
-   tags; see [`../ansible/README.md`](../ansible/README.md)'s Layout
-   section. All six are implementation-only, same caveat as RACF below —
-   not yet validated against a real system's actual command output.
+   storage classes, and management classes), `wlm.txt` (the active WLM
+   policy name/mode, first cut only), and `db2_catalog.txt` (installed
+   DB2 packages/plans, opt-in) — have no standalone `zos-extract/python`
+   script yet and are only produced by the `ansible/` role's
+   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2` tags; see
+   [`../ansible/README.md`](../ansible/README.md)'s Layout section. All
+   seven are implementation-only, same caveat as RACF below — not yet
+   validated against a real system's actual command output.
+   `db2_catalog.txt` carries the strongest version of that caveat: see
+   its own section below.
 
 2. Ingest and resolve:
 
@@ -121,7 +127,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 2 SMS storage groups, 2 SMS storage classes, 1 SMS management classes -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 2 SMS storage groups, 2 SMS storage classes, 1 SMS management classes, 2 DB2 packages, 1 DB2 plans -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -446,6 +452,28 @@ MODE: GOAL
 If you didn't ingest a `wlm.txt`, this prints `no WLM policy ingested`
 and exits with a non-zero status — same as `inventory sysinfo`.
 
+### `inventory db2-packages` / `inventory db2-plans` (opt-in, the most speculative dimension, not yet production-validated)
+
+Installed DB2 packages (`SYSIBM.SYSPACKAGE`) and plans (`SYSIBM.SYSPLAN`),
+if you ingested a `db2_catalog.txt` — deepens `db2.yml`'s "is a DB2
+address space up right now" live heuristic with real catalog content, via
+a read-only DSNTEP2 batch SQL query. **This is the most speculative
+dimension in the whole pipeline**: beyond the reply not being checked
+against a real system, DSNTEP2's exact authorization/PLAN/STEPLIB
+requirements themselves vary by site DB2 setup — see
+`db2_catalog_parser.py`'s module docstring for the full caveat, including
+what to check first if a real run's report layout doesn't match the
+simple whitespace-split row parsing used here.
+
+```
+$ inventory db2-packages
+PKG1  CREATOR=COLLID1 BINDTIME=2024-01-15-10.30.00.000000  [DB2A]
+PKG2  CREATOR=COLLID2 BINDTIME=2024-02-20-11.15.30.000000  [DB2A]
+
+$ inventory db2-plans
+PLAN01  CREATOR=SYSADM BINDTIME=2023-11-01-09.00.00.000000  [DB2A]
+```
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -490,8 +518,9 @@ resource profiles against `started_tasks`) for the same reason. USS mounts
 (`jes2parm_parser.parse_dump`), VTAM major nodes/start options
 (`vtam_parser.parse_vtam`), TCP/IP home addresses/profile statements
 (`tcpip_parser.parse_tcpip`), SMS storage groups/classes
-(`sms_parser.parse_sms`), and the WLM policy record (`wlm_parser.parse_wlm`,
-a single record like `system_info`) are likewise independent,
+(`sms_parser.parse_sms`), the WLM policy record (`wlm_parser.parse_wlm`,
+a single record like `system_info`), and DB2 packages/plans
+(`db2_catalog_parser.parse_db2_catalog`) are likewise independent,
 freshly-added dimensions with no cross-referencing yet.
 
 ## Tests
@@ -549,17 +578,24 @@ a hand-constructed fixture, not a real system reply; see
 (`sample_wlm.txt`, covering a policy name/mode pair, plus a test that an
 unrecognized/empty dump returns `None` rather than a half-populated
 record) — **also built against a hand-constructed fixture, not a real
-system reply; see `wlm_parser.py`'s module docstring.**
+system reply; see `wlm_parser.py`'s module docstring.** Also deepened DB2
+catalog parsing (`sample_db2_catalog.txt`, covering DSNTEP2-shaped
+packages/plans, the `;;SSID=` marker line, and dashed separator/column-
+header/`DSNE6xxI` message lines proven not to be mistaken for data rows)
+— **also built against a hand-constructed fixture, not a real DB2
+subsystem reply, and the single most speculative parser in the pipeline;
+see `db2_catalog_parser.py`'s module docstring.**
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
   `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
   `*catalog*.txt` / `*uss_mounts*.txt` / `*jes2parm*.txt` / `*vtam*.txt` /
-  `*tcpip*.txt` / `*sms*.txt` files in the input directory — just keep adding files as
-  you extract more PROCLIB/PARMLIB concatenation entries, more SMP/E
-  zones, more HLQ/pattern groups, or more JES2 PARMLIB concatenation
-  entries; `ingest` merges them all into one inventory. `lnklst.txt` and
+  `*tcpip*.txt` / `*sms*.txt` / `*db2_catalog*.txt` files in the input
+  directory — just keep adding files as you extract more PROCLIB/PARMLIB
+  concatenation entries, more SMP/E zones, more HLQ/pattern groups, or
+  more JES2 PARMLIB concatenation entries; `ingest` merges them all into
+  one inventory. `lnklst.txt` and
   `apf.txt` are each a single flat list.
 - `system_info` (from `sysinfo.txt`), `wlm_policy` (from `wlm.txt`),
   `active_jobs` (from `active_jobs.txt`), `uss_processes` (from
