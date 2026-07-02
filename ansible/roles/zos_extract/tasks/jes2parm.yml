@@ -1,32 +1,63 @@
 ---
-# JES2 initialization parameters (step 12) -- JES2's own init deck, read
-# from whatever PARMLIB concatenation discover_jes2_parmlib.yml found (or
-# zos_extract_jes2_parmlibs, if set by hand in hosts.yml). This is
-# genuinely separate from two things this role already covers:
+# JES2 initialization parameters (step 12) -- JES2's own init deck,
+# fetched by the exact dsn(member) pairs discover_jes2_parmlib.yml found
+# (or zos_extract_jes2_init_members, if set by hand in hosts.yml). This
+# is genuinely separate from two things this role already covers:
 #   - SYS1.PARMLIB's IEFSSNxx/COMMNDxx/IEASYSxx members (ssn_commnd.yml,
 #     discover_active_members.yml) -- a different PARMLIB concatenation
 #     entirely, JES2 has its own.
 #   - The JES2 PROCLIB concatenation (discover_proclib.yml/proclib.yml,
 #     via '$D PROCLIB') -- that's the library JES2 resolves EXEC PROC=
 #     against for batch jobs; this is JES2's *own configuration*, read at
-#     JES2 startup/$ACTIVATE, a different JES2 command entirely ('$D
-#     PARMLIB', not '$D PROCLIB').
+#     JES2 startup, a different JES2 command entirely ('$DINITINFO', not
+#     '$D PROCLIB').
 #
-# Dumps every member of every discovered/configured JES2 PARMLIB entry
-# (same "everything, unfiltered" approach proclib.yml takes for PROCLIB),
-# rather than trying to first determine "the one active member" the way
-# ssn_commnd.yml/ifaprd.yml narrow down to an active IEFSSNxx/COMMNDxx/
-# IFAPRDxx suffix -- JES2's own active-member-selection mechanism isn't
-# confirmed here, so dumping the whole concatenation and letting
-# jes2parm_parser.py sort out every statement is the safer default.
+# CORRECTED this round, not just confirmed: a real '$DINITINFO' reply
+# (see discover_jes2_parmlib.yml) reports the exact dsn(member) pairs
+# JES2 actually read, not a concatenation needing a separate "find the
+# active member" step -- so this fetches exactly those members directly
+# (one zos_fetch per discovered pair), rather than reusing
+# _member_dump.yml's "list every member of the whole dataset, dump
+# everything matching a filter" approach the way proclib.yml/
+# ssn_commnd.yml/ifaprd.yml do. That broader approach would be wrong
+# here: a JES2 init-deck dataset can be (and in the real reply that
+# confirmed this, is) a site-wide shared PARMLIB holding many unrelated
+# members, not just JES2's own.
 
-- name: Dump every member of each JES2 PARMLIB concatenation entry
-  ansible.builtin.include_tasks: _member_dump.yml
-  loop: "{{ zos_extract_jes2_parmlibs }}"
+- name: Create a scratch directory for JES2 init members
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_jes2parm_scratch
+  delegate_to: localhost
+  when: zos_extract_jes2_init_members | length > 0
+
+- name: Fetch each JES2 init member
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_jes2parm_item.dsn }}({{ zos_extract_jes2parm_item.member }})"
+    dest: "{{ zos_extract_jes2parm_scratch.path }}/"
+    flat: true
+  loop: "{{ zos_extract_jes2_init_members }}"
   loop_control:
-    label: "{{ item.dsn }}"
-  vars:
-    zos_extract_dsn: "{{ item.dsn }}"
-    zos_extract_member_regex: '.*'
-    zos_extract_outfile: "{{ item.prefix }}_jes2parm.txt"
-    zos_extract_warn_if_empty: false
+    loop_var: zos_extract_jes2parm_item
+    label: "{{ zos_extract_jes2parm_item.dsn }}({{ zos_extract_jes2parm_item.member }})"
+  when: zos_extract_jes2_init_members | length > 0
+
+- name: Write {{ zos_extract_jes2parm_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_jes2parm_outfile }}"
+    mode: "0644"
+    content: |-
+      {% for item in zos_extract_jes2_init_members %}
+      ##MEMBER {{ item.member }}
+      {{ lookup('ansible.builtin.file', zos_extract_jes2parm_scratch.path ~ '/' ~ item.member) }}
+      {% endfor %}
+  delegate_to: localhost
+  when: zos_extract_jes2_init_members | length > 0
+
+- name: Remove scratch directory for JES2 init members
+  ansible.builtin.file:
+    path: "{{ zos_extract_jes2parm_scratch.path }}"
+    state: absent
+  delegate_to: localhost
+  when: zos_extract_jes2parm_scratch.path is defined

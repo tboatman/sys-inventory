@@ -1,63 +1,74 @@
 ---
-# Auto-discovers JES2's own initialization-parameter PARMLIB concatenation
-# via JES2's '$D PARMLIB' command when zos_extract_jes2_parmlibs isn't
-# explicitly set -- the same idea as discover_proclib.yml's '$D PROCLIB'
-# for the JES2 PROCLIB concatenation, but for JES2's *own* init deck
-# instead (a separate thing from both JES2's PROCLIB and SYS1.PARMLIB --
-# see jes2parm.yml's header comment for why). An explicit list in
+# Auto-discovers exactly which JES2 init-deck member(s) JES2 actually
+# read at startup, via JES2's '$DINITINFO' command, when
+# zos_extract_jes2_init_members isn't explicitly set. An explicit list in
 # hosts.yml always wins (this is skipped entirely if it's already
 # non-empty).
 #
-# Same wrapped-message shape discover_proclib.yml already handles for '$D
-# PROCLIB': a JES2 $HASPnnn message wrapped across several console lines,
-# each re-prefixed with the message ID, DSNAME=... occurrences in DD
-# order. UNLIKE discover_proclib.yml's $HASP319 (confirmed against a real
-# reply), the exact message ID '$D PARMLIB' replies with here is NOT
-# confirmed at this site -- this matches any $HASPnnn-prefixed line
-# generically ('\$HASP\d+') rather than hardcoding a specific number, so
-# it still works once the real ID is known, but confirm the overall reply
-# shape (DSNAME=... in DD order, same as $D PROCLIB) against a real
-# system before trusting this blindly.
-#
-# JES2-specific, same as '$D PROCLIB': JES3 sites use different command
-# syntax and haven't been verified against this parser -- if this command
-# isn't recognized, this simply finds nothing and zos_extract_jes2_parmlibs
-# stays empty (same as if it had never been attempted; jes2parm.yml's dump
-# loop just has nothing to loop over).
+# CONFIRMED against a real reply this round -- and the real reply changed
+# the design, not just the command name. Two corrections from the
+# original guess:
+#   1. The command itself: '$D PARMLIB'/'$DPARMLIB' do NOT exist ("not
+#      valid JES commands", confirmed against a real system) -- the real
+#      command is '$DINITINFO' ("display initialization information"),
+#      which replies with message $HASP825:
+#        $HASP825 INITINFO
+#        $HASP825 INITINFO  --- Command used to start JES2
+#        $HASP825           S JES2,PARM='WARM,NOREQ'
+#        $HASP825           --- HASPPARM data sets read
+#        $HASP825           DSN=SYS1.BES2.PARMLIB(JES2PABN),
+#        $HASP825           VOLSER=BES2W1,CARDS=886,
+#        $HASP825           DSN=SYS1.BES2.PARMLIB(JES2NJE),VOLSER=BES2W1,
+#        $HASP825           CARDS=350
+#      Still matched generically ('\$HASP\d+', not a hardcoded '825') the
+#      same way this file always did, in case the real message ID varies
+#      by release/site the way $D PROCLIB's $HASP319 apparently doesn't
+#      but this one might.
+#   2. The design itself: the real reply doesn't describe a *concatenation*
+#      to search for "the active member" in the way PROCLIB/PARMLIB/JES2
+#      PROCLIB do (there's no suffix-selection mechanism for JES2's own
+#      init deck) -- it lists the EXACT dsn(member) pairs JES2 actually
+#      read ("HASPPARM data sets read"), using 'DSN=' (not 'DSNAME=', the
+#      token $D PROCLIB's own $HASP319 message uses -- confirmed these
+#      two JES2 messages genuinely use different field names). Treating
+#      this the original way (dump every member of the whole PARMLIB
+#      dataset, same as proclib.yml's "everything, unfiltered" approach)
+#      would be actively wrong here: SYS1.BES2.PARMLIB above is a
+#      site-wide shared PARMLIB likely holding many unrelated members
+#      (IEASYSxx, IEFSSNxx, ...), not just JES2's own -- dumping all of it
+#      would be noisy and wasteful. So this now extracts the specific
+#      dsn+member pairs directly, and jes2parm.yml fetches exactly those,
+#      not every member of their owning dataset(s).
 
-- name: Issue $D PARMLIB (JES2)
+- name: Issue $DINITINFO (JES2)
   ibm.ibm_zos_core.zos_operator:
-    cmd: '\$DPARMLIB'
-  register: zos_extract_jes2_parmlib_reply
-  when: zos_extract_jes2_parmlibs | length == 0
+    cmd: '\$DINITINFO'
+  register: zos_extract_jes2_initinfo_reply
+  when: zos_extract_jes2_init_members | length == 0
 
 - name: Keep only the $HASPnnn data lines, stripped of the message-id prefix
   ansible.builtin.set_fact:
-    zos_extract_jes2_parmlib_data_lines: >-
-      {{ zos_extract_jes2_parmlib_reply.stdout_lines
+    zos_extract_jes2_initinfo_data_lines: >-
+      {{ zos_extract_jes2_initinfo_reply.stdout_lines
          | select('match', '.*\$HASP\d+.*')
          | map('regex_replace', '^.*\$HASP\d+\s*', '')
          | list }}
-  when: zos_extract_jes2_parmlibs | length == 0
+  when: zos_extract_jes2_init_members | length == 0
 
-- name: Reassemble the wrapped $D PARMLIB message into one string
+- name: Reassemble the wrapped $DINITINFO message into one string
   ansible.builtin.set_fact:
-    zos_extract_jes2_parmlib_joined: "{{ zos_extract_jes2_parmlib_data_lines | join(' ') }}"
-  when: zos_extract_jes2_parmlibs | length == 0
+    zos_extract_jes2_initinfo_joined: "{{ zos_extract_jes2_initinfo_data_lines | join(' ') }}"
+  when: zos_extract_jes2_init_members | length == 0
 
-- name: Extract JES2 PARMLIB data set names in DD order
+- name: Extract the exact dsn(member) pairs JES2 read, in read order
   ansible.builtin.set_fact:
-    zos_extract_discovered_jes2_parmlib_dsns: "{{ zos_extract_jes2_parmlib_joined | regex_findall('DSNAME=([^,) ]+)') }}"
-  when: zos_extract_jes2_parmlibs | length == 0
-
-- name: Set zos_extract_jes2_parmlibs from the discovered concatenation
-  ansible.builtin.set_fact:
-    zos_extract_jes2_parmlibs: "{{ zos_extract_jes2_parmlibs_json | from_json }}"
+    zos_extract_jes2_init_members: "{{ zos_extract_jes2_init_members_json | from_json }}"
   vars:
-    zos_extract_jes2_parmlibs_json: |-
+    zos_extract_jes2_init_pairs: "{{ zos_extract_jes2_initinfo_joined | regex_findall('DSN=([A-Za-z0-9$#@.]+)\\(([A-Za-z0-9$#@]+)\\)') }}"
+    zos_extract_jes2_init_members_json: |-
       [
-      {% for dsn in zos_extract_discovered_jes2_parmlib_dsns %}
-      {"dsn": "{{ dsn }}", "prefix": "{{ '%02d' | format(loop.index0) }}"}{{ "," if not loop.last else "" }}
+      {% for dsn, member in zos_extract_jes2_init_pairs %}
+      {"dsn": "{{ dsn }}", "member": "{{ member }}"}{{ "," if not loop.last else "" }}
       {% endfor %}
       ]
-  when: zos_extract_jes2_parmlibs | length == 0
+  when: zos_extract_jes2_init_members | length == 0
