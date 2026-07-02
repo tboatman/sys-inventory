@@ -114,7 +114,7 @@
 - name: SMP/E CSI report (step 7)
   ansible.builtin.import_tasks: smplist.yml
   tags: [smplist]
-  when: zos_extract_smpe_csi | length > 0
+  when: zos_extract_smpe_csis | length > 0
 
 - name: Live activity snapshot (step 8)
   ansible.builtin.import_tasks: activity.yml

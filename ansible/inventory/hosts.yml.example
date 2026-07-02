@@ -43,19 +43,27 @@ all:
           - dsn: SYS1.PARMLIB
             prefix: "00"
 
-        zos_extract_smpe_csi: YOUR.GLOBAL.CSI
-        zos_extract_smpe_zones:
-          - TZONE1
+        # A list of CSIs, each with its own target/dlib zones -- a real
+        # site can have several (its own product CSIs alongside the base
+        # z/OS one), so this is a list even for a single-CSI site.
+        zos_extract_smpe_csis:
+          - csi: YOUR.GLOBAL.CSI
+            zones:
+              - TZONE1
         # zos_extract_smpe_steplib: YOUR.SMPE.LINKLIB   # only if GIMSMP isn't in LNKLST
 
-        # Don't know your CSI's name yet? The 'smpe_csi_discovery' tag
+        # Don't know your CSI's name(s) yet? The 'smpe_csi_discovery' tag
         # searches the catalog for candidates (naming-heuristic only, not
         # authoritative -- see roles/zos_extract/tasks/discover_smpe_csis.yml)
         # and writes them to smpe_csi_candidates.txt instead of
-        # hand-configuring zos_extract_smpe_csi above. Defaults to
+        # hand-configuring zos_extract_smpe_csis above. Defaults to
         # "EDUC.**.CSI" (roles/zos_extract/defaults/main.yml) since that's
         # this site's convention; override here if yours differs (e.g.
-        # "SMPE.*.CSI").
+        # "SMPE.*.CSI"). Once you know a CSI's name but not its zones, the
+        # 'smpe_zone_discovery' tag runs LIST GLOBALZONE against every CSI
+        # already listed above and writes each one's real zone census to
+        # *.smpzones.txt (see roles/zos_extract/tasks/discover_smpe_zones.yml)
+        # -- `inventory zone-index` shows what it found.
         # zos_extract_smpe_csi_search_patterns:
         #   - "SMPE.*.CSI"
 

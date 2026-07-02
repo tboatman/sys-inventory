@@ -168,10 +168,30 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
 def merge_zones(*zone_maps: dict[str, Zone]) -> dict[str, Zone]:
     """Merge multiple {zone_name: Zone} maps (e.g. one per SMPLIST.jcl run)
     into one, combining dddefs/module_fmid for zones reported more than
-    once."""
+    once.
+
+    Now that a single ingest can cover more than one CSI (doc/TODO.md
+    "8c"), two *different* zones can legitimately share a bare name (e.g.
+    two vendor products each define a "TZONE1"). When that's detected --
+    same name, but a different non-empty `csi` than what's already merged
+    under that name -- the incoming zone is kept under a disambiguated
+    key (`"NAME@CSI"`) instead of silently overwriting the first one.
+    `Zone(name=name)` is constructed with that same disambiguated string,
+    so `resolver._dataset_to_zone()`'s `return zone.name` always yields a
+    string that's a valid key back into this dict.
+
+    This only prevents the *zone* entries from colliding -- it does not
+    resolve the deeper ambiguity of one physical dataset being claimed by
+    more than one zone's DDDEF across different CSIs (a real DSN like
+    SYS1.LINKLIB could appear in several sites' CSIs); `_dataset_to_zone`
+    still returns the first match it finds, same as before. Flagged, not
+    fixed, this round -- see doc/TODO.md ("8c")."""
     merged: dict[str, Zone] = {}
     for zmap in zone_maps:
         for name, zone in zmap.items():
+            existing = merged.get(name)
+            if existing is not None and existing.csi and zone.csi and existing.csi != zone.csi:
+                name = f"{name}@{zone.csi}"
             target = merged.setdefault(name, Zone(name=name))
             target.csi = zone.csi or target.csi
             target.dddefs.update(zone.dddefs)

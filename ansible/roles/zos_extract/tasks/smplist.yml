@@ -18,13 +18,20 @@
 # section); max_rc: 4 tells zos_mvs_raw not to fail the task for that,
 # matching smplist.py's own "rc > 4 is a real error" check.
 #
+# zos_extract_smpe_csis is a list of {csi, zones} -- flattened here via
+# the `subelements` filter (same "one dict + one of its list-valued keys"
+# flattening idiom `_fetch_active_ieasys_member.yml`/`_cics_proc_dump.yml`
+# already use for dataset+member pairs) into one (csi_entry, zone) pair
+# per zone, across every configured CSI,
+# so a single run can cover more than one CSI (see doc/TODO.md "8c").
+#
 # See _smplist_zone.yml for the actual per-zone task sequence -- included
 # dynamically (rather than a block+loop, which this ansible-core version
 # doesn't support at all) since state is threaded across its three tasks.
 
-- name: Run SMP/E LIST DDDEF/MOD/SYSMOD for each target zone
+- name: Run SMP/E LIST DDDEF/MOD/SYSMOD for each CSI/zone pair
   ansible.builtin.include_tasks: _smplist_zone.yml
-  loop: "{{ zos_extract_smpe_zones }}"
+  loop: "{{ zos_extract_smpe_csis | subelements('zones') }}"
   loop_control:
-    loop_var: zos_extract_zone
-    label: "{{ zos_extract_zone }}"
+    loop_var: zos_extract_csi_zone_pair
+    label: "{{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}"

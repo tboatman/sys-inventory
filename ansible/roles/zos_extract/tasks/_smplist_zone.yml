@@ -1,29 +1,33 @@
 ---
-# Shared worker for smplist.yml, included once per zone via include_tasks
-# (block does not support loop in this ansible-core version -- confirmed:
-# 'loop' is not a valid attribute for a Block -- so per-zone state
-# threaded across these three tasks needs a real dynamic include; see
-# _member_dump.yml's header comment for why that's safe here under
+# Shared worker for smplist.yml, included once per (csi, zone) pair via
+# include_tasks (block does not support loop in this ansible-core version
+# -- confirmed: 'loop' is not a valid attribute for a Block -- so per-pair
+# state threaded across these three tasks needs a real dynamic include;
+# see _member_dump.yml's header comment for why that's safe here under
 # --tags filtering).
+#
+# zos_extract_csi_zone_pair is one [csi_entry, zone] pair from smplist.yml's
+# `zos_extract_smpe_csis | subelements('zones')` loop -- [0] is the
+# {csi, zones} dict, [1] is the single zone name for this include.
 
-- name: Build the GIMSMP DD list for {{ zos_extract_zone }}
+- name: Build the GIMSMP DD list for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
   ansible.builtin.set_fact:
     zos_extract_smplist_dds: >-
       {{
         [
-          {'dd_data_set': {'dd_name': 'SMPCSI', 'data_set_name': zos_extract_smpe_csi, 'disposition': 'shr'}},
+          {'dd_data_set': {'dd_name': 'SMPCSI', 'data_set_name': zos_extract_csi_zone_pair[0].csi, 'disposition': 'shr'}},
           {'dd_dummy': {'dd_name': 'SMPLOG'}},
           {'dd_dummy': {'dd_name': 'SMPLOGA'}},
           {'dd_data_set': {'dd_name': 'SMPWRK6', 'data_set_name': zos_extract_smpe_workhlq ~ '.SMPWRK6',
                             'disposition': 'new', 'type': 'pds', 'record_format': 'fb', 'record_length': 80,
                             'directory_blocks': 10, 'space_primary': 5, 'space_type': 'm', 'replace': true,
                             'disposition_normal': 'delete', 'disposition_abnormal': 'delete'}},
-          {'dd_input': {'dd_name': 'SMPCNTL', 'content': ['SET BDY(' ~ zos_extract_zone ~ ').', 'LIST DDDEF .', 'LIST MOD .', 'LIST SYSMOD .']}},
+          {'dd_input': {'dd_name': 'SMPCNTL', 'content': ['SET BDY(' ~ zos_extract_csi_zone_pair[1] ~ ').', 'LIST DDDEF .', 'LIST MOD .', 'LIST SYSMOD .']}},
           {'dd_output': {'dd_name': 'SMPLIST', 'return_content': {'type': 'text'}}}
         ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_smpe_steplib, 'disposition': 'shr'}}] if zos_extract_smpe_steplib else [])
       }}
 
-- name: Run GIMSMP LIST DDDEF/MOD/SYSMOD for {{ zos_extract_zone }}
+- name: Run GIMSMP LIST DDDEF/MOD/SYSMOD for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
   ibm.ibm_zos_core.zos_mvs_raw:
     program_name: GIMSMP
     auth: true
@@ -31,13 +35,13 @@
     dds: "{{ zos_extract_smplist_dds }}"
   register: zos_extract_gimsmp_result
 
-- name: Write the SMP/E LIST report for {{ zos_extract_zone }}
+- name: Write the SMP/E LIST report for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
   ansible.builtin.copy:
-    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_zone | lower }}.smplist.txt"
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_csi_zone_pair[0].csi | lower | regex_replace('[^a-z0-9]+', '_') }}.{{ zos_extract_csi_zone_pair[1] | lower }}.smplist.txt"
     mode: "0644"
     # ##CSI sentinel line, read by inventory/smpe_parser.py to stamp every
     # Zone parsed from this file with its owning CSI -- see that module's
     # docstring and doc/TODO.md ("8a. Zone.csi field").
     content: >-
-      {{ '##CSI ' ~ zos_extract_smpe_csi ~ '\n' ~ ((zos_extract_gimsmp_result.dd_names | selectattr('dd_name', 'equalto', 'SMPLIST') | first).content | join('\n')) ~ '\n' }}
+      {{ '##CSI ' ~ zos_extract_csi_zone_pair[0].csi ~ '\n' ~ ((zos_extract_gimsmp_result.dd_names | selectattr('dd_name', 'equalto', 'SMPLIST') | first).content | join('\n')) ~ '\n' }}
   delegate_to: localhost

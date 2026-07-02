@@ -1,6 +1,6 @@
 ---
 # See zos-extract/README.md for what each of these corresponds to.
-# Per-LPAR values (zos_extract_proclibs, zos_extract_smpe_csi, zos_extract_catalog_patterns, ...) belong in
+# Per-LPAR values (zos_extract_proclibs, zos_extract_smpe_csis, zos_extract_catalog_patterns, ...) belong in
 # inventory/hosts.yml, not here -- these are just the defaults that are
 # reasonable to share across every site.
 
@@ -16,8 +16,14 @@ zos_extract_ssn_member_filter: "IEFSSN*"
 zos_extract_commnd_member_filter: "COMMND*"
 zos_extract_ifaprd_member_filter: "IFAPRD*"
 
-zos_extract_smpe_csi: ""
-zos_extract_smpe_zones: []
+# List of CSIs to report on, each with its own target zones --
+# [{csi: "EDUC.SOME.GLOBAL.CSI", zones: ["TZONE1", "DZONE1"]}, ...]. A real
+# site can have several distinct CSIs (see zos_extract_smpe_csi_search_patterns/
+# discover_smpe_csis.yml below) -- this replaced the older singular
+# zos_extract_smpe_csi/zos_extract_smpe_zones scalars (no back-compat shim,
+# same precedent as zos_extract_jes2_init_members's own rename -- see
+# doc/TODO.md "8c") so a single ingest run can actually cover more than one.
+zos_extract_smpe_csis: []
 zos_extract_smpe_steplib: ""
 # Only used to name the one real (non-output-capturing) scratch work data
 # set GIMSMP itself needs (SMPWRK6) -- see smplist.yml.
