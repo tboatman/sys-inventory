@@ -1,0 +1,63 @@
+---
+# Auto-discovers JES2's own initialization-parameter PARMLIB concatenation
+# via JES2's '$D PARMLIB' command when zos_extract_jes2_parmlibs isn't
+# explicitly set -- the same idea as discover_proclib.yml's '$D PROCLIB'
+# for the JES2 PROCLIB concatenation, but for JES2's *own* init deck
+# instead (a separate thing from both JES2's PROCLIB and SYS1.PARMLIB --
+# see jes2parm.yml's header comment for why). An explicit list in
+# hosts.yml always wins (this is skipped entirely if it's already
+# non-empty).
+#
+# Same wrapped-message shape discover_proclib.yml already handles for '$D
+# PROCLIB': a JES2 $HASPnnn message wrapped across several console lines,
+# each re-prefixed with the message ID, DSNAME=... occurrences in DD
+# order. UNLIKE discover_proclib.yml's $HASP319 (confirmed against a real
+# reply), the exact message ID '$D PARMLIB' replies with here is NOT
+# confirmed at this site -- this matches any $HASPnnn-prefixed line
+# generically ('\$HASP\d+') rather than hardcoding a specific number, so
+# it still works once the real ID is known, but confirm the overall reply
+# shape (DSNAME=... in DD order, same as $D PROCLIB) against a real
+# system before trusting this blindly.
+#
+# JES2-specific, same as '$D PROCLIB': JES3 sites use different command
+# syntax and haven't been verified against this parser -- if this command
+# isn't recognized, this simply finds nothing and zos_extract_jes2_parmlibs
+# stays empty (same as if it had never been attempted; jes2parm.yml's dump
+# loop just has nothing to loop over).
+
+- name: Issue $D PARMLIB (JES2)
+  ibm.ibm_zos_core.zos_operator:
+    cmd: '\$DPARMLIB'
+  register: zos_extract_jes2_parmlib_reply
+  when: zos_extract_jes2_parmlibs | length == 0
+
+- name: Keep only the $HASPnnn data lines, stripped of the message-id prefix
+  ansible.builtin.set_fact:
+    zos_extract_jes2_parmlib_data_lines: >-
+      {{ zos_extract_jes2_parmlib_reply.stdout_lines
+         | select('match', '.*\$HASP\d+.*')
+         | map('regex_replace', '^.*\$HASP\d+\s*', '')
+         | list }}
+  when: zos_extract_jes2_parmlibs | length == 0
+
+- name: Reassemble the wrapped $D PARMLIB message into one string
+  ansible.builtin.set_fact:
+    zos_extract_jes2_parmlib_joined: "{{ zos_extract_jes2_parmlib_data_lines | join(' ') }}"
+  when: zos_extract_jes2_parmlibs | length == 0
+
+- name: Extract JES2 PARMLIB data set names in DD order
+  ansible.builtin.set_fact:
+    zos_extract_discovered_jes2_parmlib_dsns: "{{ zos_extract_jes2_parmlib_joined | regex_findall('DSNAME=([^,) ]+)') }}"
+  when: zos_extract_jes2_parmlibs | length == 0
+
+- name: Set zos_extract_jes2_parmlibs from the discovered concatenation
+  ansible.builtin.set_fact:
+    zos_extract_jes2_parmlibs: "{{ zos_extract_jes2_parmlibs_json | from_json }}"
+  vars:
+    zos_extract_jes2_parmlibs_json: |-
+      [
+      {% for dsn in zos_extract_discovered_jes2_parmlib_dsns %}
+      {"dsn": "{{ dsn }}", "prefix": "{{ '%02d' | format(loop.index0) }}"}{{ "," if not loop.last else "" }}
+      {% endfor %}
+      ]
+  when: zos_extract_jes2_parmlibs | length == 0

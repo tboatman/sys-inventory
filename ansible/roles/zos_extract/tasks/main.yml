@@ -20,13 +20,14 @@
   ansible.builtin.import_tasks: local_prep.yml
   tags: always
 
-# The five discovery imports below are tagged with exactly the step(s)
-# that consume their output, not "always" -- so e.g. `--tags
-# smpe_csi_discovery` or `--tags catalog` alone doesn't also issue $D
-# PROCLIB/D PARMLIB/D IPLINFO, fetch IEASYSxx members, or fetch MSTJCLxx
-# for no reason. A tagless run (the normal case) still runs all of them,
-# same as before, since Ansible runs every task when no --tags/--skip-tags
-# is given regardless of what tags it carries.
+# The six discovery imports below (plus discover_jes2_parmlib.yml further
+# down, next to jes2parm.yml) are tagged with exactly the step(s) that
+# consume their output, not "always" -- so e.g. `--tags smpe_csi_discovery`
+# or `--tags catalog` alone doesn't also issue $D PROCLIB/D PARMLIB/D
+# IPLINFO, fetch IEASYSxx members, fetch MSTJCLxx, or issue $D PARMLIB
+# (JES2) for no reason. A tagless run (the normal case) still runs all of
+# them, same as before, since Ansible runs every task when no
+# --tags/--skip-tags is given regardless of what tags it carries.
 
 - name: Auto-discover the PROCLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_proclib.yml
@@ -71,6 +72,18 @@
 - name: LPAR/sysplex identity (step 6)
   ansible.builtin.import_tasks: sysinfo.yml
   tags: [sysinfo]
+
+- name: USS mounted filesystem inventory (step 11)
+  ansible.builtin.import_tasks: uss_mounts.yml
+  tags: [uss_mounts]
+
+- name: Auto-discover JES2's own PARMLIB concatenation if not explicitly configured
+  ansible.builtin.import_tasks: discover_jes2_parmlib.yml
+  tags: [jes2parm]
+
+- name: JES2 initialization parameters (step 12)
+  ansible.builtin.import_tasks: jes2parm.yml
+  tags: [jes2parm]
 
 - name: Candidate SMP/E CSI discovery -- naming-heuristic only, opt-in (see discover_smpe_csis.yml)
   ansible.builtin.import_tasks: discover_smpe_csis.yml

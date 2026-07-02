@@ -4,11 +4,13 @@
 `inventory catalog`, `inventory vsam`, `inventory racf-users`,
 `inventory racf-groups`, `inventory racf-connections`,
 `inventory racf-dataset-profiles`, `inventory racf-dataset-access`,
-`inventory racf-resource-profiles`, `inventory racf-resource-access`."""
+`inventory racf-resource-profiles`, `inventory racf-resource-access`,
+`inventory uss-mounts`, `inventory jes2parm`."""
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -17,11 +19,13 @@ from . import (
     catalog_parser,
     ifaprd_parser,
     jcl_parser,
+    jes2parm_parser,
     racf_parser,
     smpe_parser,
     ssn_parser,
     store,
     sysinfo_parser,
+    uss_mounts_parser,
 )
 from .models import RacfSnapshot
 from .resolver import resolve_all
@@ -89,6 +93,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     racf_file = input_dir / "racf.txt"
     racf_snapshot = racf_parser.parse_racf(racf_file) if racf_file.exists() else RacfSnapshot()
 
+    uss_mounts = [m for path in sorted(input_dir.glob("*uss_mounts*.txt"))
+                  for m in uss_mounts_parser.parse_uss_mounts(path)]
+
+    jes2_init_statements = [s for path in sorted(input_dir.glob("*jes2parm*.txt"))
+                             for s in jes2parm_parser.parse_dump(path)]
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -100,6 +110,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_catalog_datasets(conn, catalog_datasets)
     store.save_vsam_clusters(conn, vsam_clusters)
     store.save_racf_snapshot(conn, racf_snapshot)
+    store.save_uss_mounts(conn, uss_mounts)
+    store.save_jes2_init_statements(conn, jes2_init_statements)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -110,7 +122,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
           f"{len(racf_snapshot.users)} RACF users, "
-          f"{len(racf_snapshot.groups)} RACF groups -> {args.db}")
+          f"{len(racf_snapshot.groups)} RACF groups, "
+          f"{len(uss_mounts)} USS mounts, "
+          f"{len(jes2_init_statements)} JES2 init statements -> {args.db}")
     return 0
 
 
@@ -376,6 +390,34 @@ def cmd_racf_resource_access(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_uss_mounts(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_uss_mounts(conn)
+    conn.close()
+
+    for row in rows:
+        name = row["name"] or "?"
+        fs_type = row["fs_type"] or "?"
+        device = row["device"] or "?"
+        status = row["status"] or "?"
+        mode = row["mode"] or "?"
+        print(f"{row['path']}  NAME={name} TYPE={fs_type} DEVICE={device} "
+              f"STATUS={status} MODE={mode}")
+    return 0
+
+
+def cmd_jes2parm(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_jes2_init_statements(conn)
+    conn.close()
+
+    for row in rows:
+        subscript = f"({row['subscript']})" if row["subscript"] else ""
+        params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
+        print(f"{row['stmt']}{subscript}  {params}  [{row['source_member']}]")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -437,6 +479,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_racf_gr_access = sub.add_parser("racf-resource-access", help="list RACF general-resource access lists, curated classes only (implementation only, not yet production-validated)")
     p_racf_gr_access.set_defaults(func=cmd_racf_resource_access)
+
+    p_uss_mounts = sub.add_parser("uss-mounts", help="list mounted USS filesystems (not yet production-validated)")
+    p_uss_mounts.set_defaults(func=cmd_uss_mounts)
+
+    p_jes2parm = sub.add_parser("jes2parm", help="list JES2's own initialization statements (not yet production-validated)")
+    p_jes2parm.set_defaults(func=cmd_jes2parm)
 
     return parser
 

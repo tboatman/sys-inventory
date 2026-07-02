@@ -1,0 +1,12 @@
+BPXO047I 15.34.10 DISPLAY OMVS 678
+OMVS     000E ACTIVE                          OMVS=(ZOS)
+TYPENAME DEVICE ----------STATUS------------ MODE  LATCHES
+ZFS           1 ACTIVE                        RDWR    06/15/2024 L=136
+      NAME=OMVS.ROOT.ZFS               PATH=/
+      OWNER=ZOS      AUTOMOVE=Y    CLIENT=N
+ZFS           2 ACTIVE                        RDWR    06/15/2024 L=1
+      NAME=OMVS.ETC.ZFS                PATH=/etc
+      OWNER=ZOS      AUTOMOVE=Y    CLIENT=N
+HFS           3 ACTIVE                        READ    06/15/2024 L=4
+      NAME=OMVS.LEGACY.HFS             PATH=/legacy
+      OWNER=ZOS      AUTOMOVE=Y    CLIENT=N

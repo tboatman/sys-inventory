@@ -1,0 +1,31 @@
+---
+# USS mounted filesystem inventory (step 11) -- direct analog to
+# sysinfo.yml's "capture the raw console reply verbatim, parse it
+# off-host" approach, rather than lnklst.yml's own-Jinja-parsing: 'D
+# OMVS,F' packs several fields onto a header line PER FILESYSTEM, plus
+# indented NAME=/PATH= continuation lines -- too much structure to
+# reliably reduce to a flat one-fact-per-line list in Jinja the way
+# lnklst.yml's numbered DSN rows can. uss_mounts_parser.py (off-host, in
+# the inventory package) owns the real parsing instead, the same way
+# sysinfo_parser.py owns 'D SYMBOLS'/'D IPLINFO' parsing.
+#
+# No sentinel headers needed in the output file (unlike sysinfo.txt, which
+# bundles two separate D-commands under ##SYMBOLS/##IPLINFO) -- this
+# captures exactly one D-command's reply, so the raw text is written as-is.
+#
+# NOT YET CONFIRMED against a real 'D OMVS,F' reply at this site --
+# uss_mounts_parser.py's module docstring carries the same caveat. Confirm
+# the real field layout/spacing before trusting this blindly, same as
+# racf_parser.py's own "implementation only" caveat.
+
+- name: Issue D OMVS,F
+  ibm.ibm_zos_core.zos_operator:
+    cmd: "D OMVS,F"
+  register: zos_extract_omvs_reply
+
+- name: Write {{ zos_extract_uss_mounts_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_uss_mounts_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_omvs_reply.stdout_lines | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

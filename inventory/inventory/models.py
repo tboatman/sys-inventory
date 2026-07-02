@@ -106,6 +106,29 @@ class StartedTask:
 
 
 @dataclass
+class Jes2InitStatement:
+    """One JES2 initialization statement, from JES2's own PARMLIB member
+    (its init deck -- distinct from SYS1.PARMLIB's IEFSSNxx/COMMNDxx/
+    IEASYSxx, and from the JES2 *PROCLIB* concatenation discover_proclib.yml
+    already covers; see discover_jes2_parmlib.yml/jes2parm.yml).
+
+    Captured generically (statement name + optional subscript + a raw
+    keyword=value map) rather than modeled per statement type -- JES2's
+    init-statement surface is large and stable, so this follows the same
+    "capture everything generically" approach ActiveJob and
+    discover_active_members.yml's KEYWORD=value pass both use, rather than
+    hand-modeling a dataclass per JES2 statement.
+
+    NOT YET VALIDATED against a real JES2 init deck -- see
+    jes2parm_parser.py's module docstring."""
+
+    stmt: str                                   # e.g. "MASDEF", "JOBCLASS"
+    subscript: str | None = None                # e.g. "1" from "JOBCLASS(1)"
+    params: dict[str, str] = field(default_factory=dict)
+    source_member: str = ""   # JES2 parmlib member name it came from
+
+
+@dataclass
 class SystemInfo:
     """Single-record system/LPAR identity, as dumped by
     zos-extract/python/extrsys.py ('D SYMBOLS' + 'D IPLINFO'). Exists so a
@@ -180,6 +203,25 @@ class UssProcess:
     zos-extract/python/extrprocs.py via the z/OS UNIX `ps -ef` command."""
 
     command: str
+
+
+@dataclass
+class UssMount:
+    """One mounted USS filesystem, as dumped by 'D OMVS,F' (see
+    ansible/roles/zos_extract/tasks/uss_mounts.yml) and parsed by
+    uss_mounts_parser.py.
+
+    NOT YET VALIDATED against a real 'D OMVS,F' reply at this site --
+    see uss_mounts_parser.py's module docstring for the same caveat
+    racf_parser.py carries for its own unconfirmed byte offsets."""
+
+    path: str
+    name: str | None = None      # zFS/HFS dataset name (or device) backing the mount
+    fs_type: str | None = None   # e.g. ZFS, HFS, TFS, NFS
+    device: str | None = None
+    status: str | None = None    # e.g. ACTIVE
+    mode: str | None = None      # RDWR / READ / RDONLY
+    mounted_date: str | None = None
 
 
 @dataclass

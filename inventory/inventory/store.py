@@ -2,6 +2,7 @@
 dimensions (subsystems, started tasks, system identity)."""
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from .models import (
     DatasetProfile,
     GeneralResourceAccess,
     GeneralResourceProfile,
+    Jes2InitStatement,
     LineageStep,
     Product,
     RacfGroup,
@@ -21,6 +23,7 @@ from .models import (
     StartedTask,
     Subsystem,
     SystemInfo,
+    UssMount,
     UssProcess,
     VsamCluster,
 )
@@ -191,6 +194,25 @@ CREATE TABLE IF NOT EXISTS racf_general_resource_access (
     access      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_racf_gr_access_class_profile ON racf_general_resource_access(class_name, profile);
+
+CREATE TABLE IF NOT EXISTS uss_mounts (
+    path          TEXT NOT NULL,
+    name          TEXT,
+    fs_type       TEXT,
+    device        TEXT,
+    status        TEXT,
+    mode          TEXT,
+    mounted_date  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_uss_mounts_path ON uss_mounts(path);
+
+CREATE TABLE IF NOT EXISTS jes2_init_statements (
+    stmt           TEXT NOT NULL,
+    subscript      TEXT,
+    params_json    TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_jes2_init_statements_stmt ON jes2_init_statements(stmt);
 """
 
 
@@ -484,4 +506,41 @@ def all_racf_general_resource_profiles(conn: sqlite3.Connection) -> list[sqlite3
 def all_racf_general_resource_access(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM racf_general_resource_access ORDER BY class_name, profile, auth_id")
+    return cur.fetchall()
+
+
+def save_uss_mounts(conn: sqlite3.Connection, mounts: list[UssMount]) -> None:
+    conn.execute("DELETE FROM uss_mounts")
+    rows = [(m.path, m.name, m.fs_type, m.device, m.status, m.mode, m.mounted_date) for m in mounts]
+    conn.executemany(
+        "INSERT INTO uss_mounts (path, name, fs_type, device, status, mode, mounted_date) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_uss_mounts(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM uss_mounts ORDER BY path")
+    return cur.fetchall()
+
+
+def save_jes2_init_statements(conn: sqlite3.Connection, statements: list[Jes2InitStatement]) -> None:
+    conn.execute("DELETE FROM jes2_init_statements")
+    rows = [
+        (s.stmt, s.subscript, json.dumps(s.params), s.source_member)
+        for s in statements
+    ]
+    conn.executemany(
+        "INSERT INTO jes2_init_statements (stmt, subscript, params_json, source_member) "
+        "VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_jes2_init_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM jes2_init_statements ORDER BY stmt, subscript")
     return cur.fetchall()
