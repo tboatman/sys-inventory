@@ -101,8 +101,8 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
-`sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `smplist`,
-`activity`, `catalog`, `racf`.
+`sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
+`smplist`, `activity`, `catalog`, `racf`.
 `smplist`/`catalog` only run on hosts where `zos_extract_smpe_csi`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
@@ -389,6 +389,28 @@ Run `ansible-playbook playbooks/site.yml --tags sms --limit lpar1`
 against a real system and check the resulting `sms.txt` against what
 `sms_parser.py` assumes before relying on this dimension.
 
+### WLM (first cut only, not yet validated against a real reply)
+
+`wlm.yml` issues a single `D WLM,POLICY` and writes its raw console reply
+verbatim to `wlm.txt` (no `##BLOCKNAME` bundling needed, same "single
+command, no bundling" shape `uss_mounts.yml` uses). This is a **minimal
+first cut**: just the active policy name and, if the reply exposes it,
+its mode (`GOAL`/`COMPATIBILITY`) — modeled directly on `sysinfo.yml`'s
+"single small record" shape. Full service-class/goal/resource-group
+definitions need the z/OSMF WLM REST API (the already-pinned-but-unused
+`ibm.ibm_zosmf` collection), a materially bigger follow-up not attempted
+here. Runs unconditionally, no new config variable needed.
+
+**`D WLM,POLICY`'s reply hasn't been confirmed against a real system** —
+same situation as SMS/VTAM/TCPIP above. `inventory/inventory/wlm_parser.py`
+anchors on the `POLICY NAME=`/`MODE=` keyword tokens, tolerant of
+surrounding whitespace/noise, leaving either field `None` if its pattern
+doesn't match rather than erroring.
+
+Run `ansible-playbook playbooks/site.yml --tags wlm --limit lpar1`
+against a real system and check the resulting `wlm.txt` against what
+`wlm_parser.py` assumes before relying on this dimension.
+
 ### A performance note on `catalog`
 
 Unlike `zoautil_py`'s `datasets.list_datasets()` (which returns DSORG/RECFM/
@@ -477,6 +499,9 @@ roles/zos_extract/
                                 # + 'D SMS,MC(*)' bundled into one sms.txt
                                 # (see above) -- not yet validated against
                                 # a real reply
+    wlm.yml                    # 'D WLM,POLICY' captured raw into wlm.txt
+                                # (see above) -- first cut only, not yet
+                                # validated against a real reply
     activity.yml             # direct `jls -o id,name,status,jobtype,asid`
                               # (not zos_job_query, see above) + `ps -ef`
                               # for the live jobs/processes snapshot

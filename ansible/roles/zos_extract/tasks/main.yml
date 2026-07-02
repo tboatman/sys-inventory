@@ -97,6 +97,10 @@
   ansible.builtin.import_tasks: sms.yml
   tags: [sms]
 
+- name: Active WLM policy name/mode (step 16)
+  ansible.builtin.import_tasks: wlm.yml
+  tags: [wlm]
+
 - name: Candidate SMP/E CSI discovery -- naming-heuristic only, opt-in (see discover_smpe_csis.yml)
   ansible.builtin.import_tasks: discover_smpe_csis.yml
   tags: [smpe_csi_discovery]

@@ -7,7 +7,8 @@
 `inventory racf-resource-profiles`, `inventory racf-resource-access`,
 `inventory uss-mounts`, `inventory jes2parm`, `inventory vtam-majnodes`,
 `inventory vtam-options`, `inventory tcpip-home`, `inventory tcpip-profile`,
-`inventory sms-storgrps`, `inventory sms-storclas`, `inventory sms-mgmtclas`."""
+`inventory sms-storgrps`, `inventory sms-storclas`, `inventory sms-mgmtclas`,
+`inventory wlm`."""
 from __future__ import annotations
 
 import argparse
@@ -31,6 +32,7 @@ from . import (
     tcpip_parser,
     uss_mounts_parser,
     vtam_parser,
+    wlm_parser,
 )
 from .models import RacfSnapshot
 from .resolver import resolve_all
@@ -127,6 +129,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         sms_storage_classes.extend(storclas)
         sms_management_classes.extend(mgmtclas)
 
+    wlm_files = sorted(input_dir.glob("*wlm*.txt"))
+    if len(wlm_files) > 1:
+        print(f"inventory: {len(wlm_files)} wlm files found, using {wlm_files[0]}",
+              file=sys.stderr)
+    wlm_policy = wlm_parser.parse_wlm(wlm_files[0]) if wlm_files else None
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -147,6 +155,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_sms_storage_groups(conn, sms_storage_groups)
     store.save_sms_storage_classes(conn, sms_storage_classes)
     store.save_sms_management_classes(conn, sms_management_classes)
+    store.save_wlm_policy(conn, wlm_policy)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -534,6 +543,20 @@ def cmd_sms_mgmtclas(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_wlm(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    row = store.get_wlm_policy(conn)
+    conn.close()
+
+    if row is None:
+        print("inventory: no WLM policy ingested", file=sys.stderr)
+        return 1
+
+    print(f"POLICY: {row['policy_name'] or '?'}")
+    print(f"MODE: {row['mode'] or '?'}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -622,6 +645,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sms_mgmtclas = sub.add_parser("sms-mgmtclas", help="list SMS management classes (not yet production-validated)")
     p_sms_mgmtclas.set_defaults(func=cmd_sms_mgmtclas)
+
+    p_wlm = sub.add_parser("wlm", help="show the active WLM policy name/mode (not yet production-validated)")
+    p_wlm.set_defaults(func=cmd_wlm)
 
     return parser
 

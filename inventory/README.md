@@ -4,8 +4,8 @@ Off-host half of the pipeline: parses the text dumped by `zos-extract/`
 (or, for domains with no standalone `zos-extract/python` script yet --
 USS mounted filesystems, JES2's own initialization parameters, VTAM
 major-node status/start options, TCP/IP home addresses/PROFILE.TCPIP, and
-SMS storage groups/storage classes/management classes -- the `ansible/`
-role directly; see
+SMS storage groups/storage classes/management classes, and the active WLM
+policy name/mode -- the `ansible/` role directly; see
 [`../ansible/README.md`](../ansible/README.md)) and resolves each
 PROCLIB/PARMLIB member's full execution path back to the SMP/E FMID that
 owns each program it runs, flags whether each resolved load library is
@@ -15,9 +15,9 @@ from, product enablement status (IFAPRDxx), a live snapshot of
 currently-running jobs/tasks and USS processes, an HLQ/pattern-scoped
 dataset catalog (non-VSAM attributes + VSAM cluster/component detail),
 mounted USS filesystems, JES2's own initialization statements, VTAM/APPN
-status, TCP/IP configuration, SMS storage groups/classes, and a RACF
-security snapshot (users, groups, dataset and general-resource access —
-**implementation only, not
+status, TCP/IP configuration, SMS storage groups/classes, the active WLM
+policy name/mode, and a RACF security snapshot (users, groups, dataset
+and general-resource access — **implementation only, not
 yet production-validated**, see below). Everything lands in one small
 SQLite database you query from the command line.
 
@@ -75,7 +75,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_jes2parm.txt    /tmp/demo/jes2parm.txt && \
   cp tests/fixtures/sample_vtam.txt        /tmp/demo/vtam.txt && \
   cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt && \
-  cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt
+  cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt && \
+  cp tests/fixtures/sample_wlm.txt         /tmp/demo/wlm.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -93,18 +94,19 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`../zos-extract/README.md`](../zos-extract/README.md) for the exact
-   file naming and how to produce each file. Five more files —
+   file naming and how to produce each file. Six more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
    enablement/role), `tcpip.txt` (TCP/IP home addresses and, if
-   configured, `PROFILE.TCPIP` text), and `sms.txt` (SMS storage groups,
-   storage classes, and management classes) — have no standalone
+   configured, `PROFILE.TCPIP` text), `sms.txt` (SMS storage groups,
+   storage classes, and management classes), and `wlm.txt` (the active
+   WLM policy name/mode, first cut only) — have no standalone
    `zos-extract/python` script yet and are only produced by the
-   `ansible/` role's `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms` tags; see
-   [`../ansible/README.md`](../ansible/README.md)'s Layout section. All
-   five are implementation-only, same caveat as RACF below — not yet
-   validated against a real system's actual command output.
+   `ansible/` role's `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`
+   tags; see [`../ansible/README.md`](../ansible/README.md)'s Layout
+   section. All six are implementation-only, same caveat as RACF below —
+   not yet validated against a real system's actual command output.
 
 2. Ingest and resolve:
 
@@ -426,6 +428,24 @@ $ inventory sms-mgmtclas
 MCDEFLT  EXPIRE=NOLIMIT,MIGRATE=030
 ```
 
+### `inventory wlm` (first cut only, not yet production-validated)
+
+The single active WLM policy record (`D WLM,POLICY`), if you ingested a
+`wlm.txt` — just the policy name and, if the reply exposes it, its mode
+(`GOAL`/`COMPATIBILITY`). Full service-class/goal/resource-group
+definitions aren't captured here; those need the z/OSMF WLM REST API, a
+materially bigger follow-up. **`D WLM,POLICY`'s reply hasn't been checked
+against a real system — see `wlm_parser.py`'s module docstring.**
+
+```
+$ inventory wlm
+POLICY: WLMPOL01
+MODE: GOAL
+```
+
+If you didn't ingest a `wlm.txt`, this prints `no WLM policy ingested`
+and exits with a non-zero status — same as `inventory sysinfo`.
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -469,9 +489,10 @@ resource profiles against `started_tasks`) for the same reason. USS mounts
 (`uss_mounts_parser.parse_uss_mounts`), JES2 init statements
 (`jes2parm_parser.parse_dump`), VTAM major nodes/start options
 (`vtam_parser.parse_vtam`), TCP/IP home addresses/profile statements
-(`tcpip_parser.parse_tcpip`), and SMS storage groups/classes
-(`sms_parser.parse_sms`) are likewise independent, freshly-added
-dimensions with no cross-referencing yet.
+(`tcpip_parser.parse_tcpip`), SMS storage groups/classes
+(`sms_parser.parse_sms`), and the WLM policy record (`wlm_parser.parse_wlm`,
+a single record like `system_info`) are likewise independent,
+freshly-added dimensions with no cross-referencing yet.
 
 ## Tests
 
@@ -524,7 +545,11 @@ lines, storage/management classes with generically-captured
 `KEYWORD(VALUE)` attributes, and message-ID banner lines like `IGD002I`/
 `END` proven not to be mistaken for a class name) — **also built against
 a hand-constructed fixture, not a real system reply; see
-`sms_parser.py`'s module docstring.**
+`sms_parser.py`'s module docstring.** Also WLM policy parsing
+(`sample_wlm.txt`, covering a policy name/mode pair, plus a test that an
+unrecognized/empty dump returns `None` rather than a half-populated
+record) — **also built against a hand-constructed fixture, not a real
+system reply; see `wlm_parser.py`'s module docstring.**
 
 ## Scaling past the first slice
 
@@ -536,11 +561,12 @@ a hand-constructed fixture, not a real system reply; see
   zones, more HLQ/pattern groups, or more JES2 PARMLIB concatenation
   entries; `ingest` merges them all into one inventory. `lnklst.txt` and
   `apf.txt` are each a single flat list.
-- `system_info` (from `sysinfo.txt`), `active_jobs` (from
-  `active_jobs.txt`), `uss_processes` (from `processes.txt`), and the
-  seven `racf_*` tables (from `racf.txt`) are the exceptions: each is
-  deliberately *not* additive like the tables above. `system_info`
-  represents the identity of the one system being ingested; `active_jobs`/
+- `system_info` (from `sysinfo.txt`), `wlm_policy` (from `wlm.txt`),
+  `active_jobs` (from `active_jobs.txt`), `uss_processes` (from
+  `processes.txt`), and the seven `racf_*` tables (from `racf.txt`) are
+  the exceptions: each is deliberately *not* additive like the tables
+  above. `system_info`/`wlm_policy` represent a single-record identity
+  (system, or active policy) rather than a list; `active_jobs`/
   `uss_processes` represent one point-in-time snapshot of what was
   running; the `racf_*` tables represent IRRDBU00's full current database
   state, not an incremental slice. Re-ingesting any of them replaces

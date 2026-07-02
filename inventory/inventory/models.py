@@ -339,6 +339,22 @@ class SmsManagementClass:
 
 
 @dataclass
+class WlmPolicy:
+    """Single-record active WLM policy identity, as dumped by
+    'D WLM,POLICY' (see ansible/roles/zos_extract/tasks/wlm.yml) and
+    parsed by wlm_parser.py. First cut only -- full service-class/goal/
+    resource-group definitions need the z/OSMF WLM REST API, not
+    captured here.
+
+    NOT YET VALIDATED against a real 'D WLM,POLICY' reply -- see
+    wlm_parser.py's module docstring for the same caveat
+    racf_parser.py carries for its own unconfirmed byte offsets."""
+
+    policy_name: str | None = None
+    mode: str | None = None   # e.g. GOAL / COMPATIBILITY, if the reply exposes it
+
+
+@dataclass
 class CatalogDataset:
     """One non-VSAM dataset under an operator-supplied HLQ/pattern, as
     dumped by zos-extract/python/extrcat.py via ZOAU's

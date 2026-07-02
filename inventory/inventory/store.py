@@ -33,6 +33,7 @@ from .models import (
     VsamCluster,
     VtamMajorNode,
     VtamStartOption,
+    WlmPolicy,
 )
 
 _SCHEMA = """
@@ -264,6 +265,11 @@ CREATE TABLE IF NOT EXISTS sms_management_classes (
     params_json  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sms_management_classes_name ON sms_management_classes(name);
+
+CREATE TABLE IF NOT EXISTS wlm_policy (
+    policy_name  TEXT,
+    mode         TEXT
+);
 """
 
 
@@ -698,3 +704,19 @@ def all_sms_management_classes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM sms_management_classes ORDER BY name")
     return cur.fetchall()
+
+
+def save_wlm_policy(conn: sqlite3.Connection, policy: WlmPolicy | None) -> None:
+    conn.execute("DELETE FROM wlm_policy")
+    if policy is not None:
+        conn.execute(
+            "INSERT INTO wlm_policy (policy_name, mode) VALUES (?, ?)",
+            (policy.policy_name, policy.mode),
+        )
+    conn.commit()
+
+
+def get_wlm_policy(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM wlm_policy LIMIT 1")
+    return cur.fetchone()

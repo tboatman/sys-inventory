@@ -48,6 +48,8 @@ zos_extract_tcpip_profile_dsn: ""
 
 zos_extract_sms_outfile: "sms.txt"
 
+zos_extract_wlm_outfile: "wlm.txt"
+
 zos_extract_racf_database_dsn: ""
 
 # Opt-in live "what's running" CICS/DB2 discovery -- see
