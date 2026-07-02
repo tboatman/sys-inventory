@@ -405,6 +405,7 @@ list of what it looks for in the directory you point it at:
 | SMP/E zone index (LIST GLOBALZONE) | `smpzones` | ansible-only, `discover_smpe_zones.yml`, one file per CSI |
 | PARMLIB concatenation snapshot (D PARMLIB) | exactly `parmlib_snapshot.txt` | ansible-only, `parmlib_snapshot.yml` -- deliberately excluded from the `parmlib` rule above so it isn't mistaken for a PARMLIB member dump |
 | Active IEASYSxx member snapshot (the actual system parameters) | exactly `ieasys_snapshot.txt` | ansible-only, `ieasys_snapshot.yml` |
+| Active BPXPRMxx member snapshot (z/OS UNIX/OMVS config, named by IEASYSxx's own OMVS=) | exactly `bpxprm_snapshot.txt` | ansible-only, `bpxprm_snapshot.yml` -- not yet production-validated |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

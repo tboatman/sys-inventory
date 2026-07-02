@@ -13,7 +13,7 @@
 `inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
 `inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
 `inventory cics-csd`, `inventory zone-index`, `inventory parmlib`,
-`inventory ieasys`."""
+`inventory ieasys`, `inventory bpxprm`."""
 from __future__ import annotations
 
 import argparse
@@ -24,6 +24,7 @@ from pathlib import Path
 
 from . import (
     activity_parser,
+    bpxprm_parser,
     catalog_parser,
     cics_csdup_parser,
     cics_proc_parser,
@@ -109,6 +110,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     ieasys_snapshot_file = input_dir / "ieasys_snapshot.txt"
     ieasys_statements = (ieasys_parser.parse_ieasys_snapshot(ieasys_snapshot_file)
                         if ieasys_snapshot_file.exists() else [])
+
+    bpxprm_snapshot_file = input_dir / "bpxprm_snapshot.txt"
+    bpxprm_statements = (bpxprm_parser.parse_bpxprm_snapshot(bpxprm_snapshot_file)
+                        if bpxprm_snapshot_file.exists() else [])
 
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
@@ -198,6 +203,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_products(conn, products)
     store.save_parmlib_datasets(conn, parmlib_datasets)
     store.save_ieasys_statements(conn, ieasys_statements)
+    store.save_bpxprm_statements(conn, bpxprm_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -227,6 +233,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(started_tasks)} started tasks, {len(products)} products, "
           f"{len(parmlib_datasets)} PARMLIB concatenation datasets, "
           f"{len(ieasys_statements)} active IEASYSxx statements, "
+          f"{len(bpxprm_statements)} active BPXPRMxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -420,6 +427,16 @@ def cmd_ieasys(args: argparse.Namespace) -> int:
     for row in rows:
         value = row["value"] if row["value"] is not None else ""
         print(f"{row['keyword']}={value}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_bpxprm(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_bpxprm_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
     return 0
 
 
@@ -822,6 +839,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_ieasys = sub.add_parser("ieasys", help="list active IEASYSxx KEYWORD=value statements -- the actual system parameters active at IPL")
     p_ieasys.set_defaults(func=cmd_ieasys)
+
+    p_bpxprm = sub.add_parser("bpxprm", help="list active BPXPRMxx statements -- z/OS UNIX System Services (OMVS) configuration (not yet production-validated)")
+    p_bpxprm.set_defaults(func=cmd_bpxprm)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

@@ -68,6 +68,13 @@
     zos_extract_active_prod_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^PROD@@@') | map('regex_replace', '^PROD@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # OMVS=xx names the active BPXPRMxx member(s) -- same parenthesized-list
+    # shape as SSN=/CMD=/PROD= above, consumed by bpxprm_snapshot.yml (see
+    # _fetch_active_bpxprm_member.yml, the BPXPRMxx analog of
+    # _fetch_active_ieasys_member.yml below).
+    zos_extract_active_omvs_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^OMVS@@@') | map('regex_replace', '^OMVS@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
     # MSTRJCL=xx is a single suffix, not a parenthesized list like
     # SSN=/CMD=/PROD= above -- it names one member (MSTJCLxx, dropping the
     # "R" -- an IBM-documented naming quirk, not a typo), so this is kept
@@ -76,3 +83,10 @@
     zos_extract_active_mstrjcl_suffix: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^MSTRJCL@@@') | map('regex_replace', '^MSTRJCL@@@', '')
           | list | last | default('')) }}
+
+- name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_bpxprm_member.yml
+  loop: "{{ zos_extract_active_omvs_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_bpxprm_suffix
+    label: "BPXPRM{{ zos_extract_bpxprm_suffix }}"

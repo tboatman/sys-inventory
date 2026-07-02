@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Thirteen more files —
+   file naming and how to produce each file. Fourteen more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -118,23 +118,27 @@ just renaming them into that shape for a quick demo.)
    GLOBALZONE, one per CSI), `parmlib_snapshot.txt` (the live PARMLIB
    concatenation via an explicit, always-run `D PARMLIB` capture,
    distinct from the implicit one `zos_extract_parmlibs` auto-discovery
-   uses internally), and `ieasys_snapshot.txt` (the active IEASYSxx
+   uses internally), `ieasys_snapshot.txt` (the active IEASYSxx
    member(s)' actual `KEYWORD=value` content — the real system parameters
    `D PARMLIB` itself can't show, since it only reports the PARMLIB
-   dataset search order) — have no standalone `zos-extract/python` script
+   dataset search order), and `bpxprm_snapshot.txt` (the active BPXPRMxx
+   member(s) — z/OS UNIX/OMVS configuration, named by IEASYSxx's own
+   `OMVS=` keyword) — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
-   `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`
+   `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
    `interactive.yml` — see that README's own section on it. The original
    nine (everything except `*.smpzones.txt`/`parmlib_snapshot.txt`/
-   `ieasys_snapshot.txt`) are
+   `ieasys_snapshot.txt`/`bpxprm_snapshot.txt`) are
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
-   caveat; `cics_deepening.txt`'s own CSD-report portion is right behind
+   caveat, alongside `bpxprm_snapshot.txt` (built from documented BPXPRMxx
+   statement syntax only, no real sample);
+   `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
    that caveat; `*.smpzones.txt` is confirmed against a real third-party
@@ -157,7 +161,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 0 PARMLIB concatenation datasets, 0 active IEASYSxx statements, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions, 0 SMP/E zone index entries -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 0 PARMLIB concatenation datasets, 0 active IEASYSxx statements, 0 active BPXPRMxx statements, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions, 0 SMP/E zone index entries -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -331,6 +335,34 @@ model individually. Reuses the exact `D PARMLIB`/discovery machinery
 `discover_active_members.yml` already had internally (to pull out just
 `SSN=`/`CMD=`/`PROD=`/`MSTRJCL=` for its own use, then discard) — this
 just saves and generalizes what was already being fetched.
+
+### `inventory bpxprm` (opt-in, not yet production-validated)
+
+z/OS UNIX System Services (OMVS) configuration — every statement in the
+active BPXPRMxx member(s) — if you ingested a `bpxprm_snapshot.txt`.
+Named by IEASYSxx's own `OMVS=` keyword the same way `SSN=`/`CMD=`/
+`PROD=`/`MSTRJCL=` name IEFSSNxx/COMMNDxx/IFAPRDxx/MSTJCLxx:
+
+```
+$ inventory bpxprm
+MAXPROCSYS (3000)  [BPXPRM00]
+MOUNT FILESYSTEM('OMVS.ETC.ZFS') MOUNTPOINT('/etc') TYPE(ZFS) MODE(RDWR)  [BPXPRM00]
+ROOT FILESYSTEM('OMVS.ROOT.ZFS') TYPE(ZFS) MODE(RDWR)  [BPXPRM00]
+TZ (EST5EDT)  [BPXPRM00]
+```
+
+Unlike `inventory ieasys`'s flat `KEYWORD=value` shape, a real BPXPRMxx
+member is statement-oriented (`ROOT`/`MOUNT`/`FILESYSTYPE`/... spanning
+several physical lines each, no continuation character — just a known
+top-level statement vocabulary, same approach `tcpip-profile`'s
+PROFILE.TCPIP parsing already uses) — see `bpxprm_parser.py`'s module
+docstring for the full detail, including its known limitation (an
+unrecognized statement keyword gets folded into the preceding
+statement's operands instead of starting its own). **Built from IBM's
+documented BPXPRMxx statement syntax only — not yet checked against a
+real member**, the same caveat `db2_catalog_parser.py`/
+`wlm_zosmf_parser.py`/`cics_csdup_parser.py` carry for their own
+unconfirmed parsing surfaces.
 
 ### `inventory active`
 
@@ -1027,15 +1059,17 @@ else) — see `cics_csdup_parser.py`'s module docstring.**
 - `system_info` (from `sysinfo.txt`), `wlm_policy` (from `wlm.txt`),
   `active_jobs` (from `active_jobs.txt`), `uss_processes` (from
   `processes.txt`), `parmlib_datasets` (from `parmlib_snapshot.txt`),
-  `ieasys_statements` (from `ieasys_snapshot.txt`), and
+  `ieasys_statements` (from `ieasys_snapshot.txt`), `bpxprm_statements`
+  (from `bpxprm_snapshot.txt`), and
   the seven `racf_*` tables (from `racf.txt`) are
   the exceptions: each is deliberately *not* additive like the tables
   above. `system_info`/`wlm_policy` represent a single-record identity
   (system, or active policy) rather than a list; `active_jobs`/
   `uss_processes` represent one point-in-time snapshot of what was
-  running; `parmlib_datasets`/`ieasys_statements` represent the current
-  PARMLIB concatenation/active system parameters, same "one system's
-  current state" reasoning; the
+  running; `parmlib_datasets`/`ieasys_statements`/`bpxprm_statements`
+  represent the current
+  PARMLIB concatenation/active system parameters/active OMVS config, same
+  "one system's current state" reasoning; the
   `racf_*` tables represent IRRDBU00's full current database
   state, not an incremental slice. Re-ingesting any of them replaces
   rather than merges — for the live-snapshot pair, that's the whole point:

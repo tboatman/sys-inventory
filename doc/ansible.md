@@ -101,7 +101,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
-`ieasys_snapshot`,
+`ieasys_snapshot`, `bpxprm_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -133,6 +133,18 @@ it pulls in that discovery chain standalone) and writes the full member
 content to `ieasys_snapshot.txt`, ingested generically (every
 `KEYWORD=value` statement, not just the three this pipeline already
 cared about) via `inventory ieasys`.
+
+`bpxprm_snapshot` is the same idea, one level further out: IEASYSxx's own
+`OMVS=` keyword names the active BPXPRMxx member(s) (z/OS UNIX System
+Services/OMVS configuration), fetched the same way (its tag is also added
+to `discover_parmlib.yml`/`discover_active_parmlib_suffixes.yml`/
+`discover_active_members.yml`) and written to `bpxprm_snapshot.txt`.
+Unlike IEASYSxx's flat `KEYWORD=value` shape, BPXPRMxx is
+statement-oriented (`ROOT`/`MOUNT`/`FILESYSTYPE`/... spanning several
+lines each) -- ingested via `inventory bpxprm`, **not yet validated
+against a real BPXPRMxx member**, same caveat this project's other
+documentation-only parsers carry (see `bpxprm_parser.py`'s module
+docstring).
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -800,6 +812,10 @@ roles/zos_extract/
                              # used by discover_mstrjcl_proclibs.yml, and
                              # (as zos_extract_ieasys_member_blocks) the
                              # full IEASYSxx content, for ieasys_snapshot.yml
+                             # -- also fetches the active BPXPRMxx member(s)
+                             # (via _fetch_active_bpxprm_member.yml, using
+                             # OMVS= from the same IEASYSxx keyword pass),
+                             # for bpxprm_snapshot.yml
     discover_mstrjcl_proclibs.yml
                              # fetches the active MSTJCLxx member and
                              # appends any proclib DSN concatenated onto
@@ -827,6 +843,13 @@ roles/zos_extract/
                              # pulls in that discovery chain standalone);
                              # writes ieasys_snapshot.txt, ingested via
                              # inventory ieasys
+    bpxprm_snapshot.yml, _fetch_active_bpxprm_member.yml
+                             # explicit capture of the active BPXPRMxx
+                             # member(s) -- z/OS UNIX/OMVS config, named
+                             # by IEASYSxx's own OMVS= keyword; tag
+                             # bpxprm_snapshot; writes bpxprm_snapshot.txt,
+                             # ingested via inventory bpxprm -- not yet
+                             # production-validated
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

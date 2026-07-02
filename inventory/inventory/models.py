@@ -231,6 +231,35 @@ class IeasysStatement:
 
 
 @dataclass
+class BpxprmStatement:
+    """One statement from an active BPXPRMxx PARMLIB member -- z/OS UNIX
+    System Services (OMVS) configuration, named by IEASYSxx's own OMVS=
+    keyword (IeasysStatement above) the same way SSN=/CMD=/PROD=/MSTRJCL=
+    name IEFSSNxx/COMMNDxx/IFAPRDxx/MSTJCLxx. Dumped by
+    ansible/roles/zos_extract/tasks/bpxprm_snapshot.yml and parsed by
+    bpxprm_parser.py.
+
+    Unlike IeasysStatement's flat KEYWORD=value shape, a real BPXPRMxx
+    member is statement-oriented -- STMT KEYWORD(value) KEYWORD2(value2)
+    ..., continuing onto further physical lines with no continuation
+    character until the next recognized top-level statement keyword
+    starts (e.g. ROOT/MOUNT/FILESYSTYPE spanning several lines) -- the
+    same shape this project already solved for PROFILE.TCPIP
+    (TcpipProfileStatement/tcpip_parser.py), so this reuses that same
+    "known keyword vocabulary, fold everything else into operands"
+    approach rather than IeasysStatement's comma-split one.
+
+    NOT YET VALIDATED against a real BPXPRMxx member -- built from IBM's
+    documented statement syntax only, same caveat db2_catalog_parser.py/
+    wlm_zosmf_parser.py/cics_csdup_parser.py carry for their own
+    unconfirmed parsing surfaces."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

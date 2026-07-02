@@ -1,0 +1,18 @@
+---
+# Explicit, always-saved capture of the active BPXPRMxx member(s)' full
+# content -- z/OS UNIX System Services (OMVS) configuration, named by
+# IEASYSxx's own OMVS= keyword (see ieasys_snapshot.yml/
+# discover_active_members.yml) the same way SSN=/CMD=/PROD=/MSTRJCL=
+# name IEFSSNxx/COMMNDxx/IFAPRDxx/MSTJCLxx. Direct analog of
+# ieasys_snapshot.yml, just for BPXPRMxx -- see that file's own header
+# comment for the full "computed internally, consumed narrowly, thrown
+# away" rationale (BPXPRMxx isn't consumed internally by anything in
+# this pipeline the way IEASYSxx's own keywords are, but the same
+# "explicit, saved, generically-parsed dimension" treatment applies).
+
+- name: Write bpxprm_snapshot.txt (active BPXPRMxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/bpxprm_snapshot.txt"
+    mode: "0644"
+    content: "{{ (zos_extract_bpxprm_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

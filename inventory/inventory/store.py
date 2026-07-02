@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .models import (
     ActiveJob,
+    BpxprmStatement,
     CatalogDataset,
     CicsCsdDefinition,
     CicsDfhrplEntry,
@@ -109,6 +110,13 @@ CREATE TABLE IF NOT EXISTS ieasys_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ieasys_statements_keyword ON ieasys_statements(keyword);
+
+CREATE TABLE IF NOT EXISTS bpxprm_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bpxprm_statements_stmt ON bpxprm_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -487,6 +495,22 @@ def save_ieasys_statements(conn: sqlite3.Connection, statements: list[IeasysStat
 def all_ieasys_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM ieasys_statements ORDER BY keyword")
+    return cur.fetchall()
+
+
+def save_bpxprm_statements(conn: sqlite3.Connection, statements: list[BpxprmStatement]) -> None:
+    conn.execute("DELETE FROM bpxprm_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO bpxprm_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_bpxprm_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM bpxprm_statements ORDER BY stmt")
     return cur.fetchall()
 
 
