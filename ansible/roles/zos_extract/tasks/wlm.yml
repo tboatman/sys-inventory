@@ -10,14 +10,17 @@
 # no ##BLOCKNAME sentinel needed -- same "single command, no bundling"
 # shape uss_mounts.yml already uses for 'D OMVS,F'.
 #
-# NOT YET CONFIRMED against a real system: 'D WLM,POLICY' hasn't been
-# checked against an actual reply from this site (same situation
-# vtam.yml/tcpip.yml/sms.yml document for their own commands) --
-# wlm_parser.py's module docstring carries the full caveat.
+# CONFIRMED against a real system, and the original guess wasn't just
+# missing detail -- it named the wrong command entirely. 'D WLM,POLICY'
+# doesn't exist ("WLM SYNTAX ERROR, UNIDENTIFIABLE KEYWORD" against a real
+# system for the 'POLICY' keyword); the real command to display the
+# active service policy is bare 'D WLM' (no operand), confirmed against
+# both IBM's own documentation and a real reply from this site (message
+# IWM025I). wlm_parser.py's module docstring carries the full detail.
 
-- name: Issue D WLM,POLICY
+- name: Issue D WLM
   ibm.ibm_zos_core.zos_operator:
-    cmd: "D WLM,POLICY"
+    cmd: "D WLM"
   register: zos_extract_wlm_reply
 
 - name: Write {{ zos_extract_wlm_outfile }}

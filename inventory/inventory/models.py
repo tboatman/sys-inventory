@@ -394,15 +394,17 @@ class Db2Plan:
 
 @dataclass
 class WlmPolicy:
-    """Single-record active WLM policy identity, as dumped by
-    'D WLM,POLICY' (see ansible/roles/zos_extract/tasks/wlm.yml) and
-    parsed by wlm_parser.py. First cut only -- full service-class/goal/
+    """Single-record active WLM policy identity, as dumped by 'D WLM'
+    (see ansible/roles/zos_extract/tasks/wlm.yml) and parsed by
+    wlm_parser.py. First cut only -- full service-class/goal/
     resource-group definitions need the z/OSMF WLM REST API, not
     captured here.
 
-    NOT YET VALIDATED against a real 'D WLM,POLICY' reply -- see
-    wlm_parser.py's module docstring for the same caveat
-    racf_parser.py carries for its own unconfirmed byte offsets."""
+    CONFIRMED against a real system -- and the fix here was bigger than a
+    formatting tweak: the originally-guessed command, 'D WLM,POLICY',
+    doesn't exist at all (a real system rejected the 'POLICY' keyword
+    outright). The real command is bare 'D WLM'; see wlm_parser.py's
+    module docstring for the confirmed IWM025I reply shape."""
 
     policy_name: str | None = None
     mode: str | None = None   # e.g. GOAL / COMPATIBILITY, if the reply exposes it
