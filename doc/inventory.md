@@ -5,8 +5,9 @@ Off-host half of the pipeline: parses the text dumped by `zos-extract/`
 USS mounted filesystems, JES2's own initialization parameters, VTAM
 major-node status/start options, TCP/IP home addresses/PROFILE.TCPIP, SMS
 storage groups/storage classes/management classes, the active WLM policy
-name/mode, deepened DB2 packages/plans, and WLM service-class/goal
-definitions via z/OSMF -- the `ansible/` role directly; see
+name/mode, deepened DB2 packages/plans, WLM service-class/goal
+definitions via z/OSMF, and deepened CICS DFHRPL/SIT/CSD detail -- the
+`ansible/` role directly; see
 [`ansible.md`](ansible.md)) and resolves each
 PROCLIB/PARMLIB member's full execution path back to the SMP/E FMID that
 owns each program it runs, flags whether each resolved load library is
@@ -16,9 +17,11 @@ from, product enablement status (IFAPRDxx), a live snapshot of
 currently-running jobs/tasks and USS processes, an HLQ/pattern-scoped
 dataset catalog (non-VSAM attributes + VSAM cluster/component detail),
 mounted USS filesystems, JES2's own initialization statements, VTAM/APPN
-status, TCP/IP configuration, SMS storage groups/classes, the active WLM
+status, TCP/IP configuration, SMS storage groups, the active WLM
 policy name/mode, deepened DB2 packages/plans, WLM service-class/goal
-definitions via z/OSMF, and a RACF security snapshot (users, groups,
+definitions via z/OSMF, deepened CICS resource detail (DFHRPL
+load-library lineage, SIT overrides, and CSD resource definitions via
+DFHCSDUP), and a RACF security snapshot (users, groups,
 dataset and general-resource access —
 **implementation only, not
 yet production-validated**, see below). Everything lands in one small
@@ -81,7 +84,8 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt && \
   cp tests/fixtures/sample_wlm.txt         /tmp/demo/wlm.txt && \
   cp tests/fixtures/sample_db2_catalog.txt /tmp/demo/db2_catalog.txt && \
-  cp tests/fixtures/sample_wlm_zosmf.txt   /tmp/demo/wlm_zosmf.txt
+  cp tests/fixtures/sample_wlm_zosmf.txt   /tmp/demo/wlm_zosmf.txt && \
+  cp tests/fixtures/sample_cics_deepening.txt /tmp/demo/cics_deepening.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 ```
 
@@ -99,27 +103,29 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Eight more files —
+   file naming and how to produce each file. Nine more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
    enablement/role), `tcpip.txt` (TCP/IP home addresses and, if
-   configured, `PROFILE.TCPIP` text), `sms.txt` (SMS storage groups,
-   storage classes, and management classes), `wlm.txt` (the active WLM
+   configured, `PROFILE.TCPIP` text), `sms.txt` (SMS storage groups),
+   `wlm.txt` (the active WLM
    policy name/mode, first cut only), `db2_catalog.txt` (installed DB2
-   packages/plans, opt-in), and `wlm_zosmf.txt` (WLM service-class/goal
+   packages/plans, opt-in), `wlm_zosmf.txt` (WLM service-class/goal
    definitions via z/OSMF's REST API, opt-in, raw JSON text despite the
-   `.txt` name) — have no standalone `zos-extract/python` script yet and
-   are only produced by the `ansible/` role's
-   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`
+   `.txt` name), and `cics_deepening.txt` (deepened CICS DFHRPL/SIT/CSD
+   detail, opt-in) — have no standalone `zos-extract/python` script yet
+   and are only produced by the `ansible/` role's
+   `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
-   `interactive.yml` — see that README's own section on it. All eight are
+   `interactive.yml` — see that README's own section on it. All nine are
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
-   caveat: see their own sections below.
+   caveat; `cics_deepening.txt`'s own CSD-report portion is right behind
+   them — see their own sections below.
 
 2. Ingest and resolve:
 
@@ -134,7 +140,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 3 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 4 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 2 SMS storage groups, 2 SMS storage classes, 1 SMS management classes, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -333,19 +339,20 @@ STARTED/CICSPROD.STC  CICSRACF=READ
 itself has no selective-unload option, so every other class is dropped
 off-host during parsing, not at extraction time.
 
-### `inventory uss-mounts` (not yet production-validated)
+### `inventory uss-mounts` (confirmed against a real reply)
 
 Every mounted USS filesystem, if you ingested a `uss_mounts.txt` — see
 `ansible/roles/zos_extract/tasks/uss_mounts.yml` for how it's produced.
-**Built and tested against a hand-constructed fixture, not a real `D
-OMVS,F` reply — see `uss_mounts_parser.py`'s module docstring for the
-same kind of caveat `racf_parser.py` carries.**
+**Confirmed against a real `D OMVS,F` reply** (a follow-up round provided
+one) — see `uss_mounts_parser.py`'s module docstring for the real shape
+and the one thing that differed from the original guess (`NAME=`/`PATH=`
+land on separate continuation lines in practice).
 
 ```
 $ inventory uss-mounts
-/  NAME=OMVS.ROOT.ZFS TYPE=ZFS DEVICE=1 STATUS=ACTIVE MODE=RDWR
-/etc  NAME=OMVS.ETC.ZFS TYPE=ZFS DEVICE=2 STATUS=ACTIVE MODE=RDWR
-/legacy  NAME=OMVS.LEGACY.HFS TYPE=HFS DEVICE=3 STATUS=ACTIVE MODE=READ
+/  NAME=OMVS.ROOT.ZFS TYPE=ZFS DEVICE=117 STATUS=ACTIVE MODE=RDWR
+/etc  NAME=OMVS.ETC.ZFS TYPE=ZFS DEVICE=116 STATUS=ACTIVE MODE=RDWR
+/legacy  NAME=OMVS.LEGACY.HFS TYPE=HFS DEVICE=115 STATUS=ACTIVE MODE=READ
 ```
 
 ### `inventory jes2parm` (not yet production-validated)
@@ -366,18 +373,22 @@ MASDEF  OWNMASN=1,NAME=NJE1  [JES2PARM]
 OUTCLASS(A)  QUEUE=YES,BURST=YES  [JES2PARM]
 ```
 
-### `inventory vtam-majnodes` / `inventory vtam-options` (not yet production-validated)
+### `inventory vtam-majnodes` / `inventory vtam-options` (both confirmed against real replies)
 
 VTAM major-node status (`D NET,MAJNODES`) and start options (`D
 NET,VTAMOPTS`), if you ingested a `vtam.txt`. `vtam-options` is where
-APPN coverage lives this round: rather than a dedicated `nodetype`/
+one path to APPN coverage lives: rather than a dedicated `nodetype`/
 `cpname` field, every `KEYWORD = VALUE` pair VTAM's start-option display
 exposes is captured generically (`VtamStartOption` in `models.py`) — look
 for the `NODETYPE`/`CPNAME` rows to see whether APPN is enabled and as
-what role (NN/EN/LEN vs. subarea-only). `D NET,TOPO` (the APPN topology
-database itself) isn't captured yet — see `vtam_parser.py`'s module
-docstring for why. **Neither command's reply has been checked against a
-real system — see `vtam_parser.py`'s module docstring.**
+what role (NN/EN/LEN vs. subarea-only). **Both are now confirmed against
+real replies** (across two follow-up rounds) — the real per-row/per-line
+shapes differed from the original guesses in a few places, documented in
+full in `vtam_parser.py`'s module docstring, including one small,
+confirmed limitation: a couple of VTAMOPTS keywords (`HPRPST`,
+`IQDIOSTG`) have two-token values, of which only the first token is
+captured — doesn't affect `NODETYPE`/`CPNAME` or the vast majority of
+keywords.
 
 ```
 $ inventory vtam-majnodes
@@ -386,11 +397,41 @@ NCPMAJ  STATUS=ACTIV
 VTAMLST  STATUS=ACT/S
 
 $ inventory vtam-options
+AIMON=(EQDIO,IQDIO,ISM,QDIO,ROCE)
+ALSREQ=NO
+API64R=YES
 CPNAME=NN01
+HPRPST=LOW
 NETID=USIBMSC
 NODETYPE=NN
 SSCPID=1
 ```
+
+### `inventory vtam-topology` (confirmed against a real reply)
+
+The APPN topology database summary (`D NET,TOPO`), if you ingested a
+`vtam.txt` — a single record (`VtamTopologySummary` in `models.py`, same
+shape as `sysinfo`/`wlm`), not a list. **Unlike every other VTAM/TCPIP
+dimension above, this one's parsing is confirmed against a real reply**,
+provided in a follow-up round after VTAM was first implemented — see
+`vtam_parser.py`'s module docstring for the exact message IDs
+(`IST1306I`/`IST1307I`/`IST1781I`/`IST1785I`) it anchors on. Its real
+shape turned out to be counts of known adjacent/NN/EN nodes plus
+checkpoint/garbage-collection metadata, not a list of individual known
+nodes by name — the original assumption that led to skipping this
+command entirely in an earlier round.
+
+```
+$ inventory vtam-topology
+LAST CHECKPOINT: NONE
+ADJ=1 NN=2 EN=0 SERVED EN=0 CDSERVR=0 ICN=0 BN=0
+INITDB CHECKPOINT DATASET: NONE
+LAST GARBAGE COLLECTION: 01/01/26 00:00:00
+```
+
+If you didn't ingest a `vtam.txt`, or it didn't contain a `##TOPO` block,
+this prints `no VTAM topology summary ingested` and exits with a
+non-zero status — same as `inventory sysinfo`/`inventory wlm`.
 
 ### `inventory tcpip-home` / `inventory tcpip-profile` (not yet production-validated)
 
@@ -416,43 +457,51 @@ HOSTNAME MVSTCPIP  [TCPIP.TCPPARMS(PROFILE1)]
 LINK ETH0LINK IPAQENET OSA2080  [TCPIP.TCPPARMS(PROFILE1)]
 ```
 
-### `inventory sms-storgrps` / `inventory sms-storclas` / `inventory sms-mgmtclas` (not yet production-validated)
+### `inventory sms-storgrps` (confirmed against a real reply)
 
-SMS storage groups and their volumes (`D SMS,STORGRP(*),LISTVOL`),
-storage classes (`D SMS,SC(*)`), and management classes (`D SMS,MC(*)`),
-if you ingested an `sms.txt`. ACS routine *source* is out of scope here
-(that needs ISMF, not a `D`-command). Storage/management class attributes
-are captured generically (class name + a raw keyword->value map,
-`SmsStorageClass`/`SmsManagementClass` in `models.py`) rather than
-modeled per attribute, the same approach `VtamStartOption`/
-`Jes2InitStatement` use. **None of the three commands has been checked
-against a real system — see `sms_parser.py`'s module docstring.**
+SMS storage groups, their type, per-system status, and volumes
+(`D SMS,STORGRP(ALL),LISTVOL`), if you ingested an `sms.txt`.
+
+**Storage classes and management classes (`sms-storclas`/`sms-mgmtclas`)
+were removed entirely** — `D SMS,SC(*)`/`D SMS,MC(*)` were confirmed
+INVALID against a real system, and there turns out to be no console
+`D`-command for either at all (confirmed against IBM's own `D SMS`
+syntax reference — this is a bigger version of the same "needs ISMF, not
+a `D`-command" limitation already documented for ACS routine *source*,
+now known to apply to the class definitions themselves too). See
+`ansible.md`'s SMS section for the full detail.
+
+**`sms-storgrps` is confirmed against a real reply**, and the real shape
+was different enough from the original guess that the output changed:
+`status` is now a raw per-system symbol sequence (e.g. `+ +`, not a
+decoded `ENABLE`/`DISABLE` word), and a new `TYPE` field
+(`POOL`/`TAPE`/etc) was added. Volumes come from a separate table in the
+real reply, keyed back to each group by name — see `sms_parser.py`'s
+module docstring for the full before/after.
 
 ```
 $ inventory sms-storgrps
-SG1  STATUS=ENABLE  VOLUMES=VOL001,VOL002
-SG2  STATUS=DISABLE  VOLUMES=VOL010
-
-$ inventory sms-storclas
-FAST  AVAILABILITY=STANDARD,PERFORMANCE=1
-STANDARD  AVAILABILITY=STANDARD,ACCESSIBILITY=CONTINUOUS,PERFORMANCE=3
-
-$ inventory sms-mgmtclas
-MCDEFLT  EXPIRE=NOLIMIT,MIGRATE=030
+SG1  TYPE=POOL  STATUS=+ +  VOLUMES=VOL001,VOL002
+TAPEGRP  TYPE=TAPE  STATUS=+ +  VOLUMES=?
+SG2  TYPE=POOL  STATUS=+ -  VOLUMES=VOL010
 ```
 
-### `inventory wlm` (first cut only, not yet production-validated)
+### `inventory wlm` (first cut only, confirmed against a real reply)
 
-The single active WLM policy record (`D WLM,POLICY`), if you ingested a
-`wlm.txt` — just the policy name and, if the reply exposes it, its mode
-(`GOAL`/`COMPATIBILITY`). Full service-class/goal/resource-group
-definitions aren't captured here; those need the z/OSMF WLM REST API, a
-materially bigger follow-up. **`D WLM,POLICY`'s reply hasn't been checked
-against a real system — see `wlm_parser.py`'s module docstring.**
+The single active WLM policy record (`D WLM`), if you ingested a
+`wlm.txt` — just the policy name and its mode. Full service-class/goal/
+resource-group definitions aren't captured here; those need the z/OSMF
+WLM REST API, a materially bigger follow-up. **Confirmed against a real
+system, and the fix needed was bigger than a formatting tweak: the
+originally-guessed command, `D WLM,POLICY`, doesn't exist at all — a real
+system rejected the `POLICY` keyword outright. The real command is bare
+`D WLM`; `mode` is inferred as `GOAL` whenever a policy name is found
+(the real reply never contains a `MODE=` token — see `wlm_parser.py`'s
+module docstring for why that's a documented inference, not a guess).**
 
 ```
 $ inventory wlm
-POLICY: WLMPOL01
+POLICY: PROD1
 MODE: GOAL
 ```
 
@@ -511,6 +560,60 @@ WLMPOL01  {"policy_name": "WLMPOL01", "description": "Standard goal-mode policy"
 WLMPOL02  {"policy_name": "WLMPOL02", "description": "Backup policy"}
 ```
 
+### `inventory cics-dfhrpl` / `inventory cics-sit` / `inventory cics-csd` (opt-in, not yet production-validated)
+
+Deepened CICS resource detail, if you ingested a `cics_deepening.txt` —
+distinct from `cics.txt`'s "is a CICS address space up right now"
+live-activity heuristic (not currently ingested into the database at
+all). See
+[`ansible.md`](ansible.md#deepened-cics-resource-view-opt-in-dfhrpl-lineage--dfhcsdup-csd-definitions)
+for what produces this file and why it needs explicit
+`zos_extract_cics_proc` configuration rather than auto-discovery.
+
+`cics-dfhrpl` lists DFHRPL (CICS's own load-library concatenation)
+entries, zone/APF-resolved via `resolver.dataset_zone()` the same way
+STEPLIB/JOBLIB/LNKLST hops already are in `lineage`/`report` above:
+
+```
+$ inventory cics-dfhrpl
+CICS.SDFHLOAD  ZONE=TZONE1 [APF]  [CICSPROC]
+MY.SITE.LOADLIB  ZONE=? [APF=?]  [CICSPROC]
+```
+
+`cics-sit` lists SIT (System Initialization Table) override
+`KEYWORD=VALUE` pairs, captured generically (`CicsSitOverride` in
+`models.py`) the same approach `VtamStartOption`/`Jes2InitStatement` use:
+
+```
+$ inventory cics-sit
+APPLID=CICSA  [CICSPROC]
+GRPLIST=DFHLIST  [CICSPROC]
+SEC=YES  [CICSPROC]
+```
+
+`cics-csd` lists CICS resource definitions read from the CSD via a
+read-only `DFHCSDUP LIST` run (`CicsCsdDefinition` in `models.py`):
+
+```
+$ inventory cics-csd
+PROGRAM PROG1  GROUP=GRP1  [CICS.PROD.DFHCSD]
+TRANSACTION TRAN1  GROUP=GRP1  [CICS.PROD.DFHCSD]
+FILE FILE001  GROUP=GRP2  [CICS.PROD.DFHCSD]
+```
+
+**`cics-csd` is the most speculative dimension in the pipeline alongside
+`db2-packages`/`db2-plans` and `wlm-zosmf`, and uniquely speculative on
+two separate axes at once**: unlike those two, the *command syntax* sent
+to DFHCSDUP (`LIST ALL` / `LIST LIST(name) OBJECTS`, `PARM='CSD(READONLY)'`)
+is confirmed against real IBM documentation this round — but DFHCSDUP's
+own LIST report *print format* (the column layout `cics_csdup_parser.py`
+has to make sense of) is not, and no real sample was found while writing
+this. `cics_csdup_parser.py` deliberately does the loosest, most tolerant
+parsing in the whole pipeline as a result — see its module docstring for
+exactly what it recognizes and what it silently skips, and treat any
+count from this dimension as a floor, not a real total, until it's
+checked against a real DFHCSDUP LIST report.
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -526,6 +629,12 @@ See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
 5. If `apf.txt` was ingested, the resolved dataset is flagged
    `apf_authorized` True/False; if `apf.txt` wasn't ingested, the flag is
    `None` (unknown) rather than defaulting to either True or False.
+
+`resolver.dataset_zone()` is a public wrapper around the same
+dataset-to-zone DDDEF matching step 3 above uses, exposed specifically so
+other domains can reuse it without duplicating that logic — `cics-dfhrpl`
+entries (see below) are zone/APF-resolved this way at ingest time
+(`cli.py`), not by `cics_proc_parser.py` itself.
 
 Any hop that can't be resolved (no STEPLIB and no LNKLST match, a dataset
 not claimed by any ingested zone, etc.) is still recorded with a
@@ -554,12 +663,18 @@ resource profiles against `started_tasks`) for the same reason. USS mounts
 (`uss_mounts_parser.parse_uss_mounts`), JES2 init statements
 (`jes2parm_parser.parse_dump`), VTAM major nodes/start options
 (`vtam_parser.parse_vtam`), TCP/IP home addresses/profile statements
-(`tcpip_parser.parse_tcpip`), SMS storage groups/classes
+(`tcpip_parser.parse_tcpip`), SMS storage groups
 (`sms_parser.parse_sms`), the WLM policy record (`wlm_parser.parse_wlm`,
 a single record like `system_info`), DB2 packages/plans
 (`db2_catalog_parser.parse_db2_catalog`), and WLM z/OSMF entries
 (`wlm_zosmf_parser.parse_wlm_zosmf`) are likewise independent,
-freshly-added dimensions with no cross-referencing yet.
+freshly-added dimensions with no cross-referencing yet. CICS SIT
+overrides and CSD definitions (`cics_proc_parser.parse_cics_proc`,
+`cics_csdup_parser.parse_cics_csdup`) are independent the same way; CICS
+DFHRPL entries are the one exception among this round's additions --
+they *are* cross-referenced, via `resolver.dataset_zone()` at ingest time
+(see "How resolution works" above), the same zone/APF resolution every
+STEPLIB/JOBLIB/LNKLST lineage hop already gets.
 
 ## Tests
 
@@ -590,33 +705,59 @@ plus one non-curated class proven to be filtered out) — **built against a
 hand-constructed fixture, not a real IRRDBU00 unload; see "How resolution
 works" for the specific field this is least confident about.** Also USS
 mount parsing (`sample_uss_mounts.txt`, covering a read-write zFS root and
-`/etc` mount plus a read-only HFS mount, and proving header/summary lines
-aren't mistaken for mount records) and JES2 init-statement parsing
-(`sample_jes2parm.txt`, covering a comment line that must be skipped, a
-statement whose continuation spans two lines, a parenthesized statement
-subscript, and a parameter value with inner commas that must not be split
-as separate parameters) — **both built against hand-constructed fixtures,
-not a real system reply; see `uss_mounts_parser.py`/`jes2parm_parser.py`'s
-module docstrings.** Also VTAM parsing (`sample_vtam.txt`, covering major
-nodes across ACTIV/ACT\/S/INACT statuses plus banner/header lines proven
-not to be mistaken for data rows, and start options incl. the
-`NODETYPE`/`CPNAME` pair that answers the APPN-enablement question) and
+`/etc` mount, a read-only HFS mount, NAME=/PATH= landing on separate
+continuation lines (the real shape), a TFS mount with an extra `MOUNT
+PARM=` continuation line, and proving header/summary lines aren't
+mistaken for mount records) — **confirmed against a real `D OMVS,F`
+reply, see `uss_mounts_parser.py`'s module docstring** — and JES2
+init-statement parsing (`sample_jes2parm.txt`, covering a comment line
+that must be skipped, a statement whose continuation spans two lines, a
+parenthesized statement subscript, and a parameter value with inner
+commas that must not be split as separate parameters) — **still built
+against a hand-constructed fixture, not a real system reply; see
+`jes2parm_parser.py`'s module docstring.** Also VTAM parsing
+(`sample_vtam.txt`, covering major nodes across ACT/S/ACTIV/INACT
+statuses in the real `IST089I ... TYPE = ..., STATUS` row shape (not the
+originally-guessed `IST486I NAME STATUS` shape) plus banner/summary lines
+(incl. the real `IST1454I n RESOURCE(S) DISPLAYED` line) proven not to be
+mistaken for data rows; start options incl. two-KEYWORD=VALUE-pairs-per-
+line parsing, a parenthesized value, the `NODETYPE`/`CPNAME` pair that
+answers the APPN-enablement question, and the confirmed two-token-value
+truncation limitation (`HPRPST`); and an APPN topology summary block
+covering the checkpoint/ADJ/NN/EN/SERVED EN/CDSERVR/ICN/BN counts plus
+the INITDB checkpoint dataset/garbage-collection fields, and confirming a
+dump with no `##TOPO` block returns `None` rather than a half-populated
+record) — **the entire fixture is now confirmed against real replies
+(across two follow-up rounds), same as USS mounts above; see
+`vtam_parser.py`'s module docstring for exactly what changed from the
+original guesses.** Also
 TCP/IP parsing (`sample_tcpip.txt`, covering paired `LINKNAME:`/`ADDRESS:`
 home-address lines, a `PROFILE.TCPIP` excerpt with a comment line that
 must be skipped, and confirming the `##PROFILE` block/`source_dsn` is
 simply absent when a dump has no profile fetch) — **both also built
 against hand-constructed fixtures, not a real system reply; see
-`vtam_parser.py`/`tcpip_parser.py`'s module docstrings.** Also SMS parsing
-(`sample_sms.txt`, covering storage groups with multi-volume continuation
-lines, storage/management classes with generically-captured
-`KEYWORD(VALUE)` attributes, and message-ID banner lines like `IGD002I`/
-`END` proven not to be mistaken for a class name) — **also built against
-a hand-constructed fixture, not a real system reply; see
-`sms_parser.py`'s module docstring.** Also WLM policy parsing
-(`sample_wlm.txt`, covering a policy name/mode pair, plus a test that an
-unrecognized/empty dump returns `None` rather than a half-populated
-record) — **also built against a hand-constructed fixture, not a real
-system reply; see `wlm_parser.py`'s module docstring.** Also deepened DB2
+`vtam_parser.py`/`tcpip_parser.py`'s module docstrings.** Also SMS storage
+group parsing (`sample_sms.txt`, now the real confirmed two-section reply
+shape rather than the originally-guessed one, covering a `STORGRP TYPE
+SYSTEM=` header shared across several consecutive group rows, `TYPE`
+(`POOL`/`TAPE`) and raw per-system status symbols like `+ +`/`+ -`, a
+separate flat `VOLUME`-to-`STORGRP` table proven to attribute volumes
+back to the right group by name, a `TAPE`-type group proven to get zero
+volumes via the real `LISTVOL IS IGNORED FOR OBJECT, OBJECT BACKUP, AND
+TAPE STORAGE GROUPS` marker, and legend/footer lines proven not to be
+mistaken for volume rows) — **confirmed against a real system; storage
+classes/management classes were removed entirely (no console command for
+either exists) rather than left as untestable dead code — see
+`sms_parser.py`'s module docstring for the full before/after.** Also WLM
+policy parsing
+(`sample_wlm.txt`, now the real confirmed `IWM025I` reply shape rather
+than the originally-guessed one, covering the policy name, `mode` being
+inferred as `GOAL` from the policy name's presence rather than parsed
+from a `MODE=` token that doesn't actually exist in a real reply, plus a
+test that an unrecognized/empty dump returns `None` rather than a
+half-populated record) — **confirmed against a real system; see
+`wlm_parser.py`'s module docstring for the real reply and why the
+originally-guessed command didn't even exist.** Also deepened DB2
 catalog parsing (`sample_db2_catalog.txt`, covering DSNTEP2-shaped
 packages/plans, the `;;SSID=` marker line, and dashed separator/column-
 header/`DSNE6xxI` message lines proven not to be mistaken for data rows)
@@ -632,14 +773,28 @@ returning an empty list rather than raising) — **built against hand-
 constructed JSON, not a real z/OSMF response, and the single most
 speculative parser in the entire pipeline: see
 `wlm_zosmf_parser.py`'s module docstring for why even the response shape
-itself is a guess.**
+itself is a guess.** Also deepened CICS resource parsing
+(`sample_cics_deepening.txt`, covering `##DFHRPL`/`##SIT`/`##CSD`/
+`##CSDUP_REPORT` blocks: DFHRPL entries with `zone`/`apf_authorized` left
+unset by the parser, generically-captured SIT `KEYWORD=VALUE` overrides
+incl. a comma-separated pair on one line, and a DFHCSDUP LIST report
+excerpt proving a `GROUP:` marker line's value carries forward onto
+subsequent resource rows until the next one, with a page-banner line
+proven not to be mistaken for a data row) — **built against a
+hand-constructed fixture, not a real CICS startup PROC or DFHCSDUP LIST
+report; the `##CSDUP_REPORT` portion specifically is the most speculative
+parser in the pipeline alongside `db2_catalog_parser.py`/
+`wlm_zosmf_parser.py`, and uniquely so on two axes at once (report
+*format*, not just "not checked against a real system" like everywhere
+else) — see `cics_csdup_parser.py`'s module docstring.**
 
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
   `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
   `*catalog*.txt` / `*uss_mounts*.txt` / `*jes2parm*.txt` / `*vtam*.txt` /
-  `*tcpip*.txt` / `*sms*.txt` / `*db2_catalog*.txt` / `*wlm_zosmf*.txt`
+  `*tcpip*.txt` / `*sms*.txt` / `*db2_catalog*.txt` / `*wlm_zosmf*.txt` /
+  `*cics_deepening*.txt`
   files in the input directory — just keep adding files as you extract
   more PROCLIB/PARMLIB concatenation entries, more SMP/E zones, more
   HLQ/pattern groups, or more JES2 PARMLIB concatenation entries;
@@ -663,10 +818,17 @@ itself is a guess.**
   future multi-system merge (one inventory DB per system, or a `system`
   column added throughout) would key each ingest run on.
 - The `smpe_parser` module's docstring explains how to tune its regexes if
-  your shop's SMP/E LIST report formatting differs from the fixture; the
-  `sysinfo_parser` module's docstring has the same guidance for `D
-  SYMBOLS`/`D IPLINFO` output, which varies more by release/site than
-  SMP/E's LIST format does. `catalog_parser`'s `##LISTCAT`-block regexes
+  your shop's SMP/E LIST report formatting differs from the fixture.
+  `sysinfo_parser`'s `D SYMBOLS`/`D IPLINFO` regexes are now **confirmed**
+  against a real reply (a follow-up round provided one) -- the real shape
+  differed from the original guess in a few places that mattered (no
+  `SYSNAME  = &SYSNAME. = value` label prefix on symbol lines, `VOLUME(x)`
+  not `VOLUME: x`, and no `IPL PARM nn` text at all -- `ipl_parm_member`
+  is now sourced from `IEASYS LIST = (...)` instead, same field
+  `discover_active_parmlib_suffixes.yml` already parses); see the module's
+  own docstring for the full before/after. If your site's release/symbol
+  set produces something different, that docstring is still the place to
+  compare against and tune. `catalog_parser`'s `##LISTCAT`-block regexes
   carry the same caveat — IDCAMS `LISTCAT ALL` report layout is documented
   but wasn't calibrated against a real system's actual output while
   writing this; the `##NONVSAM` block (from ZOAU's `datasets` API

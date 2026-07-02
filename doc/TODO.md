@@ -77,18 +77,35 @@ validation against an actual z/OS system, and for the WLM/z/OSMF round
 specifically, against a real z/OSMF instance to nail down the actual REST
 endpoint/schema).
 
-**One further domain has since been scoped but deliberately NOT
-implemented: domain 7, deepened CICS resource view (DFHRPL lineage +
-`DFHCSDUP` definitions)** -- see its own section below. The user
-confirmed the one real judgment call in it (explicit `zos_extract_cics_proc`
-config over fragile job-name-to-PROC-name auto-discovery, matching
-`zos_extract_db2_ssid`/`zos_extract_smpe_csi`'s own precedent), but real
-uncertainty about `DFHCSDUP`'s control-statement syntax and concurrent
-CSD-access safety remains -- that needs real docs/a real system to
-resolve, not a judgment call, so it's still written up as a design sketch
-only, the same way domains 3/5/6 were sketched before being picked up --
-not started yet. APPN topology via `D NET,TOPO` also remains unstarted (skipped
-deliberately when VTAM/TCPIP was implemented, see below).
+**Domain 7 (deepened CICS resource view: DFHRPL lineage + `DFHCSDUP` CSD
+definitions) is now implemented too**, in a follow-up round after this
+plan was first written. The two things that had blocked it -- real
+`DFHCSDUP` control-statement syntax and concurrent CSD-access safety --
+were resolved via web research against IBM's own CICS TS documentation
+and a real IBM APAR record (PM04030, whose own title references the exact
+`PARM='CSD(READONLY)'` read-only access parameter this pipeline now
+uses), not guessed: `LIST ALL` / `LIST LIST(name) OBJECTS` are confirmed
+real DFHCSDUP LIST operands, and `CSD(READONLY)` is the documented way to
+read a live region's CSD without quiescing it (quiescing is only a
+documented requirement for *update* access to a recoverable CSD opened in
+RLS mode). What's still genuinely unconfirmed -- and now the single most
+speculative parsing surface in the whole pipeline -- is DFHCSDUP's own
+LIST report *print format* (no real sample was found even after that
+research); see `ansible/roles/zos_extract/tasks/cics_deepening.yml`'s and
+`inventory/inventory/cics_csdup_parser.py`'s own header
+comments/docstrings for the full caveat. **APPN topology via `D NET,TOPO`
+is now implemented too**, in a further follow-up round: it had been
+skipped deliberately when VTAM/TCPIP was first implemented (see below)
+for the same "format uncertainty, no real sample available" reason CICS
+was, but a real reply was provided this round, resolving that uncertainty
+outright rather than leaving it as a documented guess. Its real shape
+turned out to be a topology *database summary* (counts of known
+adjacent/NN/EN nodes plus checkpoint/garbage-collection metadata, message
+IDs `IST1306I`/`IST1307I`/`IST1781I`/`IST1785I`), not a list of individual
+known nodes by name as originally assumed -- see
+`inventory/inventory/vtam_parser.py`'s module docstring and
+`VtamTopologySummary` in `models.py`. `D NET,MAJNODES`/`D NET,VTAMOPTS`
+remain unconfirmed, same as before.
 
 IBM's own docs site and a few secondary sources were checked this round
 for real `D NET,MAJNODES`/`D NET,TOPO`/`D NET,VTAMOPTS`/`D TCPIP,,NETSTAT`
@@ -336,7 +353,9 @@ Two `zos_operator` calls, bundled into one `vtam.txt` via the
   **not** attempted this round per the user's own call, given the same
   format-uncertainty -- `D NET,VTAMOPTS`'s `NODETYPE` is the extent of
   APPN coverage here; topology capture is a candidate follow-up once a
-  real reply can be checked.
+  real reply can be checked. **Update, later round: that real reply
+  arrived and `D NET,TOPO` is now implemented and confirmed -- see the
+  top-of-file summary and `vtam_parser.py`'s current module docstring.**
 
 ### TCPIP (`ansible/roles/zos_extract/tasks/tcpip.yml`, tag `tcpip`)
 
@@ -473,7 +492,7 @@ plan later, not bundled into this sketch.
 
 ---
 
-## 7. Deepened CICS resource view (DFHRPL lineage + DFHCSDUP definitions) -- SCOPED ONLY, NOT IMPLEMENTED
+## 7. Deepened CICS resource view (DFHRPL lineage + DFHCSDUP definitions) -- IMPLEMENTED (follow-up round)
 
 **Goal:** `cics.yml` (already implemented) only reports "is a CICS address
 space up right now" via a `D A,L` job-name/PROCSTEP heuristic -- same
@@ -580,12 +599,26 @@ tag `cics`, `when: zos_extract_cics_proc | length > 0`):**
   every other domain.
 - Tests + hand-built fixtures for both new parsers.
 
-**Still open (needs real DFHCSDUP docs/a real system, not just a user
-judgment call):** the exact `DFHCSDUP` control-statement syntax and
-whether a batch `LIST` job can safely read a live region's CSD
-concurrently (`DISP=SHR`) or needs a backup copy first -- both remain
-unconfirmed and should be checked before implementing, the same way
-DSNTEP2's authorization/PLAN requirements needed checking for DB2.
+**Resolved via research, implemented:** `DFHCSDUP`'s control-statement
+syntax (`LIST ALL` / `LIST LIST(name) OBJECTS`) and its real read-only
+access parameter (`PARM='CSD(READONLY)'`, confirmed via IBM APAR
+PM04030's own title) were both confirmed against real IBM documentation
+rather than guessed, resolving the two blockers noted above -- see
+`ansible/roles/zos_extract/tasks/cics_deepening.yml`'s header comment for
+the full reasoning, including why `CSD(READONLY)` is the documented-safe
+way to read a live region's CSD without quiescing it.
+
+**Still genuinely open (needs a real system, not just documentation
+research):** DFHCSDUP's own LIST report *print format* -- no real sample
+was found even after the syntax/access-mode research above, so
+`cics_csdup_parser.py` is deliberately the most tolerant parser in the
+pipeline as a result (see its module docstring). Also still open: whether
+this site's actual CICS regions' CSD-access mode lets a concurrent
+`CSD(READONLY)` batch DFHCSDUP job succeed cleanly in practice, and
+whether DFHCSDUP's real return code for a clean `LIST` is always 0 (left
+at `zos_mvs_raw`'s default, unlike GIMSMP's `max_rc: 4` in
+`smplist.yml`) -- both need a real system to confirm, the same way
+DSNTEP2's authorization/PLAN requirements needed a real DB2 subsystem.
 
 ---
 
@@ -622,3 +655,64 @@ DSNTEP2's authorization/PLAN requirements needed checking for DB2.
    every "not yet validated" flag in this plan.
 4. `inventory ingest input/` then the new `inventory <domain>` command,
    confirming rows show up as expected.
+
+**Progress on step 3, this round**: the user ran real `opercmd`/console
+`D`-commands against their actual z/OS system and pasted the output back,
+across several rounds. Confirmed against real replies so far: `D
+NET,TOPO`, `D NET,MAJNODES`, `D NET,VTAMOPTS` (all of VTAM), `D OMVS,F`
+(USS mounts), `D SYMBOLS`/`D IPLINFO` (sysinfo), `D WLM` (WLM policy),
+`$DINITINFO` (JES2's own init-member discovery), and `D
+SMS,STORGRP(ALL),LISTVOL`/`D SMS,SG(ALL),LISTVOL` (SMS storage groups) --
+each parser was checked against the real text and, where it didn't
+already match, corrected and re-flagged as confirmed rather than "not yet
+validated" in both the module docstrings and both READMEs.
+
+Several of these turned out to be more than formatting fixes -- some
+originally-guessed *commands themselves* didn't exist:
+- `sysinfo_parser.py`'s regexes needed real rewrites (no `SYSNAME  =
+  &SYSNAME. = value` label prefix in a real reply, `VOLUME(x)` not
+  `VOLUME: x`, no `IPL PARM nn` text at all).
+- **`wlm.yml`'s originally-guessed command, `D WLM,POLICY`, doesn't exist
+  as a command at all** -- a real system rejected the `POLICY` keyword
+  outright; the real command is bare `D WLM`, and the real reply never
+  contains a `MODE=` token either (`mode` is now inferred as `GOAL` from
+  a policy name being present, since WLM compatibility mode is
+  desupported on modern z/OS).
+- **`discover_jes2_parmlib.yml`'s originally-guessed command, `$D
+  PARMLIB`/`$DPARMLIB`, also doesn't exist** -- confirmed invalid against
+  a real system. The real command is `$DINITINFO`, and its real reply
+  changed the *design*, not just the command name: it reports the exact
+  `dsn(member)` pairs JES2 read at startup directly, not a concatenation
+  needing a separate "find the active member" step -- `jes2parm.yml` was
+  rewritten to fetch exactly those pairs instead of dumping every member
+  of their owning dataset(s) (which, in the real reply, is a shared
+  site-wide PARMLIB that would have been noisy/wrong to dump wholesale).
+  `zos_extract_jes2_parmlibs` was renamed to `zos_extract_jes2_init_members`
+  to reflect the new shape.
+- **`sms.yml`'s originally-guessed `D SMS,SC(*)`/`D SMS,MC(*)` commands
+  don't exist at all** -- confirmed invalid against a real system, and
+  IBM's own `D SMS` syntax reference confirms there's no console
+  D-command for storage/management classes whatsoever (needs ISMF or a
+  batch report, same category as CICS/DB2/RACF). Removed entirely rather
+  than kept as dead code. `D SMS,STORGRP(*),LISTVOL` also had a real
+  syntax bug (`*` isn't valid, only a name/`ALERT`/`ALL`) -- fixed to `D
+  SMS,STORGRP(ALL),LISTVOL`, then confirmed against a real reply (via the
+  `SG` alias) whose actual shape (a storage-group summary table plus a
+  *separate* flat volume-to-group table) was completely different from
+  the original "header + indented VOLSER lines" guess. `sms_parser.py`
+  was rewritten from scratch; `SmsStorageGroup` gained a `group_type`
+  field and its `status` field now holds raw per-system symbols instead
+  of a decoded word.
+
+USS mounts and VTAM's three commands, by contrast, turned out to already
+be tolerant enough to handle their real reply shapes without any code
+changes, just re-flagging.
+
+Still outstanding from the original "not yet validated" list: `D
+TCPIP,,NETSTAT,HOME`/`PROFILE.TCPIP`, the content of a real JES2 init-deck
+member (the *discovery* mechanism above is now confirmed, but
+`jes2parm_parser.py`'s own statement-parsing regexes still haven't seen
+real member text), DSNTEP2 (DB2), IRRDBU00 (RACF), IDCAMS `LISTCAT`
+(catalog), and DFHCSDUP's LIST report format (CICS) -- the last four
+aren't console `D`-commands runnable via a quick `opercmd` paste (they
+all need a batch JCL run instead).

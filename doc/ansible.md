@@ -292,60 +292,95 @@ This role won't run it unless you both set `zos_extract_racf_database_dsn` in
 ansible-playbook playbooks/site.yml --tags racf --limit lpar1
 ```
 
-### USS mounts / JES2 init parameters (not yet validated against a real reply)
+### USS mounts and JES2 init member discovery (both confirmed against real replies)
 
 `uss_mounts.yml` (`D OMVS,F`) and `discover_jes2_parmlib.yml`/`jes2parm.yml`
-(`$D PARMLIB`, JES2's own command -- distinct from `discover_parmlib.yml`'s
-plain MVS `D PARMLIB` and from `discover_proclib.yml`'s `$D PROCLIB`) are
+(JES2's own `$DINITINFO` command -- distinct from `discover_parmlib.yml`'s
+plain MVS `D PARMLIB` and from `discover_proclib.yml`'s `$D PROCLIB`) were
 both implemented and unit-tested against hand-built fixtures the same way
-RACF was, but **neither has been confirmed against a real reply from an
-actual system yet** -- unlike `$D PROCLIB`, which this role's own comments
-note was confirmed against a real JES2 reply. Specifically:
+RACF was. **Both are now confirmed against real replies.** Specifically:
 
 - `uss_mounts.yml` writes `D OMVS,F`'s raw console reply verbatim (same
   "capture raw, parse off-host" approach as `sysinfo.yml`) rather than
   parsing it in Jinja -- the real regex work lives entirely in
-  `inventory/inventory/uss_mounts_parser.py`, whose docstring carries the
-  validation caveat.
-- `discover_jes2_parmlib.yml` assumes `$D PARMLIB` wraps its reply the
-  same `$HASPnnn`-prefixed way `$D PROCLIB` does, but matches any
-  `$HASPnnn` message ID generically (`\$HASP\d+`) rather than a specific
-  confirmed number, since the exact ID this command replies with isn't
-  known here.
+  `inventory/inventory/uss_mounts_parser.py`, whose module docstring now
+  has the confirmed real per-filesystem shape and the one thing that
+  differed from the original guess (`NAME=`/`PATH=` land on separate
+  continuation lines, not combined on one line -- didn't require a code
+  change, since the parser already matched each independently).
+- `discover_jes2_parmlib.yml`/`jes2parm.yml` needed a bigger fix than a
+  formatting tweak. The originally-guessed command, `$D PARMLIB`
+  (`$DPARMLIB`), **doesn't exist** -- confirmed against a real system
+  ("not valid JES commands"). The real command is `$DINITINFO`
+  ("display initialization information"), replying with message
+  `$HASP825` and, critically, a **different design realization**: the
+  real reply doesn't describe a concatenation needing a separate "find
+  the active member" step the way PROCLIB/PARMLIB do -- it lists the
+  *exact* `dsn(member)` pairs JES2 actually read at startup directly
+  (via `DSN=`, not `DSNAME=` -- confirmed these two JES2 messages
+  genuinely use different field names). `jes2parm.yml` was rewritten to
+  fetch exactly those discovered pairs directly (one `zos_fetch` per
+  pair) instead of reusing `_member_dump.yml`'s "list and dump every
+  member of the whole dataset" approach `proclib.yml`/`ssn_commnd.yml`
+  use -- that broader approach would have been actively wrong here: the
+  real reply's owning dataset (`SYS1.BES2.PARMLIB` at the site that
+  confirmed this) is a site-wide shared PARMLIB holding many unrelated
+  members, not just JES2's own. `zos_extract_jes2_parmlibs` was renamed
+  to `zos_extract_jes2_init_members` (a list of `{dsn, member}` pairs,
+  not `{dsn, prefix}`) to reflect this.
 
-Run `ansible-playbook playbooks/site.yml --tags uss_mounts,jes2parm
---limit lpar1` against a real system and check the resulting
-`uss_mounts.txt`/`*_jes2parm.txt` against what the parsers assume before
-relying on either dimension.
+The command/discovery mechanism above is now confirmed; what still isn't
+is the *content* of a real JES2 init-deck member (`jes2parm_parser.py`'s
+own regexes) -- that needs a real member's text, not just its name, to
+confirm.
 
-### VTAM/APPN/TCPIP (not yet validated against a real reply)
+Run `ansible-playbook playbooks/site.yml --tags jes2parm --limit lpar1`
+against a real system and check the resulting `*_jes2parm.txt` against
+what `jes2parm_parser.py` assumes before relying on that dimension.
 
-`vtam.yml` (`D NET,MAJNODES` + `D NET,VTAMOPTS`) and `tcpip.yml`
-(`D TCPIP,,NETSTAT,HOME`, plus an opt-in `PROFILE.TCPIP` dataset fetch)
-are implemented and unit-tested against hand-built fixtures the same way
-USS mounts/JES2 init parameters were, but **none of the three commands
-(nor a real `PROFILE.TCPIP` sample) has been confirmed against a real
-reply from an actual system** -- IBM's own docs site 403'd on direct
-fetch and no secondary source turned up real sample output for any of
-them while writing this either. Specifically:
+### VTAM/APPN/TCPIP (VTAM fully confirmed; TCPIP still not validated)
 
-- `vtam.yml` bundles both D-commands' raw console replies into one
+`vtam.yml` (`D NET,MAJNODES` + `D NET,VTAMOPTS` + `D NET,TOPO`) and
+`tcpip.yml` (`D TCPIP,,NETSTAT,HOME`, plus an opt-in `PROFILE.TCPIP`
+dataset fetch) are implemented and unit-tested against hand-built
+fixtures the same way USS mounts/JES2 init parameters were. **All three
+VTAM commands are now confirmed against real replies** (across two
+follow-up rounds -- `D NET,TOPO` first, then `D NET,MAJNODES`/`D
+NET,VTAMOPTS`). **`D TCPIP,,NETSTAT,HOME` (and a real `PROFILE.TCPIP`
+sample) still haven't been confirmed** -- IBM's own docs site 403'd on
+direct fetch and no secondary source turned up real sample output for
+either while writing this. Specifically:
+
+- `vtam.yml` bundles all three D-commands' raw console replies into one
   `vtam.txt` via the same `##BLOCKNAME`-sentinel convention `sysinfo.yml`
   uses for `D SYMBOLS`/`D IPLINFO` -- the real parsing lives entirely in
-  `inventory/inventory/vtam_parser.py`, whose docstring carries the
-  validation caveat. `D NET,MAJNODES` rows are matched by a name token
-  followed by a known status value (`ACTIV`/`ACT/S`/`INACT`/`PEND*`)
-  rather than fixed columns; `D NET,VTAMOPTS` is captured generically as
-  `KEYWORD=VALUE` pairs (same idiom `discover_active_members.yml` uses
-  for IEASYSxx), not a narrow `nodetype`/`cpname`-only model -- **APPN
-  enablement/role is answered by filtering that generic table for the
-  `NODETYPE`/`CPNAME` keywords**, not a dedicated field.
-- `D NET,TOPO` (the APPN topology database -- adjacent/known network
-  nodes) is deliberately **not** captured this round: its reply shape is
-  even less certain than the two commands above, and this was an
-  explicit call to not guess at it rather than ship an unreliable parser
-  for the one piece with the least documentation to go on. A candidate
-  follow-up once a real reply can be checked against it.
+  `inventory/inventory/vtam_parser.py`, whose docstring carries the full
+  before/after detail for each command. `D NET,MAJNODES` rows are
+  matched by a name token followed by a known status value
+  (`ACTIV`/`ACT/S`/`INACT`/`PEND*`) rather than fixed columns -- the real
+  per-row shape (`IST089I NAME  TYPE = ..., STATUS`) differs from the
+  original guess, but this tolerant match handled it without a code
+  change. `D NET,VTAMOPTS` is captured generically as `KEYWORD=VALUE`
+  pairs (same idiom `discover_active_members.yml` uses for IEASYSxx,
+  confirmed to appear two-per-line in the real reply), not a narrow
+  `nodetype`/`cpname`-only model -- **APPN enablement/role is answered by
+  filtering that generic table for the `NODETYPE`/`CPNAME` keywords**,
+  not a dedicated field. One confirmed, minor, low-impact limitation: a
+  couple of keywords (`HPRPST`, `IQDIOSTG`) have two-token values in the
+  real reply, and only the first token is captured -- doesn't affect
+  `NODETYPE`/`CPNAME`.
+- `D NET,TOPO` (the APPN topology database) **is now captured and
+  confirmed against a real reply**, unlike the two commands above -- a
+  real system provided one in a follow-up round after this domain was
+  first implemented. Its actual shape turned out to be a topology
+  *database summary* (counts of known adjacent/NN/EN nodes plus
+  checkpoint/garbage-collection metadata, anchored on message IDs
+  `IST1306I`/`IST1307I`/`IST1781I`/`IST1785I`), not a list of individual
+  known nodes by name -- contrary to what the original round assumed when
+  it explicitly skipped this command for being "even less certain" than
+  MAJNODES/VTAMOPTS. Modeled as a single record (`VtamTopologySummary` in
+  `models.py`, same shape as `SystemInfo`/`WlmPolicy`), queryable via
+  `inventory vtam-topology`.
 - `tcpip.yml`'s `D TCPIP,,NETSTAT,HOME` capture always runs; the
   `PROFILE.TCPIP` fetch only runs if `zos_extract_tcpip_profile_dsn` is
   set (it can name either a sequential dataset or a PDS member, e.g.
@@ -357,62 +392,88 @@ them while writing this either. Specifically:
   (`DEVICE`/`LINK`/`HOME`/`PORT` ...), not uniform `KEYWORD=VALUE` like
   `VTAMOPTS`.
 
-Run `ansible-playbook playbooks/site.yml --tags vtam,tcpip --limit
-lpar1` (add `-e '{"zos_extract_tcpip_profile_dsn": "YOUR.PROFILE.DSN"}'`
+Run `ansible-playbook playbooks/site.yml --tags tcpip --limit lpar1`
+(add `-e '{"zos_extract_tcpip_profile_dsn": "YOUR.PROFILE.DSN"}'`
 to also exercise the profile fetch) against a real system and check the
-resulting `vtam.txt`/`tcpip.txt` against what the parsers assume before
-relying on any of these dimensions.
+resulting `tcpip.txt` against what `tcpip_parser.py` assumes before
+relying on that dimension -- `vtam.txt` no longer needs this since all
+three VTAM commands are confirmed.
 
-### SMS (not yet validated against a real reply)
+### SMS (storage groups confirmed; storage/management classes removed -- no such console command exists)
 
-`sms.yml` issues `D SMS,STORGRP(*),LISTVOL`, `D SMS,SC(*)`, and
-`D SMS,MC(*)` and bundles all three raw console replies into one
-`sms.txt` via the same `##BLOCKNAME`-sentinel convention `vtam.yml`/
-`tcpip.yml` use. **None of the three commands has been confirmed against
-a real reply from an actual system** -- same situation as VTAM/TCPIP
-above. ACS routine *source* is explicitly out of scope: reading those
-needs ISMF, not a read-only `D`-command. Runs unconditionally (like
-`lnklst`/`apf`), not gated behind an enablement flag.
+`sms.yml` issues `D SMS,STORGRP(ALL),LISTVOL` and writes its raw reply
+verbatim to `sms.txt` (no `##BLOCKNAME` bundling needed anymore -- see
+below). Runs unconditionally (like `lnklst`/`apf`), not gated behind an
+enablement flag.
 
-- `D SMS,STORGRP(*),LISTVOL` rows are matched the same way USS mounts'
-  `D OMVS,F` rows are: a header line (storage group name + an
-  `ENABLE`/`DISABLE`/`NOTCNCT` status token) followed by indented
-  continuation lines listing that group's VOLSERs, tolerant of exact
-  column spacing rather than fixed-offset.
-- `D SMS,SC(*)`/`D SMS,MC(*)` are captured generically (class name +
-  `KEYWORD(VALUE)` attribute pairs, ISMF's own display convention) via
-  `inventory/inventory/sms_parser.py`, the same "capture everything
-  generically" approach `VtamStartOption`/`Jes2InitStatement` use rather
-  than hand-modeling every storage/management class attribute. Message-ID
-  banner/footer lines (e.g. `IGD002I`, `END`) are excluded from being
-  mistaken for a class name via a generic z/OS message-ID pattern
-  (letters+digits+optional-letter), not a specific confirmed ID.
+**This domain originally also issued `D SMS,SC(*)`/`D SMS,MC(*)` to list
+storage classes and management classes -- both confirmed INVALID against
+a real system.** IBM's own full `D SMS` command syntax reference confirms
+why: there's no console `D`-command that lists storage classes or
+management classes at all (`STORCLAS` only appears as a filter on the
+unrelated PDSE `HSPSTATS` cache-statistics command; `MGMTCLAS` doesn't
+appear in `D SMS`'s syntax at all). That's a bigger limitation than the
+already-documented "ACS routine *source* needs ISMF, not a `D`-command" --
+it turns out the class *definitions themselves* need ISMF (or a batch
+report against the SCDS/ACDS) too, not just their ACS routine logic.
+Removed entirely (Ansible task, Python model/parser/store/CLI) rather
+than kept as dead code for commands that don't exist -- a candidate
+follow-up in the same category as CICS's `DFHCSDUP`/DB2's `DSNTEP2`/
+RACF's `IRRDBU00` (a batch job, not a console command) if ever picked up.
+
+**`D SMS,STORGRP(*),LISTVOL` also had a real syntax bug** (corrected to
+`D SMS,STORGRP(ALL),LISTVOL` -- IBM's documented syntax only accepts a
+specific group name, `ALERT`, or `ALL`, not `*`), and **is now confirmed
+against a real reply** (via the `SG` alias for `STORGRP`, both documented
+as equivalent). The real shape turned out to be completely different from
+the original guess -- not "header line + indented VOLSER continuation
+lines" per group, but two separate sections:
+- A storage-group summary table (name, `TYPE` -- `POOL`/`TAPE`/etc --,
+  and a raw per-system status *symbol* sequence like `+ +`, not a decoded
+  `ENABLE`/`DISABLE`/`NOTCNCT` word as originally guessed -- see the
+  reply's own `LEGEND` for what each symbol means). A `STORGRP TYPE
+  SYSTEM=` header line can appear once before *several* consecutive group
+  rows, not once per group.
+- A completely separate, flat `VOLUME`-to-`STORGRP` mapping table, using
+  each row's first token (VOLSER) and last token (owning group name) --
+  ended by the real, stable `LISTVOL IS IGNORED FOR OBJECT, OBJECT
+  BACKUP, AND TAPE STORAGE GROUPS` marker line, which also explains why
+  `TAPE`-type groups never get volume rows.
+
+`inventory/inventory/sms_parser.py` was rewritten from scratch against
+the real text; see its module docstring for the full detail, and
+`SmsStorageGroup` in `models.py` for the new `group_type` field this
+added.
 
 Run `ansible-playbook playbooks/site.yml --tags sms --limit lpar1`
-against a real system and check the resulting `sms.txt` against what
-`sms_parser.py` assumes before relying on this dimension.
+against a real system if you want to double-check this against your own
+site's reply -- it's confirmed against one real system already, but not
+independently re-verified elsewhere.
 
-### WLM (first cut only, not yet validated against a real reply)
+### WLM (first cut only, confirmed against a real reply)
 
-`wlm.yml` issues a single `D WLM,POLICY` and writes its raw console reply
+`wlm.yml` issues a single `D WLM` and writes its raw console reply
 verbatim to `wlm.txt` (no `##BLOCKNAME` bundling needed, same "single
 command, no bundling" shape `uss_mounts.yml` uses). This is a **minimal
-first cut**: just the active policy name and, if the reply exposes it,
-its mode (`GOAL`/`COMPATIBILITY`) — modeled directly on `sysinfo.yml`'s
-"single small record" shape. Full service-class/goal/resource-group
-definitions need the z/OSMF WLM REST API (the already-pinned-but-unused
-`ibm.ibm_zosmf` collection), a materially bigger follow-up not attempted
-here. Runs unconditionally, no new config variable needed.
+first cut**: just the active policy name and its mode — modeled directly
+on `sysinfo.yml`'s "single small record" shape. Full service-class/goal/
+resource-group definitions need the z/OSMF WLM REST API (the
+already-pinned-but-unused `ibm.ibm_zosmf` collection), a materially
+bigger follow-up not attempted here. Runs unconditionally, no new config
+variable needed.
 
-**`D WLM,POLICY`'s reply hasn't been confirmed against a real system** —
-same situation as SMS/VTAM/TCPIP above. `inventory/inventory/wlm_parser.py`
-anchors on the `POLICY NAME=`/`MODE=` keyword tokens, tolerant of
-surrounding whitespace/noise, leaving either field `None` if its pattern
-doesn't match rather than erroring.
-
-Run `ansible-playbook playbooks/site.yml --tags wlm --limit lpar1`
-against a real system and check the resulting `wlm.txt` against what
-`wlm_parser.py` assumes before relying on this dimension.
+**Confirmed against a real system — and the fix needed was bigger than a
+formatting tweak.** The originally-guessed command, `D WLM,POLICY`,
+**doesn't exist**: a real system rejected it outright ("WLM SYNTAX ERROR,
+UNIDENTIFIABLE KEYWORD" for the `POLICY` keyword). The real command is
+bare `D WLM` (no operand), confirmed against both IBM's own documentation
+and a real reply from this site (message `IWM025I`). That real reply also
+never contains a `MODE=` token anywhere — `wlm_parser.py` now anchors on
+the stable `POLICY NAME:` token and infers `mode="GOAL"` from a policy
+name being present at all (WLM compatibility mode is desupported on
+modern z/OS releases), rather than parsing a mode keyword that doesn't
+exist. See `wlm_parser.py`'s module docstring for the full detail and the
+real sample reply.
 
 ### Deepened DB2 catalog view (opt-in, the most speculative *console/MVS-program* domain in the pipeline)
 
@@ -505,6 +566,93 @@ for your z/OS release before trusting the default path, and see
 how loosely the response JSON is interpreted (and how to fix it once you
 know the real shape).
 
+### Deepened CICS resource view (opt-in, DFHRPL lineage + DFHCSDUP CSD definitions)
+
+`cics_deepening.yml` (tag `cics`, same tag as `cics.yml` above, but gated
+separately by `zos_extract_cics_proc`) goes beyond `cics.yml`'s "is a CICS
+address space up right now" heuristic to two things genuinely reachable
+without CMCI/CICSplex SM: DFHRPL (CICS's own load-library concatenation,
+functionally STEPLIB/JOBLIB for CICS's own dynamic program loading) and
+real CICS resource definitions read from the CSD via a read-only
+`DFHCSDUP LIST` run. CICS resource-definition deepening was explicitly
+scoped but not implemented in an earlier round of this project, pending
+real `DFHCSDUP` documentation to resolve two open questions -- both are
+now confirmed against IBM's own CICS TS documentation:
+
+- **`DFHCSDUP` LIST command syntax**: `LIST ALL` (enumerates every
+  list/group name on the CSD) and `LIST LIST(name) OBJECTS` (full
+  resource-definition attributes for every group in a named list) are
+  real, documented operands. `_cics_csdup_dump.yml` always runs `LIST
+  ALL`, plus one `LIST LIST(grplist) OBJECTS` per distinct `GRPLIST`
+  value found among the querying CSD's own CICS region(s)' SIT overrides
+  (see below) -- GRPLIST is exactly "the list of groups this region
+  actually uses," a grounded choice rather than a guess at an arbitrary
+  group/list name.
+- **Concurrent access to a live region's CSD**: `PARM='CSD(READONLY)'`
+  is DFHCSDUP's real, documented read-only access option (default is
+  `CSD(READWRITE)`) -- confirmed via IBM APAR PM04030's own title, which
+  references this exact parameter string. Quiescing a CSD before running
+  DFHCSDUP is only a documented requirement for *update* access to a
+  recoverable CSD opened in RLS mode; read-only access doesn't need it,
+  which is why this pipeline only ever uses `CSD(READONLY)`.
+
+Unlike DB2's deepening above, DFHCSDUP's own LIST report *print format*
+(the column layout its SYSPRINT output actually uses) is still
+unconfirmed -- no real sample was found while researching this, only a
+secondhand forum mention of column positions for what may be a different
+report variant. `inventory/inventory/cics_csdup_parser.py` is
+deliberately the most tolerant parser in the pipeline as a result (a
+generic "resource-type-like token + resource-name-like token" row match,
+with the current `GROUP:` marker line's value carried forward) -- see its
+module docstring for the full caveat, including why this is speculative
+on two separate axes at once (report format, on top of the usual "not
+checked against a real system").
+
+- Opt-in: skipped entirely unless `zos_extract_cics_proc` (a list of CICS
+  startup PROCLIB member names) is set. There's no reliable
+  live-discoverable link from a running CICS job name back to its
+  starting PROCLIB member (`D A,L`'s `PROCSTEP` is the step name within
+  the PROC, not the PROC's own member name) -- unlike PROCLIB/PARMLIB/
+  JES2 parmlib, which each have a real console command or IEASYSxx-keyword
+  path to their active member -- so this needs explicit configuration,
+  the same precedent `zos_extract_db2_ssid`/`zos_extract_smpe_csi`
+  already set.
+- For each configured PROC, `_cics_proc_dump.yml` locates and fetches it
+  from `zos_extract_proclibs` (same `zos_find` + `subelements`/
+  `selectattr` + `zos_fetch` idiom `discover_mstrjcl_proclibs.yml`/
+  `_fetch_active_ieasys_member.yml` already use for MSTJCLxx/IEASYSxx),
+  then pulls DFHRPL DSNs and the DFHCSD DD's DSN out of the fetched JCL
+  text via the same "DD group" `regex_findall` idiom
+  `discover_mstrjcl_proclibs.yml` uses for `IEFPDSI`, reused
+  near-verbatim, plus the startup step's inline SYSIN cards (SIT
+  overrides).
+- If `zos_extract_cics_sdfhload` (the CICS SDFHLOAD library -- DFHCSDUP's
+  own STEPLIB, since it isn't normally reachable via LNKLST) is set,
+  `_cics_csdup_dump.yml` then runs DFHCSDUP once per distinct discovered
+  CSD DSN via `zos_mvs_raw` -- mirrors `db2_catalog.yml`/`racf.yml`/
+  `catalog.yml`'s `zos_mvs_raw` precedent exactly (`SYSUT1` is a real
+  scratch work dataset DFHCSDUP itself needs, named via
+  `zos_extract_cics_workhlq`, same idiom `zos_extract_smpe_workhlq` uses
+  for GIMSMP's `SMPWRK6`). Leave `zos_extract_cics_sdfhload` blank to
+  skip the DFHCSDUP job entirely while still getting DFHRPL/SIT/CSD-dsn
+  discovery.
+- All four pieces (DFHRPL entries, SIT overrides, CSD dsns, and the
+  DFHCSDUP report text) bundle into one `cics_deepening.txt` via the same
+  `##BLOCKNAME`-sentinel convention `vtam.txt`/`sms.txt` already use --
+  `##DFHRPL`, `##SIT`, `##CSD`, `##CSDUP_REPORT` -- with `;;PROC=`/
+  `;;CSD_DSN=` marker lines (same idiom `db2_catalog.yml`'s `;;SSID=`/
+  `tcpip.yml`'s `;;SOURCE_DSN=` markers already use) identifying which
+  region/CSD each entry came from.
+
+Run `ansible-playbook playbooks/site.yml --tags cics --limit lpar1
+-e '{"zos_extract_cics_proc": ["YOUR_CICS_PROC"], "zos_extract_cics_sdfhload": "YOUR.CICS.SDFHLOAD"}'`
+against a real system and check the resulting `cics_deepening.txt`
+against what `cics_proc_parser.py`/`cics_csdup_parser.py` assume before
+relying on this dimension -- especially the `##CSDUP_REPORT` portion's
+report-format parsing, and whether this site's own CICS regions'
+CSD-access mode lets a concurrent `CSD(READONLY)` batch DFHCSDUP job
+succeed cleanly in practice, not just per IBM's general documentation.
+
 ### A performance note on `catalog`
 
 Unlike `zoautil_py`'s `datasets.list_datasets()` (which returns DSORG/RECFM/
@@ -593,20 +741,22 @@ roles/zos_extract/
     jes2parm.yml               # dumps every member of every JES2 PARMLIB
                                 # entry (see _member_dump.yml) -- JES2's
                                 # own init deck, not yet validated
-    vtam.yml                   # 'D NET,MAJNODES' + 'D NET,VTAMOPTS'
-                                # bundled into one vtam.txt (see above) --
-                                # not yet validated against a real reply
+    vtam.yml                   # 'D NET,MAJNODES' + 'D NET,VTAMOPTS' +
+                                # 'D NET,TOPO' bundled into one vtam.txt
+                                # (see above) -- all three confirmed
+                                # against real replies
     tcpip.yml                  # 'D TCPIP,,NETSTAT,HOME' (always) + opt-in
                                 # PROFILE.TCPIP fetch, bundled into one
                                 # tcpip.txt (see above) -- not yet
                                 # validated against a real reply
-    sms.yml                    # 'D SMS,STORGRP(*),LISTVOL' + 'D SMS,SC(*)'
-                                # + 'D SMS,MC(*)' bundled into one sms.txt
-                                # (see above) -- not yet validated against
-                                # a real reply
-    wlm.yml                    # 'D WLM,POLICY' captured raw into wlm.txt
-                                # (see above) -- first cut only, not yet
-                                # validated against a real reply
+    sms.yml                    # 'D SMS,STORGRP(ALL),LISTVOL' captured raw
+                                # into sms.txt (see above) -- confirmed
+                                # against a real reply; storage/management
+                                # class capture removed (no such console
+                                # command exists)
+    wlm.yml                    # 'D WLM' captured raw into wlm.txt (see
+                                # above) -- first cut only, confirmed
+                                # against a real reply
     activity.yml             # direct `jls -o id,name,status,jobtype,asid`
                               # (not zos_job_query, see above) + `ps -ef`
                               # for the live jobs/processes snapshot
@@ -621,6 +771,14 @@ roles/zos_extract/
                                 # deepened DB2 packages/plans view (see
                                 # above) -- the most speculative domain in
                                 # the pipeline, not yet validated
+    cics_deepening.yml, _cics_proc_dump.yml, _cics_csdup_dump.yml
+                                # opt-in DFHRPL lineage + DFHCSDUP CSD
+                                # definitions (see above) -- the
+                                # DFHCSDUP LIST report format is the most
+                                # speculative parsing surface in the
+                                # pipeline, even though the command
+                                # syntax/read-only access mode sent to it
+                                # are confirmed against real IBM docs
     smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
                                # _smplist_zone.yml, the shared per-zone
                                # worker)
