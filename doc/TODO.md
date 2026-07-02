@@ -419,7 +419,8 @@ IEASYSxx.)
   reservations) rather than uniform `KEYWORD=VALUE` like VTAMOPTS/JES2 --
   modeling every statement type isn't worth it given the same
   uncertainty as everything else in this section. Skip comment lines
-  (`;` is `PROFILE.TCPIP`'s comment marker).
+  (`;` is `PROFILE.TCPIP`'s comment marker, confirmed to also work
+  mid-line, not just as a full-line comment).
 - `parse_tcpip(path) -> tuple[list[TcpipHomeAddress],
   list[TcpipProfileStatement]]`, same shape as `parse_catalog()`/
   `parse_vtam()`.
@@ -431,9 +432,24 @@ IEASYSxx.)
   and each entry carries its own `FLAGS:` line (sometimes `PRIMARY`,
   which `is_primary` now captures); `tcpip_parser.py` was fixed to
   handle both row kinds (the original guess only matched `LINKNAME:`
-  and silently dropped every `INTFNAME:` entry). **`PROFILE.TCPIP`
-  statement parsing is still not yet validated** against a real sample
-  -- same flagging convention as everywhere else in this plan.
+  and silently dropped every `INTFNAME:` entry).
+- **`PROFILE.TCPIP` statement parsing also CONFIRMED against a real
+  member on 2026-07-02**, and needed an actual redesign rather than
+  regex tuning: the original "every non-comment, non-blank line is its
+  own statement" guess was wrong -- real statements like
+  `INTERFACE`/`PORT`/`AUTOLOG`/`BEGINROUTES`/`SMFCONFIG` span multiple
+  physical lines (indented sub-parameter continuations, or whole
+  indented tables bracketed by a start keyword and, where one exists,
+  an `END*` keyword). Indentation alone can't tell a new statement from
+  a continuation either -- the real member has `SMFCONFIG` statements
+  themselves indented by 2 spaces for no structural reason. Fixed by
+  recognizing a fixed, evidence-based vocabulary of top-level statement
+  keywords (`_PROFILE_STATEMENT_KEYWORDS`) instead: a line starting
+  with a known keyword (regardless of indentation) begins a new
+  statement, any other non-comment line is folded into the *current*
+  statement's operands. See `tcpip_parser.py`'s module docstring for
+  the full detail and the known limitation (an unrecognized keyword
+  gets merged into the preceding statement).
 
 ---
 
@@ -717,13 +733,19 @@ changes, just re-flagging.
 `D TCPIP,,NETSTAT,HOME` is now confirmed too (see section 4 above) --
 the real reply mixed legacy `LINKNAME:` rows with OSA-Express QDIO
 `INTFNAME:` rows the original guess never accounted for, silently
-dropping every `INTFNAME:` entry until fixed.
+dropping every `INTFNAME:` entry until fixed. `PROFILE.TCPIP` statement
+parsing is confirmed as well, against a real member -- unlike
+`NETSTAT,HOME` this one needed an actual redesign, not just regex
+tuning: real statements can span many physical lines (continuation
+sub-parameters, or whole indented tables like `PORT`'s ~80-row
+reservation list), which the original one-line-per-statement guess
+didn't account for at all.
 
-Still outstanding from the original "not yet validated" list:
-`PROFILE.TCPIP` statement parsing, the content of a real JES2 init-deck
-member (the *discovery* mechanism above is now confirmed, but
-`jes2parm_parser.py`'s own statement-parsing regexes still haven't seen
-real member text), DSNTEP2 (DB2), IRRDBU00 (RACF), IDCAMS `LISTCAT`
-(catalog), and DFHCSDUP's LIST report format (CICS) -- the last four
-aren't console `D`-commands runnable via a quick `opercmd` paste (they
-all need a batch JCL run instead).
+Still outstanding from the original "not yet validated" list: the
+content of a real JES2 init-deck member (the *discovery* mechanism
+above is now confirmed, but `jes2parm_parser.py`'s own
+statement-parsing regexes still haven't seen real member text),
+DSNTEP2 (DB2), IRRDBU00 (RACF), IDCAMS `LISTCAT` (catalog), and
+DFHCSDUP's LIST report format (CICS) -- the last four aren't console
+`D`-commands runnable via a quick `opercmd` paste (they all need a
+batch JCL run instead).

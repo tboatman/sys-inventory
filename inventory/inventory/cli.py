@@ -751,7 +751,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_tcpip_home = sub.add_parser("tcpip-home", help="list TCP/IP stack home addresses (confirmed against a real reply)")
     p_tcpip_home.set_defaults(func=cmd_tcpip_home)
 
-    p_tcpip_profile = sub.add_parser("tcpip-profile", help="list PROFILE.TCPIP configuration statements, if configured (not yet production-validated)")
+    p_tcpip_profile = sub.add_parser("tcpip-profile", help="list PROFILE.TCPIP configuration statements, if configured (confirmed against a real member)")
     p_tcpip_profile.set_defaults(func=cmd_tcpip_profile)
 
     p_sms_storgrps = sub.add_parser("sms-storgrps", help="list SMS storage groups, type, per-system status, and volumes (confirmed against a real reply)")

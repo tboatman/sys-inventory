@@ -140,7 +140,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 4 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -433,7 +433,7 @@ If you didn't ingest a `vtam.txt`, or it didn't contain a `##TOPO` block,
 this prints `no VTAM topology summary ingested` and exits with a
 non-zero status — same as `inventory sysinfo`/`inventory wlm`.
 
-### `inventory tcpip-home` (confirmed) / `inventory tcpip-profile` (not yet production-validated)
+### `inventory tcpip-home` / `inventory tcpip-profile` (both confirmed against real replies)
 
 TCP/IP home addresses (`D TCPIP,,NETSTAT,HOME`, always captured) and
 `PROFILE.TCPIP` configuration statements (only if
@@ -446,8 +446,13 @@ not uniform `KEYWORD=VALUE` — see `tcpip_parser.py`'s module docstring.
 real HOME ADDRESS LIST mixes legacy `LINKNAME:` rows with OSA-Express
 QDIO `INTFNAME:` rows, and each entry carries a `FLAGS:` line marking
 the stack's primary home address, shown as `(PRIMARY)` below.
-**`tcpip-profile` still hasn't been checked against a real
-`PROFILE.TCPIP` sample.**
+**`tcpip-profile` is confirmed against a real member too, also
+2026-07-02** — and needed a real redesign, not just regex tuning: real
+statements like `INTERFACE`/`PORT`/`AUTOLOG`/`BEGINROUTES`/`SMFCONFIG`
+span multiple physical lines (continuation sub-parameters, or whole
+indented tables like `PORT`'s port-reservation list), all folded into
+that one statement's `operands` — see `tcpip_parser.py`'s module
+docstring for exactly how.
 
 ```
 $ inventory tcpip-home
@@ -459,10 +464,26 @@ LOOPBACK6  ::1
 QDIOLE2  10.1.1.2  (PRIMARY)
 
 $ inventory tcpip-profile
-DEVICE OSA2080 MPCIPA  [TCPIP.TCPPARMS(PROFILE1)]
-HOME 10.1.1.2 ETH0LINK  [TCPIP.TCPPARMS(PROFILE1)]
-HOSTNAME MVSTCPIP  [TCPIP.TCPPARMS(PROFILE1)]
-LINK ETH0LINK IPAQENET OSA2080  [TCPIP.TCPPARMS(PROFILE1)]
+ARPAGE 20  [TCPIP.TCPPARMS(PROFILE1)]
+AUTOLOG FTPD TN3270  [TCPIP.TCPPARMS(PROFILE1)]
+BEGINROUTES ROUTE 10.1.1.0/24 = QDIOLE2 MTU 1500 ROUTE DEFAULT 10.1.1.254 QDIOLE2 MTU DEFAULTSIZE  [TCPIP.TCPPARMS(PROFILE1)]
+ENDAUTOLOG   [TCPIP.TCPPARMS(PROFILE1)]
+ENDROUTES   [TCPIP.TCPPARMS(PROFILE1)]
+GLOBALCONFIG NOTCPIPSTATISTICS  [TCPIP.TCPPARMS(PROFILE1)]
+INTERFACE QDIOLE2 DEFINE IPAQENET IPADDR 10.1.1.2/24 PORTNAME QDIOE2  [TCPIP.TCPPARMS(PROFILE1)]
+INTERFACE HPRIP DEFINE VIRTUAL IPADDR 10.1.1.1  [TCPIP.TCPPARMS(PROFILE1)]
+IPCONFIG DATAGRAMFWD  [TCPIP.TCPPARMS(PROFILE1)]
+IPCONFIG DYNAMICXCF 10.1.1.1/24 2  [TCPIP.TCPPARMS(PROFILE1)]
+PORT 7 UDP MISCSERV 7 TCP MISCSERV 21 TCP FTPD1 23 TCP TN3270  [TCPIP.TCPPARMS(PROFILE1)]
+SACONFIG ENABLED COMMUNITY public AGENT 161  [TCPIP.TCPPARMS(PROFILE1)]
+SACONFIG OSAENABLED OSASF 721  [TCPIP.TCPPARMS(PROFILE1)]
+SMFCONFIG TYPE118 TCPINIT TCPTERM FTPCLIENT TN3270CLIENT TCPIPSTATISTICS  [TCPIP.TCPPARMS(PROFILE1)]
+SMFCONFIG TYPE119 DVIPA FTPCLIENT IFSTATISTICS IPSECURITY PORTSTATISTICS PROFILE  [TCPIP.TCPPARMS(PROFILE1)]
+SOMAXCONN 10  [TCPIP.TCPPARMS(PROFILE1)]
+START QDIOLE2  [TCPIP.TCPPARMS(PROFILE1)]
+TCPCONFIG TTLS  [TCPIP.TCPPARMS(PROFILE1)]
+TCPCONFIG TCPSENDBFRSIZE 16K TCPRCVBUFRSIZE 16K SENDGARBAGE FALSE  [TCPIP.TCPPARMS(PROFILE1)]
+UDPCONFIG RESTRICTLOWPORTS  [TCPIP.TCPPARMS(PROFILE1)]
 ```
 
 ### `inventory sms-storgrps` (confirmed against a real reply)
@@ -741,13 +762,20 @@ record) — **the entire fixture is now confirmed against real replies
 original guesses.** Also
 TCP/IP parsing (`sample_tcpip.txt`, covering `LINKNAME:` rows and the
 real OSA-Express QDIO `INTFNAME:` rows the original guess never
-accounted for, a `FLAGS:`/`PRIMARY` line setting `is_primary`, a
-`PROFILE.TCPIP` excerpt with a comment line that must be skipped, and
-confirming the `##PROFILE` block/`source_dsn` is simply absent when a
-dump has no profile fetch) — **the NETSTAT HOME half is now confirmed
-against a real reply (2026-07-02); the `PROFILE.TCPIP` half is still
-built against a hand-constructed fixture, not a real sample; see
-`tcpip_parser.py`'s module docstring.** Also SMS storage
+accounted for, a `FLAGS:`/`PRIMARY` line setting `is_primary`; a
+`PROFILE.TCPIP` excerpt covering simple single-line statements, a
+repeated statement keyword (`TCPCONFIG`) captured as separate records,
+`INTERFACE` continuation lines folded into one statement, a
+`BEGINROUTES`/`ENDROUTES` block, an `AUTOLOG`/`ENDAUTOLOG` block with a
+commented-out entry proven excluded, a `PORT` reservation table folded
+into one statement with a commented-out reservation proven excluded,
+and an indented `SMFCONFIG` statement proven *not* mistaken for a
+continuation line of the preceding statement; and confirming the
+`##PROFILE` block/`source_dsn` is simply absent when a dump has no
+profile fetch) — **the entire fixture is now confirmed against real
+replies (2026-07-02), same as VTAM/USS mounts above; see
+`tcpip_parser.py`'s module docstring for exactly what changed from the
+original guesses.** Also SMS storage
 group parsing (`sample_sms.txt`, now the real confirmed two-section reply
 shape rather than the originally-guessed one, covering a `STORGRP TYPE
 SYSTEM=` header shared across several consecutive group rows, `TYPE`

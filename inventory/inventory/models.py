@@ -313,8 +313,13 @@ class TcpipProfileStatement:
     (DEVICE/LINK/HOME/PORT ...), not uniform KEYWORD=VALUE, so there's
     no single generic split like VTAMOPTS gets.
 
-    NOT YET VALIDATED against a real PROFILE.TCPIP sample -- see
-    tcpip_parser.py's module docstring."""
+    CONFIRMED against a real PROFILE.TCPIP member on 2026-07-02, and the
+    real shape needed more than the original one-line-per-statement
+    guess: statements like INTERFACE/PORT/AUTOLOG/BEGINROUTES/SMFCONFIG
+    span multiple physical lines (continuation lines and, for
+    PORT/AUTOLOG, whole indented tables), all folded into that one
+    statement's operands. See tcpip_parser.py's module docstring for the
+    real shape and exactly how continuation lines are recognized."""
 
     stmt: str
     operands: str

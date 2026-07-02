@@ -338,7 +338,7 @@ Run `ansible-playbook playbooks/site.yml --tags jes2parm --limit lpar1`
 against a real system and check the resulting `*_jes2parm.txt` against
 what `jes2parm_parser.py` assumes before relying on that dimension.
 
-### VTAM/APPN/TCPIP (VTAM and TCPIP's NETSTAT HOME confirmed; PROFILE.TCPIP still not validated)
+### VTAM/APPN/TCPIP (all confirmed against real replies)
 
 `vtam.yml` (`D NET,MAJNODES` + `D NET,VTAMOPTS` + `D NET,TOPO`) and
 `tcpip.yml` (`D TCPIP,,NETSTAT,HOME`, plus an opt-in `PROFILE.TCPIP`
@@ -352,9 +352,9 @@ OSA-Express QDIO `INTFNAME:` rows the original guess never accounted
 for, silently dropping every `INTFNAME:` entry until `tcpip_parser.py`
 was fixed; each entry also carries a `FLAGS:` line (sometimes
 `PRIMARY`), now captured as `is_primary`. **A real `PROFILE.TCPIP`
-sample still hasn't turned up** -- IBM's own docs site 403'd on direct
-fetch and no secondary source turned up real sample output for it while
-writing this. Specifically:
+member is confirmed too, also on 2026-07-02** -- unlike `NETSTAT,HOME`
+this one needed an actual redesign, not just regex tuning; see below.
+Specifically:
 
 - `vtam.yml` bundles all three D-commands' raw console replies into one
   `vtam.txt` via the same `##BLOCKNAME`-sentinel convention `sysinfo.yml`
@@ -395,14 +395,27 @@ writing this. Specifically:
   statements are captured generically (statement name + raw operand
   text) since `PROFILE.TCPIP` syntax is positional
   (`DEVICE`/`LINK`/`HOME`/`PORT` ...), not uniform `KEYWORD=VALUE` like
-  `VTAMOPTS`.
+  `VTAMOPTS`. **Confirmed against a real member on 2026-07-02, and the
+  real shape forced a real redesign**: statements like
+  `INTERFACE`/`PORT`/`AUTOLOG`/`BEGINROUTES`/`SMFCONFIG` span multiple
+  physical lines in the real file -- indented continuation lines
+  carrying a statement's own sub-parameters, or whole indented tables
+  (`PORT`'s ~80-row port-reservation list; `AUTOLOG`'s job-name list,
+  terminated by `ENDAUTOLOG`; `BEGINROUTES`'s `ROUTE` rows, terminated
+  by `ENDROUTES`) -- none of which the original one-line-per-statement
+  guess accounted for. Indentation alone can't reliably distinguish a
+  new statement from a continuation either (the real member indents
+  `SMFCONFIG` statements themselves by 2 spaces, no structural reason
+  found), so `tcpip_parser.py` was fixed to recognize a fixed,
+  evidence-based vocabulary of top-level statement keywords instead --
+  see its module docstring for the full detail and the resulting known
+  limitation (an unrecognized keyword gets folded into the preceding
+  statement rather than starting its own).
 
-Run `ansible-playbook playbooks/site.yml --tags tcpip --limit lpar1`
-(add `-e '{"zos_extract_tcpip_profile_dsn": "YOUR.PROFILE.DSN"}'`)
-against a real system and check the resulting `##PROFILE` block against
-what `tcpip_parser.py` assumes before relying on that half of this
-dimension -- the `##NETSTAT_HOME` half no longer needs this since it's
-confirmed, same as `vtam.txt`'s three commands.
+Both `##NETSTAT_HOME` and `##PROFILE` are now confirmed, same as
+`vtam.txt`'s three commands -- no further real-system validation run is
+needed for this dimension unless the real member relies on a top-level
+statement keyword outside `_PROFILE_STATEMENT_KEYWORDS`.
 
 ### SMS (storage groups confirmed; storage/management classes removed -- no such console command exists)
 
@@ -750,10 +763,10 @@ roles/zos_extract/
                                 # 'D NET,TOPO' bundled into one vtam.txt
                                 # (see above) -- all three confirmed
                                 # against real replies
-    tcpip.yml                  # 'D TCPIP,,NETSTAT,HOME' (always, now
-                                # confirmed) + opt-in PROFILE.TCPIP fetch
-                                # (still not validated), bundled into one
-                                # tcpip.txt (see above)
+    tcpip.yml                  # 'D TCPIP,,NETSTAT,HOME' (always) + opt-in
+                                # PROFILE.TCPIP fetch, bundled into one
+                                # tcpip.txt (see above) -- both confirmed
+                                # against real replies
     sms.yml                    # 'D SMS,STORGRP(ALL),LISTVOL' captured raw
                                 # into sms.txt (see above) -- confirmed
                                 # against a real reply; storage/management

@@ -40,22 +40,42 @@ don't match any of this parser's regexes and are ignored, the same
 "regexes .search() anywhere in the line" tolerance the rest of this
 pipeline relies on for MVS console prefix junk.
 
-NOT YET VALIDATED: PROFILE.TCPIP statement parsing below -- no real
-PROFILE.TCPIP sample has been checked yet (only NETSTAT HOME has been
-confirmed so far). Treat the patterns below as a starting point, the
-same situation sysinfo_parser.py originally documented for its own
-regexes -- run tcpip.yml with zos_extract_tcpip_profile_dsn set against
-a real system, diff the actual profile text against what's expected
-here, and tune accordingly before relying on this in production.
+PROFILE.TCPIP statement parsing CONFIRMED against a real member on
+2026-07-02 -- and the real shape needed a real redesign, not just regex
+tuning. The original guess ("every non-comment, non-blank line is its
+own statement") was wrong: real PROFILE.TCPIP statements like
+INTERFACE/PORT/AUTOLOG/BEGINROUTES/SMFCONFIG span multiple physical
+lines -- some via indented continuation lines carrying the same
+statement's own sub-parameters (INTERFACE's DEFINE/IPADDR/PORTNAME),
+some via whole indented *tables* bracketed by a start keyword and,
+where one exists, an END* keyword (PORT's ~80-row port-reservation
+table; AUTOLOG's job-name list terminated by ENDAUTOLOG; BEGINROUTES's
+ROUTE rows terminated by ENDROUTES). Indentation alone can't reliably
+tell a new statement from a continuation line either -- in the real
+member, SMFCONFIG statements themselves are indented by 2 spaces (no
+structural reason found, just how the file was originally typed), the
+same indentation depth continuation lines could plausibly use. So
+_parse_profile instead recognizes a fixed, evidence-based vocabulary of
+known top-level statement keywords (_PROFILE_STATEMENT_KEYWORDS,
+built from IBM's documented PROFILE.TCPIP statement list plus every
+keyword actually observed in the real member) -- a line starting with
+one of those (case-insensitive, regardless of indentation) begins a new
+TcpipProfileStatement; any other non-comment, non-blank line is folded
+into the *current* statement's operands (whitespace-normalized and
+space-joined), whatever its indentation. A keyword this vocabulary
+doesn't know about would incorrectly get folded into the preceding
+statement rather than starting its own -- a known, documented limitation
+of capturing generically against a keyword list instead of modeling
+z/OS's real (undocumented-here) statement grammar.
 
-'PROFILE.TCPIP' statement syntax (well-documented, stable convention):
-each non-comment, non-blank line starts with a statement keyword (DEVICE,
-LINK, HOME, HOSTNAME, PORT, ...) followed by positional operands -- not
-uniform KEYWORD=VALUE the way VTAMOPTS/JES2 init statements are, so this
-captures each statement generically as (stmt, raw operand text) rather
-than modeling every statement type's own positional syntax. ';' starts a
-comment (PROFILE.TCPIP's own comment marker); comment and blank lines are
-skipped.
+';' starts a comment that runs to the end of the line, even mid-line
+(confirmed in the real member, e.g. port-table rows commented with a
+trailing "; description" -- descriptive text, not part of the
+statement) -- comments are stripped before any other processing, and a
+line that's comment-only (or blank after stripping) is skipped
+entirely, whether or not it's also inside a PORT/AUTOLOG/BEGINROUTES
+block (e.g. a disabled AUTOLOG entry or PORT reservation prefixed with
+';' is correctly excluded rather than merged in as if active).
 
 tcpip.yml writes a leading ";;SOURCE_DSN=<dsn>" marker line as the first
 line of the ##PROFILE block (the fetched dataset's own text has no
@@ -75,6 +95,36 @@ _LINK_OR_INTF = re.compile(r"\b(?:LINKNAME|INTFNAME):\s*(\S+)", re.IGNORECASE)
 _ADDRESS = re.compile(r"\bADDRESS:\s*(\S+)", re.IGNORECASE)
 _FLAGS = re.compile(r"\bFLAGS:\s*(\S.*)?$", re.IGNORECASE)
 _SOURCE_DSN_MARKER = re.compile(r"^;;SOURCE_DSN=(\S+)\s*$")
+
+# Top-level PROFILE.TCPIP statement keywords -- see the module docstring
+# for how this vocabulary was built and its known limitation (an
+# unrecognized keyword gets folded into the preceding statement instead
+# of starting its own).
+_PROFILE_STATEMENT_KEYWORDS = {
+    "ARPAGE",
+    "AUTOLOG",
+    "ENDAUTOLOG",
+    "BEGINROUTES",
+    "ENDROUTES",
+    "DEVICE",
+    "LINK",
+    "HOME",
+    "HOSTNAME",
+    "GATEWAY",
+    "GLOBALCONFIG",
+    "INTERFACE",
+    "IPCONFIG",
+    "IPCONFIG6",
+    "PORT",
+    "PORTRANGE",
+    "SACONFIG",
+    "SMFCONFIG",
+    "SOMAXCONN",
+    "START",
+    "STOP",
+    "TCPCONFIG",
+    "UDPCONFIG",
+}
 
 
 def _parse_netstat_home(lines: list[str]) -> list[TcpipHomeAddress]:
@@ -111,18 +161,22 @@ def _parse_netstat_home(lines: list[str]) -> list[TcpipHomeAddress]:
 def _parse_profile(lines: list[str]) -> list[TcpipProfileStatement]:
     statements: list[TcpipProfileStatement] = []
     source_dsn = ""
+    current: TcpipProfileStatement | None = None
+
     for line in lines:
         marker_match = _SOURCE_DSN_MARKER.match(line)
         if marker_match:
             source_dsn = marker_match.group(1)
             continue
-        stripped = line.strip()
-        if not stripped or stripped.startswith(";"):
+        content = " ".join(line.split(";", 1)[0].split())
+        if not content:
             continue
-        stmt, sep, operands = stripped.partition(" ")
-        if not sep:
-            stmt, operands = stripped, ""
-        statements.append(TcpipProfileStatement(stmt=stmt.upper(), operands=operands.strip(), source_dsn=source_dsn))
+        stmt, sep, operands = content.partition(" ")
+        if stmt.upper() in _PROFILE_STATEMENT_KEYWORDS:
+            current = TcpipProfileStatement(stmt=stmt.upper(), operands=operands.strip(), source_dsn=source_dsn)
+            statements.append(current)
+        elif current is not None:
+            current.operands = f"{current.operands} {content}".strip()
     return statements
 
 

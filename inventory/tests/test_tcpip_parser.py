@@ -35,22 +35,73 @@ def test_primary_flag_parsed():
     assert by_link["LOOPBACK6"] is False
 
 
-def test_profile_statements_parsed_generically():
+def test_profile_simple_statements_parsed_generically():
     _, statements = load_tcpip()
-    by_stmt = {s.stmt: s.operands for s in statements}
+    by_stmt = {s.stmt: s.operands for s in statements if s.stmt in {"ARPAGE", "GLOBALCONFIG", "SOMAXCONN", "UDPCONFIG"}}
     assert by_stmt == {
-        "HOSTNAME": "MVSTCPIP",
-        "DEVICE": "OSA2080 MPCIPA",
-        "LINK": "ETH0LINK IPAQENET OSA2080",
-        "HOME": "10.1.1.2 ETH0LINK",
+        "ARPAGE": "20",
+        "GLOBALCONFIG": "NOTCPIPSTATISTICS",
+        "SOMAXCONN": "10",
+        "UDPCONFIG": "RESTRICTLOWPORTS",
     }
 
 
-def test_profile_comment_line_skipped():
+def test_profile_repeated_statement_keyword_captured_separately():
     _, statements = load_tcpip()
-    stmts = [s.stmt for s in statements]
-    assert ";" not in stmts
-    assert len(statements) == 4
+    tcpconfigs = [s.operands for s in statements if s.stmt == "TCPCONFIG"]
+    assert tcpconfigs == ["TTLS", "TCPSENDBFRSIZE 16K TCPRCVBUFRSIZE 16K SENDGARBAGE FALSE"]
+
+
+def test_profile_interface_continuation_lines_folded_into_one_statement():
+    _, statements = load_tcpip()
+    interfaces = [s.operands for s in statements if s.stmt == "INTERFACE"]
+    assert interfaces == [
+        "QDIOLE2 DEFINE IPAQENET IPADDR 10.1.1.2/24 PORTNAME QDIOE2",
+        "HPRIP DEFINE VIRTUAL IPADDR 10.1.1.1",
+    ]
+
+
+def test_profile_start_statement_ends_interface_continuation():
+    _, statements = load_tcpip()
+    by_stmt = [(s.stmt, s.operands) for s in statements]
+    assert ("START", "QDIOLE2") in by_stmt
+
+
+def test_profile_beginroutes_endroutes_block():
+    _, statements = load_tcpip()
+    by_stmt = {s.stmt: s.operands for s in statements if s.stmt in {"BEGINROUTES", "ENDROUTES"}}
+    assert by_stmt["ENDROUTES"] == ""
+    assert by_stmt["BEGINROUTES"] == (
+        "ROUTE 10.1.1.0/24 = QDIOLE2 MTU 1500 ROUTE DEFAULT 10.1.1.254 QDIOLE2 MTU DEFAULTSIZE"
+    )
+
+
+def test_profile_autolog_block_excludes_commented_entries():
+    _, statements = load_tcpip()
+    by_stmt = {s.stmt: s.operands for s in statements if s.stmt in {"AUTOLOG", "ENDAUTOLOG"}}
+    assert by_stmt["AUTOLOG"] == "FTPD TN3270"
+    assert by_stmt["ENDAUTOLOG"] == ""
+
+
+def test_profile_port_table_folded_and_commented_reservation_excluded():
+    _, statements = load_tcpip()
+    (port_operands,) = [s.operands for s in statements if s.stmt == "PORT"]
+    assert port_operands == "7 UDP MISCSERV 7 TCP MISCSERV 21 TCP FTPD1 23 TCP TN3270"
+    assert "25" not in port_operands
+
+
+def test_profile_smfconfig_indented_statement_not_treated_as_continuation():
+    _, statements = load_tcpip()
+    smfconfigs = [s.operands for s in statements if s.stmt == "SMFCONFIG"]
+    assert smfconfigs == [
+        "TYPE118 TCPINIT TCPTERM FTPCLIENT TN3270CLIENT TCPIPSTATISTICS",
+        "TYPE119 DVIPA FTPCLIENT IFSTATISTICS IPSECURITY PORTSTATISTICS PROFILE",
+    ]
+
+
+def test_profile_statement_count():
+    _, statements = load_tcpip()
+    assert len(statements) == 20
 
 
 def test_source_dsn_marker_parsed():
