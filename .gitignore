@@ -7,3 +7,4 @@ venv/
 .claude/settings.json
 ansible/inventory/hosts.yml
 ansible/output/
+.vscode/settings.json
