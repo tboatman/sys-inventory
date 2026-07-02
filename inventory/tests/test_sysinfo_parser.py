@@ -27,12 +27,12 @@ def test_release_and_archlvl_parsed():
 def test_missing_field_yields_none(tmp_path):
     text = (
         "##SYMBOLS\n"
-        "SYSTEM SYMBOL LIST\n"
-        "SYSNAME  = &SYSNAME.  = \"SYS2\"\n"
-        "SYSCLONE = &SYSCLONE. = \"S2\"\n"
+        "IEA007I STATIC SYSTEM SYMBOL VALUES 754\n"
+        "&SYSCLONE.         = \"S2\"\n"
+        "&SYSNAME.          = \"SYS2\"\n"
         "##IPLINFO\n"
-        "SYSTEM IPLED FROM 01A0  IPL PARM 01\n"
-        "IPL DEVICE: 01A0  VOLUME: RES0S2\n"
+        "IEASYS LIST = (01)\n"
+        "IPL DEVICE: ORIGINAL(0A348) CURRENT(0A348) VOLUME(RES0S2)\n"
     )
     path = tmp_path / "sysinfo.txt"
     path.write_text(text)
@@ -45,3 +45,12 @@ def test_missing_field_yields_none(tmp_path):
     assert info.ipl_parm_member == "01"
     assert info.release is None
     assert info.archlvl is None
+
+
+def test_ieasys_list_with_multiple_groups_uses_first_suffix_of_first_group():
+    # Real reply shape: "IEASYS LIST = (BN) (OP)" -- multiple parenthesized
+    # groups, each possibly comma-separated. ipl_parm_member is the first
+    # suffix of the first group only (the same suffix
+    # discover_active_parmlib_suffixes.yml treats as primary).
+    info = sysinfo_parser.parse_sysinfo(FIXTURES / "sample_sysinfo.txt")
+    assert info.ipl_parm_member == "00"
