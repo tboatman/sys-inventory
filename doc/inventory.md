@@ -140,7 +140,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 8 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 20 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions, 0 SMP/E zone index entries -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -682,6 +682,45 @@ exactly what it recognizes and what it silently skips, and treat any
 count from this dimension as a floor, not a real total, until it's
 checked against a real DFHCSDUP LIST report.
 
+### `inventory zone-index` (opt-in, not yet production-validated)
+
+SMP/E's own authoritative zone census per CSI — every zone (target/dlib)
+tied to it, per its global zone's `ZONEINDEX` attribute — if you ingested
+any `*smpzones*.txt` files (from `LIST GLOBALZONE`; see
+`ansible/roles/zos_extract/tasks/discover_smpe_zones.yml`, tag
+`smpe_zone_discovery`). Unlike `discover_smpe_csis.yml`'s naming
+heuristic for *finding* a CSI, this is a real fact SMP/E reports about a
+CSI you've already confirmed — no guessing involved in what it returns,
+only in how the report text is parsed (see below):
+
+```
+$ inventory zone-index
+DZONE1  TYPE=DLIB CSI=EDUC.TEST.DLIB.CSI  (cross-referenced from EDUC.TEST.GLOBAL.CSI)
+TZONE1  TYPE=TARGET CSI=EDUC.TEST.GLOBAL.CSI
+```
+
+The "(cross-referenced from ...)" note appears when a zone's own CSI
+(where it actually lives) differs from the CSI whose global zone reported
+it — a real, documented SMP/E pattern where a site splits target/dlib
+zones across separate physical CSI data sets, cross-referenced from one
+GLOBAL zone's `ZONEINDEX` (this project's own `smpe_csi_candidates.txt`
+shows exactly this shape for a couple of products: separate `.GLOBAL.CSI`/
+`.TARGET.CSI`/`.DLIB.CSI` datasets).
+
+This is **not yet cross-referenced** against the zones actually captured
+via `*smplist*.txt`'s `LIST DDDEF`/`MOD`/`SYSMOD` (i.e. there's no
+"zone-gaps" command yet) — that needs the standalone `zones`/`fmids`
+tables planned in `doc/TODO.md` ("8f"), since comparing against `lineage`
+alone would falsely flag a zone with no PROCLIB step pointing into it as
+"missing" even when it was captured just fine.
+
+`smpe_parser.parse_globalzone()`'s report-shape parsing is confirmed
+against a real third-party ZOAU/Ansible SMP/E role built against real
+system output (not a guess from documentation alone), but **not yet
+against a real reply from this site** — same caveat `racf_parser.py`'s
+byte offsets carry. Tune its regexes against your real `*.smpzones.txt`
+if `zone-index` comes back empty.
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
@@ -713,11 +752,22 @@ Each ingested `*smplist*.txt` file can optionally start with a `##CSI
 that file is stamped with it, and it rides along into `lineage`/`report`/
 `trace` as the `csi` column/field. A file with no `##CSI` line (e.g. one
 captured before this existed) still parses fine — `csi` is just empty for
-those zones. This is currently a single-CSI-per-ingest convenience, not
-full multi-CSI support: if you ingest `*smplist*.txt` files from more than
-one distinct CSI in the same run, `merge_zones()` still keys purely on
-zone *name*, so two same-named zones from different CSIs would collide —
-see `doc/TODO.md` ("8c") for the planned fix.
+those zones.
+
+A single ingest can cover more than one CSI (a real site can have
+several — its own product CSIs alongside the base z/OS one;
+`zos_extract_smpe_csis` is a list on the Ansible side for exactly this).
+`merge_zones()` normally combines same-named zones across files, but if
+two *different* CSIs both define a same-named zone (e.g. two vendor
+products each with a `TZONE1`), the later one is kept under a
+disambiguated `"NAME@CSI"` key instead of silently overwriting the first
+— you'll see that combined name show up as `zone` in `lineage`/`report`/
+`trace` output for whichever hop resolved to it. This only keeps the two
+zone *entries* distinct; it does not resolve a deeper ambiguity where one
+physical dataset (e.g. a shared `SYS1.LINKLIB`) is claimed by DDDEF
+entries in more than one loaded CSI — `resolver.dataset_zone()` still
+returns the first match it finds in that case. See `doc/TODO.md` ("8c")
+for the full detail.
 
 Any hop that can't be resolved (no STEPLIB and no LNKLST match, a dataset
 not claimed by any ingested zone, etc.) is still recorded with a
@@ -891,12 +941,13 @@ else) — see `cics_csdup_parser.py`'s module docstring.**
 ## Scaling past the first slice
 
 - Ingest accepts any number of `*proclib*.txt` / `*parmlib*.txt` /
-  `*smplist*.txt` / `*ssn*.txt` / `*commnd*.txt` / `*ifaprd*.txt` /
+  `*smplist*.txt` / `*smpzones*.txt` / `*ssn*.txt` / `*commnd*.txt` /
+  `*ifaprd*.txt` /
   `*catalog*.txt` / `*uss_mounts*.txt` / `*jes2parm*.txt` / `*vtam*.txt` /
   `*tcpip*.txt` / `*sms*.txt` / `*db2_catalog*.txt` / `*wlm_zosmf*.txt` /
   `*cics_deepening*.txt`
   files in the input directory — just keep adding files as you extract
-  more PROCLIB/PARMLIB concatenation entries, more SMP/E zones, more
+  more PROCLIB/PARMLIB concatenation entries, more SMP/E CSIs/zones, more
   HLQ/pattern groups, or more JES2 PARMLIB concatenation entries;
   `ingest` merges them all into one inventory. Note `*wlm*.txt` (the
   single-record `wlm.txt` policy name/mode file) explicitly excludes any

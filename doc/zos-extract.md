@@ -230,7 +230,12 @@ python3 /path/to/zos-extract/python/smplist.py --csi YOUR.GLOBAL.CSI \
 - `--zone` is the SMP/E zone to report on (e.g. a target zone name like
   `TZONE1`, or `GLOBAL`). Run this once per zone you want included; run
   it again with a different `--zone` and `--outfile` for each additional
-  zone.
+  zone. Covering more than one CSI (a real site can have several -- its
+  own product CSIs alongside the base z/OS one) just means running this
+  again with a different `--csi`/`--outfile` -- `inventory ingest` merges
+  any number of `*.smplist.txt` files, each stamped with its own CSI via
+  the `##CSI` line this script writes (see `inventory/README.md`'s "How
+  resolution works").
 - `--workhlq` is a high-level-qualifier prefix used to name a couple of
   small temporary work datasets, deleted automatically once the command
   finishes (e.g. `YOURID.SMPLIST` — anything under your own userid's
@@ -251,6 +256,14 @@ run this against more than one CSI (a real site can have several — see
 `ansible/roles/zos_extract/tasks/discover_smpe_csis.yml`). If you're
 running an older copy of either script, the file just won't have that
 line and `csi` comes back empty — nothing else changes.
+
+**Zone discovery has no standalone script yet** — same "ansible-only for
+now" situation USS mounts/JES2/VTAM/TCPIP/SMS/WLM/DB2/CICS are already in
+(see this file's own intro). If you don't already know a CSI's zones,
+`ansible/roles/zos_extract/tasks/discover_smpe_zones.yml` (tag
+`smpe_zone_discovery`) runs GIMSMP's `LIST GLOBALZONE` for you instead,
+writing one `*.smpzones.txt` per CSI that `inventory ingest`/`inventory
+zone-index` also picks up — see `ansible/README.md`'s own section on it.
 
 ### 8. Live activity snapshot (currently-running jobs and processes)
 
@@ -388,7 +401,8 @@ list of what it looks for in the directory you point it at:
 | LNKLST list | exactly `lnklst.txt` | `extrlnk.py` (step 4) |
 | APF list | exactly `apf.txt` | `extrapf.py` (step 5) |
 | System identity | `sysinfo` | `extrsys.py` (step 6) |
-| SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per zone |
+| SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per CSI/zone pair |
+| SMP/E zone index (LIST GLOBALZONE) | `smpzones` | ansible-only, `discover_smpe_zones.yml`, one file per CSI |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

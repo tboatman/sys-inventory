@@ -700,32 +700,66 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   started that way won't join correctly by name alone. Note this in
   `ssn_parser.py`'s docstring as a follow-up.
 
-### 8c. Multi-CSI ingest (do second, with 8d)
+### 8c. Multi-CSI ingest -- IMPLEMENTED
 
-- Extraction: `zos_extract_smpe_csi`/`zos_extract_smpe_zones` become a
-  list of `{csi, zones}` pairs (or reuse `discover_smpe_csis.yml`'s
-  candidate output directly), looping `smplist.yml` once per CSI so each
-  CSI's zones land tagged correctly via 8a's `##CSI` header.
-- `merge_zones()` needs a real fix here, not just 8a's workaround: key
-  merged zones on a `(csi, name)` composite once multiple CSIs are
-  actually in play in one ingest, since zone *names* aren't guaranteed
-  unique across CSIs (e.g. two different vendor products could each
-  define a `TZONE1`).
-- `resolver.py`/`store.py`/the `lineage` table share the same composite-key
-  implication -- worth checking whether `dataset_zone()`'s dataset->zone
-  DDDEF match still works unambiguously once two CSIs are loaded together
-  (a DDDEF's DSN should still be unique in practice across a real site,
-  but flag and confirm this rather than assume it).
+- Extraction: `zos_extract_smpe_csi`/`zos_extract_smpe_zones` (scalars)
+  were hard-renamed to `zos_extract_smpe_csis` (a list of `{csi, zones}`
+  entries, no back-compat shim -- same precedent as the earlier
+  `zos_extract_jes2_parmlibs` -> `zos_extract_jes2_init_members` rename).
+  `smplist.yml` flattens it via `zos_extract_smpe_csis | subelements
+  ('zones')` (same idiom `_fetch_active_ieasys_member.yml`/
+  `_cics_proc_dump.yml` already use) into one (csi, zone) pair per
+  include of `_smplist_zone.yml`, so each CSI's zones land tagged
+  correctly via 8a's `##CSI` header. Output filenames now also carry the
+  CSI (`<csi-slug>.<zone>.smplist.txt`) so two CSIs' same-named zones
+  don't clobber each other's output file either.
+- `merge_zones()`: rather than a `(csi, name)` composite key everywhere
+  (which would've broken `resolver._dataset_to_zone()`'s `return
+  zone.name` -> `zones[zone_name]` lookup chain, since that return value
+  has to double as a valid dict key), zones are normally still merged by
+  bare name; a genuine collision (same name, different non-empty `csi`)
+  is detected and the *incoming* zone is kept under a disambiguated
+  `"NAME@CSI"` key/`.name`, so `zone.name` and its own dict key always
+  stay in sync. Covered by
+  `test_merge_zones_disambiguates_cross_csi_name_collision`.
+- Deliberately **not** resolved this round: a dataset genuinely shared
+  across two loaded CSIs' DDDEF entries (e.g. a common `SYS1.LINKLIB`)
+  still resolves to whichever zone `_dataset_to_zone()` happens to find
+  first -- flagged in `merge_zones()`'s docstring, not silently assumed
+  fixed.
 
-### 8d. Zone discovery via `LIST ZONES` instead of manual config (do second, with 8c)
+### 8d. Authoritative zone discovery via `LIST GLOBALZONE` -- IMPLEMENTED
 
-- Replace the hand-maintained `zos_extract_smpe_zones` list with a
-  `LIST ZONES` GIMSMP call (per CSI) to enumerate real zones, feeding
-  that output into the existing per-zone `LIST DDDEF`/`MOD`/`SYSMOD` loop
-  -- same relationship `discover_smpe_csis.yml` already has to
-  `smplist.yml`, just one step earlier in the chain.
-- `smpe_parser.py`: parse a `LIST ZONES` report shape (zone name + type:
-  GLOBAL/TARGET/DLIB) -- new, not yet attempted anywhere in this pipeline.
+- Real command confirmed via research (not guessed from scratch, same
+  standard this project already held CICS/WLM/JES2/SMS command syntax
+  to): `LIST ZONES` isn't a real GIMSMP command at all -- the actual way
+  to enumerate every zone tied to a CSI is `SET BDY(GLOBAL). LIST
+  GLOBALZONE .`, whose report includes a `ZONEINDEX` attribute (zone
+  name / zone type / owning CSI dataset, one per line). Confirmed against
+  a real third-party ZOAU/Ansible SMP/E role built against real system
+  output (`github.com/LuiggiTorricelli/zos_smpe_list`'s
+  `filter_plugins/parse_gimsmp.py`), not yet against this site's own
+  system -- same tier of confidence as most of this pipeline's
+  console-command domains before their own real-reply confirmation
+  round.
+- New `discover_smpe_zones.yml` (tag `smpe_zone_discovery`) +
+  `_smplist_globalzone.yml` worker, one GIMSMP call per configured CSI,
+  writing `<csi-slug>.smpzones.txt` (with the same `##CSI` sentinel).
+- Deliberately **not** wired to auto-drive `smplist.yml`'s own per-zone
+  loop in the same run -- doing so would mean parsing GIMSMP's report
+  text in Jinja/Ansible, breaking this whole pipeline's "capture raw
+  text, parse off-host in Python" convention every other domain follows.
+  Populating `zos_extract_smpe_csis`' `zones:` list from what this
+  reveals is still a manual step, same human-in-the-loop precedent
+  `discover_smpe_csis.yml` already set for CSI names themselves -- just
+  backed by an authoritative SMP/E fact now instead of nothing.
+- New `ZoneIndexEntry` model, `smpe_parser.parse_globalzone()`, a
+  `zone_index` table, and `inventory zone-index`.
+- **Not yet built**: any "zone-gaps" comparison against what
+  `*smplist*.txt` actually captured -- doing that against `lineage` alone
+  would falsely flag a zone with no PROCLIB step pointing into it as
+  "missing." That comparison belongs with 8f's standalone `zones` table
+  below, not bolted onto `zone_index` early.
 
 ### 8e. Capture `LMOD=` for module resolution
 
@@ -749,6 +783,12 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   SMP/E software inventory, not just what lineage resolution touches.
 - Retire or wire up the currently-dead `Fmid` dataclass in `models.py`
   (defined, never instantiated anywhere today) as this table's row shape.
+- Once this `zones` table exists, add the "zone-gaps" comparison 8d's
+  `zone_index` table deliberately didn't get: cross-reference
+  `zone_index` entries against it (per CSI) to flag a zone SMP/E itself
+  says exists but that was never actually captured via `*smplist*.txt` --
+  the real "find the gaps" capability this whole round started from,
+  made permanent instead of a one-time by-hand analysis.
 
 ### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt`
 

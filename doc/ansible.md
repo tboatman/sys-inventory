@@ -69,7 +69,7 @@ cp inventory/hosts.yml.example inventory/hosts.yml
 
 Edit `inventory/hosts.yml` (gitignored -- it'll hold your real dataset
 names and hostnames): add one entry under `zos.hosts` per LPAR, and fill in
-`zos_extract_proclibs`/`zos_extract_parmlibs`/`zos_extract_smpe_csi`/`zos_extract_smpe_zones`/`zos_extract_catalog_patterns` for each.
+`zos_extract_proclibs`/`zos_extract_parmlibs`/`zos_extract_smpe_csis`/`zos_extract_catalog_patterns` for each.
 `inventory/group_vars/zos.yml` has the shared ZOAU/Python environment variables from
 `zos-extract.md`'s "Basic Env requirements" section -- adjust the
 paths there if your site installs ZOAU/Python somewhere else. That
@@ -106,7 +106,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `lnklst`, `apf`,
 `wlm_zosmf` (like `racf`) is gated `never` -- it only runs when
 explicitly requested with `--tags wlm_zosmf`, normally via the dedicated
 `playbooks/wlm_zosmf.yml` entry point (see below), not `site.yml`.
-`smplist`/`catalog` only run on hosts where `zos_extract_smpe_csi`/
+`smplist`/`catalog` only run on hosts where `zos_extract_smpe_csis`/
 `zos_extract_catalog_patterns` are actually set, so it's safe to leave them
 out of `hosts.yml` for LPARs you don't want those steps on.
 
@@ -123,7 +123,7 @@ ansible-playbook playbooks/interactive.yml
 It asks for the hostname/IP, username, password (leave blank to use
 key-based auth via your normal `ssh` config/agent instead), and SSH port,
 then runs the same role against just that system. Everything else --
-which steps run, `zos_extract_proclibs`/`zos_extract_smpe_csi`/
+which steps run, `zos_extract_proclibs`/`zos_extract_smpe_csis`/
 `zos_extract_catalog_patterns`/... -- still comes from
 `roles/zos_extract/defaults/main.yml` and `inventory/group_vars/zos.yml`,
 same as `playbooks/site.yml`; override those with `-e` as needed, e.g.:
@@ -197,12 +197,15 @@ tagged `proclib, ssn_commnd, ifaprd` (`proclib` needs them too now, for the
 before, since Ansible runs every task when no `--tags`/`--skip-tags` is
 given regardless of what tags it carries.
 
-### Finding your SMP/E CSI if you don't already know its name
+### Finding your SMP/E CSI(s) and their zones if you don't already know them
 
-`zos_extract_smpe_csi` (used by `smplist.yml`) has to be set by hand -- unlike
+`zos_extract_smpe_csis` (used by `smplist.yml`) has to be set by hand -- unlike
 PROCLIB/PARMLIB, there's no system command that enumerates registered CSIs
 (SMP/E doesn't register a CSI anywhere central; it's just a VSAM KSDS a site
-chooses to use as one). If you don't know its name yet, run:
+chooses to use as one). A real site can have several distinct CSIs (its own
+product CSIs alongside the base z/OS one), so this is a list of `{csi,
+zones}` entries even for a single-CSI site -- see
+`inventory/hosts.yml.example`. If you don't know a CSI's name yet, run:
 
 ```
 ansible-playbook playbooks/site.yml --tags smpe_csi_discovery --limit lpar1
@@ -212,7 +215,7 @@ This searches the catalog with `zos_find` (`resource_type: cluster`), the
 same module `catalog.yml` uses for its non-VSAM search, and writes matches to
 `smpe_csi_candidates.txt` -- a naming-heuristic list, not a verified one.
 Confirm a candidate is really usable as an `SMPCSI` (e.g. by pointing
-`smplist.yml` at it) before setting `zos_extract_smpe_csi` to it.
+`smplist.yml` at it) before adding it to `zos_extract_smpe_csis`.
 
 `zos_extract_smpe_csi_search_patterns` defaults to `["EDUC.**.CSI"]`
 (`roles/zos_extract/defaults/main.yml`) since that's this site's actual
@@ -226,6 +229,22 @@ shared prefix has no catalog-search primitive on z/OS at all -- the only way
 to find those is an unrestricted `LISTCAT ALL` scan of the whole catalog
 followed by a client-side filter, which is real overkill once (like here)
 there's a literal prefix to anchor on instead.
+
+Once you know a CSI's name but not its zones (rather than guessing at
+`TZONE1`/`TARGET`-style conventions), run:
+
+```
+ansible-playbook playbooks/site.yml --tags smpe_zone_discovery --limit lpar1
+```
+
+This runs GIMSMP's `LIST GLOBALZONE` against every CSI already listed in
+`zos_extract_smpe_csis` -- unlike CSI discovery above, this isn't a naming
+heuristic: a CSI's own global zone genuinely knows every zone tied to it,
+via its `ZONEINDEX` attribute. Writes one `*.smpzones.txt` per CSI, which
+`inventory ingest` picks up and `inventory zone-index` shows (see
+`inventory/README.md`) -- not yet confirmed against a real reply from this
+site, only against a third-party reference implementation, so tune
+`smpe_parser.parse_globalzone()`'s regexes if it comes back empty.
 
 ### zos_job_query is unusable here -- activity/CICS/DB2 all route around it
 
@@ -651,7 +670,7 @@ checked against a real system").
   the PROC, not the PROC's own member name) -- unlike PROCLIB/PARMLIB/
   JES2 parmlib, which each have a real console command or IEASYSxx-keyword
   path to their active member -- so this needs explicit configuration,
-  the same precedent `zos_extract_db2_ssid`/`zos_extract_smpe_csi`
+  the same precedent `zos_extract_db2_ssid`/`zos_extract_smpe_csis`
   already set.
 - For each configured PROC, `_cics_proc_dump.yml` locates and fetches it
   from `zos_extract_proclibs` (same `zos_find` + `subelements`/
@@ -815,12 +834,20 @@ roles/zos_extract/
                                 # pipeline, even though the command
                                 # syntax/read-only access mode sent to it
                                 # are confirmed against real IBM docs
-    smplist.yml               # zos_mvs_raw (GIMSMP) per SMP/E zone (see
-                               # _smplist_zone.yml, the shared per-zone
-                               # worker)
+    smplist.yml               # zos_mvs_raw (GIMSMP) per CSI/zone pair (see
+                               # _smplist_zone.yml, the shared per-pair
+                               # worker) -- zos_extract_smpe_csis is a list,
+                               # flattened via subelements('zones')
     discover_smpe_csis.yml     # opt-in zos_find (cluster) search for CSI
                                 # candidates by naming pattern -- not
                                 # authoritative, see above
+    discover_smpe_zones.yml, _smplist_globalzone.yml
+                                # opt-in GIMSMP LIST GLOBALZONE per CSI --
+                                # authoritative zone census (ZONEINDEX),
+                                # unlike CSI discovery above; writes
+                                # *.smpzones.txt, parsed by
+                                # inventory/smpe_parser.py's
+                                # parse_globalzone()
     catalog.yml                # zos_find + zos_stat (non-VSAM) and
                                 # zos_mvs_raw/IDCAMS (VSAM) combined
     racf.yml                   # zos_mvs_raw (IRRDBU00), implementation
