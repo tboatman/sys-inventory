@@ -1027,7 +1027,12 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
 domain):**
-- `AUTOR`/`AUTORxx` (ARM policy statements), `CATALOG`/`IGGCATxx`,
+- `AUTOR`/`AUTORxx` (WTOR auto-reply policy -- `NOTIFYMSGS(...)` and
+  `MSGID(msgid) DELAY(nnS) REPLY(text)`/`NOAUTORREPLY` statements
+  defining automatic operator replies to specific WTORs; confirmed via
+  IBM's z/OS MVS Initialization and Tuning Reference -- **not** Automatic
+  Restart Management policy, an earlier draft of this plan mislabeled it),
+  `CATALOG`/`IGGCATxx`,
   `CON`/`CONSOLxx`, `COUPLE`/`COUPLxx`, `DIAG`/`DIAGxx`,
   `GRSCNF`/`GRSCNFxx`, `GRSRNL`/`GRSRNLxx` (RNLDEF statements),
   `IOS`/`IECIOSxx`, `SMS`/`IGDSMSxx` (**naming collision to watch**: this
