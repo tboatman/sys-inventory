@@ -1,0 +1,87 @@
+---
+# Shared worker for cics_deepening.yml, included once per configured
+# zos_extract_cics_proc entry via include_tasks (per-iteration state
+# threaded across tasks -- see _member_dump.yml's header comment for why
+# that's safe here under --tags filtering; 'block' doesn't support loop
+# in this ansible-core version, see _smplist_zone.yml's own header
+# comment).
+#
+# Locates and fetches one CICS startup PROC (zos_extract_cics_proc_name)
+# from the already-configured zos_extract_proclibs concatenation -- same
+# zos_find + subelements/selectattr + zos_fetch idiom
+# discover_mstrjcl_proclibs.yml/_fetch_active_ieasys_member.yml already
+# use for MSTJCLxx/IEASYSxx -- then pulls DFHRPL DSNs and the DFHCSD DSN
+# out of the fetched JCL text via the same "DD group" regex_findall idiom
+# discover_mstrjcl_proclibs.yml uses for IEFPDSI, reused near-verbatim,
+# plus the startup step's inline SYSIN cards (SIT overrides) and, from
+# those, any GRPLIST= override specifically (needed in-play below to
+# drive the DFHCSDUP LIST command, not just for off-host capture).
+#
+# Appends one entry to zos_extract_cics_proc_results (threaded across
+# iterations) with everything cics_deepening.yml needs to both write the
+# bundled output file and, if zos_extract_cics_sdfhload is set, drive the
+# DFHCSDUP LIST job.
+
+- name: List every member of each configured PROCLIB (CICS PROC lookup)
+  ibm.ibm_zos_core.zos_find:
+    patterns: "{{ zos_extract_proclibs | map(attribute='dsn') | list }}"
+  register: zos_extract_cics_proc_find
+
+- name: Determine which configured PROCLIB(s) actually contain {{ zos_extract_cics_proc_name }}
+  ansible.builtin.set_fact:
+    zos_extract_cics_proc_containing_dsns: >-
+      {{ (zos_extract_cics_proc_find.data_sets | default([]))
+         | subelements('members', skip_missing=True)
+         | selectattr('1', 'equalto', zos_extract_cics_proc_name)
+         | map(attribute='0.name') | list }}
+
+- name: Pick the highest-priority PROCLIB dsn that has {{ zos_extract_cics_proc_name }}
+  ansible.builtin.set_fact:
+    zos_extract_cics_proc_dsn: >-
+      {{ (zos_extract_proclibs
+          | selectattr('dsn', 'in', zos_extract_cics_proc_containing_dsns | default([]))
+          | map(attribute='dsn') | list | first | default('')) }}
+
+- name: Create a scratch directory for {{ zos_extract_cics_proc_name }}
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_cics_proc_scratch
+  delegate_to: localhost
+  when: zos_extract_cics_proc_dsn | length > 0
+
+- name: Fetch {{ zos_extract_cics_proc_name }}
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_cics_proc_dsn }}({{ zos_extract_cics_proc_name }})"
+    dest: "{{ zos_extract_cics_proc_scratch.path }}/"
+    flat: true
+  when: zos_extract_cics_proc_dsn | length > 0
+
+- name: Extract DFHRPL/DFHCSD/SYSIN detail from {{ zos_extract_cics_proc_name }}
+  ansible.builtin.set_fact:
+    zos_extract_cics_proc_results: >-
+      {{ (zos_extract_cics_proc_results | default([])) + [{
+        'proc': zos_extract_cics_proc_name,
+        'dfhrpl': (zos_extract_cics_proc_text
+                    | regex_findall('(?ms)^//DFHRPL\s+DD\s+.*?(?=^//\S|\Z)')
+                    | join('\n')
+                    | regex_findall('DSN=([A-Za-z0-9$#@.()]+)')),
+        'csd_dsn': ((zos_extract_cics_proc_text
+                    | regex_findall('(?ms)^//DFHCSD\s+DD\s+.*?(?=^//\S|\Z)')
+                    | join('\n')
+                    | regex_findall('DSN=([A-Za-z0-9$#@.()]+)')) + [''])[0],
+        'sit_text': (zos_extract_cics_proc_text
+                    | regex_findall('(?ms)^//SYSIN\s+DD\s+\*\n(.*?)(?=^//\S|\Z)')
+                    | join('\n')),
+        'grplist': ((zos_extract_cics_proc_text | regex_findall('GRPLIST\s*=\s*([A-Za-z0-9$#@]+)')) + [''])[0]
+      }] }}
+  vars:
+    zos_extract_cics_proc_text: "{{ lookup('ansible.builtin.file', zos_extract_cics_proc_scratch.path ~ '/' ~ zos_extract_cics_proc_name) }}"
+  when: zos_extract_cics_proc_dsn | length > 0
+
+- name: Remove scratch directory for {{ zos_extract_cics_proc_name }}
+  ansible.builtin.file:
+    path: "{{ zos_extract_cics_proc_scratch.path }}"
+    state: absent
+  delegate_to: localhost
+  when: zos_extract_cics_proc_scratch.path is defined

@@ -21,6 +21,14 @@ def _dataset_to_zone(dsn: str, zones: dict[str, Zone]) -> str | None:
     return None
 
 
+def dataset_zone(dsn: str, zones: dict[str, Zone]) -> str | None:
+    """Public wrapper for _dataset_to_zone -- lets other domains (e.g.
+    CicsDfhrplEntry) resolve a dataset to its owning SMP/E zone the same
+    way STEPLIB/JOBLIB/LNKLST hops already do here, without duplicating
+    the DDDEF-match logic in a new module."""
+    return _dataset_to_zone(dsn, zones)
+
+
 def _fmid_for_module(pgm: str, zone_name: str | None, zones: dict[str, Zone]) -> str | None:
     if zone_name is None:
         return None

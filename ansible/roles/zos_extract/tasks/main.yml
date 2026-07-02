@@ -140,6 +140,11 @@
   tags: [db2]
   when: zos_extract_db2_ssid | length > 0
 
+- name: Deepened CICS resource view -- DFHRPL lineage + DFHCSDUP CSD definitions, opt-in (step 19, see cics_deepening.yml)
+  ansible.builtin.import_tasks: cics_deepening.yml
+  tags: [cics]
+  when: zos_extract_cics_proc | length > 0
+
 - name: Dataset catalog (step 9)
   ansible.builtin.import_tasks: catalog.yml
   tags: [catalog]

@@ -90,3 +90,21 @@ zos_extract_db2_ssid: ""
 zos_extract_db2_plan: "DSNTEP2"
 zos_extract_db2_steplib: ""
 zos_extract_db2_catalog_outfile: "db2_catalog.txt"
+
+# Opt-in deepened CICS resource view: DFHRPL lineage + DFHCSDUP CSD
+# definitions (see cics_deepening.yml). Distinct from the live
+# address-space heuristic above (cics.yml/zos_extract_cics_job_patterns):
+# there's no reliable live-discoverable link from a running CICS job name
+# back to its starting PROCLIB member, so this requires explicit
+# configuration (same precedent as zos_extract_db2_ssid/
+# zos_extract_smpe_csi) rather than a fragile job-name-to-PROC-name
+# cross-reference.
+zos_extract_cics_proc: []              # CICS startup PROCLIB member name(s), e.g. ["CICSPROC"]
+# STEPLIB for DFHCSDUP itself (the CICS SDFHLOAD library) -- DFHCSDUP
+# isn't normally reachable via LNKLST. Leave blank to skip the DFHCSDUP
+# LIST job entirely (DFHRPL/SIT/CSD-dsn discovery above still runs).
+zos_extract_cics_sdfhload: ""
+# Work dataset HLQ for DFHCSDUP's own SYSUT1 scratch file, same idiom as
+# zos_extract_smpe_workhlq.
+zos_extract_cics_workhlq: "{{ ansible_user | upper }}.CSDUP"
+zos_extract_cics_deepening_outfile: "cics_deepening.txt"

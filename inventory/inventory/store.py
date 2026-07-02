@@ -9,6 +9,9 @@ from pathlib import Path
 from .models import (
     ActiveJob,
     CatalogDataset,
+    CicsCsdDefinition,
+    CicsDfhrplEntry,
+    CicsSitOverride,
     DatasetAccess,
     DatasetProfile,
     Db2Package,
@@ -295,6 +298,29 @@ CREATE TABLE IF NOT EXISTS wlm_zosmf_entries (
     raw_json  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_wlm_zosmf_entries_name ON wlm_zosmf_entries(name);
+
+CREATE TABLE IF NOT EXISTS cics_dfhrpl_entries (
+    dsn             TEXT NOT NULL,
+    proc            TEXT NOT NULL,
+    zone            TEXT,
+    apf_authorized  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_cics_dfhrpl_entries_dsn ON cics_dfhrpl_entries(dsn);
+
+CREATE TABLE IF NOT EXISTS cics_sit_overrides (
+    keyword  TEXT NOT NULL,
+    value    TEXT NOT NULL,
+    proc     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cics_sit_overrides_proc ON cics_sit_overrides(proc);
+
+CREATE TABLE IF NOT EXISTS cics_csd_definitions (
+    def_type  TEXT NOT NULL,
+    name      TEXT NOT NULL,
+    grp       TEXT NOT NULL,
+    csd_dsn   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cics_csd_definitions_name ON cics_csd_definitions(name);
 """
 
 
@@ -792,4 +818,52 @@ def save_wlm_zosmf_entries(conn: sqlite3.Connection, entries: list[WlmZosmfEntry
 def all_wlm_zosmf_entries(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM wlm_zosmf_entries ORDER BY name")
+    return cur.fetchall()
+
+
+def save_cics_dfhrpl_entries(conn: sqlite3.Connection, entries: list[CicsDfhrplEntry]) -> None:
+    conn.execute("DELETE FROM cics_dfhrpl_entries")
+    rows = [(e.dsn, e.proc, e.zone, e.apf_authorized) for e in entries]
+    conn.executemany(
+        "INSERT INTO cics_dfhrpl_entries (dsn, proc, zone, apf_authorized) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_cics_dfhrpl_entries(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM cics_dfhrpl_entries ORDER BY proc, dsn")
+    return cur.fetchall()
+
+
+def save_cics_sit_overrides(conn: sqlite3.Connection, overrides: list[CicsSitOverride]) -> None:
+    conn.execute("DELETE FROM cics_sit_overrides")
+    rows = [(o.keyword, o.value, o.proc) for o in overrides]
+    conn.executemany(
+        "INSERT INTO cics_sit_overrides (keyword, value, proc) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_cics_sit_overrides(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM cics_sit_overrides ORDER BY proc, keyword")
+    return cur.fetchall()
+
+
+def save_cics_csd_definitions(conn: sqlite3.Connection, definitions: list[CicsCsdDefinition]) -> None:
+    conn.execute("DELETE FROM cics_csd_definitions")
+    rows = [(d.def_type, d.name, d.group, d.csd_dsn) for d in definitions]
+    conn.executemany(
+        "INSERT INTO cics_csd_definitions (def_type, name, grp, csd_dsn) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_cics_csd_definitions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM cics_csd_definitions ORDER BY grp, name")
     return cur.fetchall()

@@ -526,6 +526,69 @@ class GeneralResourceAccess:
 
 
 @dataclass
+class CicsDfhrplEntry:
+    """One DFHRPL (CICS's own load-library concatenation, functionally
+    STEPLIB/JOBLIB for CICS's own dynamic program loading) dataset, as
+    extracted from a CICS startup PROC's DFHRPL DD group (see
+    ansible/roles/zos_extract/tasks/cics_deepening.yml) and parsed by
+    cics_proc_parser.py. `zone`/`apf_authorized` are left unset by the
+    parser and filled in at ingest time (cli.py) via
+    resolver.dataset_zone()/apf.txt membership, the same STEPLIB/JOBLIB/
+    LNKLST zone/APF resolution machinery lineage already uses -- giving
+    "what installed, patched software does this CICS region actually
+    depend on."
+
+    NOT YET VALIDATED against a real CICS startup PROC -- the DFHRPL
+    DD-group regex is reused near-verbatim from
+    discover_mstrjcl_proclibs.yml's confirmed IEFPDSI handling, but that
+    reuse itself hasn't been checked against a real CICS PROC."""
+
+    dsn: str
+    proc: str = ""
+    zone: str | None = None
+    apf_authorized: bool | None = None
+
+
+@dataclass
+class CicsSitOverride:
+    """One CICS SIT (System Initialization Table) override KEYWORD=VALUE
+    pair, from a CICS startup PROC's inline SYSIN cards (see
+    cics_deepening.yml) and parsed by cics_proc_parser.py. Captured
+    generically, same rationale as VtamStartOption/Jes2InitStatement --
+    the full SIT override keyword set isn't confirmed here.
+
+    NOT YET VALIDATED against a real CICS startup PROC's SYSIN cards."""
+
+    keyword: str
+    value: str
+    proc: str = ""
+
+
+@dataclass
+class CicsCsdDefinition:
+    """One CICS resource definition, from a DFHCSDUP LIST report against
+    the CSD named by a CICS startup PROC's DFHCSD DD (see
+    cics_deepening.yml, cics_csdup_parser.py). Captured maximally
+    generically (def_type, name, group, csd_dsn -- no attribute dict, just
+    the identifying fields a report row can be reasonably expected to
+    carry) since DFHCSDUP's real LIST report *print format* isn't
+    confirmed here, unlike its LIST command syntax (LIST ALL / LIST
+    LIST(name) OBJECTS), which cics_deepening.yml's own header comment
+    confirms against real IBM documentation.
+
+    THE MOST SPECULATIVE PARSER IN THIS PIPELINE, alongside
+    db2_catalog_parser.py and wlm_zosmf_parser.py -- see
+    cics_csdup_parser.py's module docstring for the full caveat,
+    including the real, documented operational risk around reading a
+    live CICS region's CSD concurrently."""
+
+    def_type: str
+    name: str
+    group: str = ""
+    csd_dsn: str = ""
+
+
+@dataclass
 class RacfSnapshot:
     """Everything parsed from one extrracf.py dump, bundled together
     rather than returned as a 7-tuple (error-prone to unpack)."""

@@ -1,0 +1,123 @@
+---
+# Deepened CICS resource view (step 19): DFHRPL lineage + DFHCSDUP CSD
+# definitions -- two things genuinely reachable without CMCI/CICSplex SM
+# (see cics.yml's own header for why CICS's live "what's running" view
+# can't go further). Distinct from cics.yml, which only reports whether a
+# CICS address space is currently up via a 'D A,L' job-name/PROCSTEP
+# heuristic, not real resource content.
+#
+# Opt-in: skipped entirely unless zos_extract_cics_proc (a list of CICS
+# startup PROCLIB member names) is configured. There's no reliable
+# live-discoverable link from a running CICS job name back to its
+# starting PROCLIB member ('D A,L's PROCSTEP is the step name within the
+# PROC, not the PROC's own member name) -- unlike PROCLIB/PARMLIB/JES2
+# parmlib, which each have a real console command or IEASYSxx-keyword
+# path to their active member -- so this requires explicit configuration,
+# same precedent as zos_extract_db2_ssid/zos_extract_smpe_csi.
+#
+# For each configured PROC (see _cics_proc_dump.yml, included once per
+# entry), this pulls:
+#   - DFHRPL: CICS's own load-library concatenation (functionally
+#     STEPLIB/JOBLIB for CICS's own dynamic program loading) -- feeds the
+#     same STEPLIB/JOBLIB/LNKLST zone/APF resolution machinery via
+#     resolver.dataset_zone() (off-host, in cli.py), giving "what
+#     installed, patched software does this region actually depend on."
+#   - SIT overrides: the startup step's inline SYSIN cards, captured
+#     generically as KEYWORD=VALUE pairs off-host (same approach
+#     VtamStartOption/Jes2InitStatement use) -- also used here, in-play,
+#     to pull out GRPLIST (if overridden), which drives the DFHCSDUP LIST
+#     command below.
+#   - DFHCSD DD DSN: the dataset name of the CSD (VSAM KSDS) backing this
+#     region's real resource definitions.
+#
+# If zos_extract_cics_sdfhload is set, this then runs DFHCSDUP (offline,
+# read-only) against each distinct discovered CSD DSN via zos_mvs_raw --
+# mirrors db2_catalog.yml/racf.yml/catalog.yml's zos_mvs_raw precedent
+# exactly. Two real things are confirmed against IBM's own documentation
+# this round (not guessed, unlike this domain's original design sketch):
+#   - PARM='CSD(READONLY)' is DFHCSDUP's real, documented read-only access
+#     option (default is CSD(READWRITE)) -- confirmed via IBM APAR
+#     PM04030's own title, which references this exact parameter string.
+#     This is the documented way to read a live region's CSD without
+#     quiescing it -- quiescing is only required for *update* access to a
+#     recoverable CSD opened in RLS mode; read-only access doesn't need
+#     it.
+#   - LIST ALL / LIST LIST(name) OBJECTS are DFHCSDUP's real, documented
+#     LIST command operands (confirmed against IBM's CICS TS
+#     documentation). LIST ALL enumerates every list/group name on the
+#     CSD (cheap, always valid); LIST LIST(name) OBJECTS returns full
+#     resource-definition attributes for every group in a named list.
+#     _cics_csdup_dump.yml always runs LIST ALL, and additionally runs
+#     LIST LIST(grplist) OBJECTS for each distinct GRPLIST value found
+#     among that CSD's SIT overrides above -- GRPLIST is exactly "the
+#     list of groups this region actually uses," so this is a grounded
+#     choice of what to list, not a guess at an arbitrary group/list name.
+#
+# STILL GENUINELY UNCONFIRMED (needs a real system, not just documentation
+# research): DFHCSDUP's own LIST report *print format* (column layout) --
+# cics_csdup_parser.py captures this maximally tolerantly as a result (see
+# its module docstring) -- and whether this site's actual CICS regions
+# hold their CSD in a way that could still contend with a concurrent
+# read-only batch open despite CSD(READONLY) being the documented-safe
+# option, and whether DFHCSDUP's real return code for a clean LIST is
+# always 0 (zos_mvs_raw's default max_rc, unlike smplist.yml's GIMSMP call
+# which needed max_rc: 4 -- left at the default here, flagged as another
+# real-system check).
+
+- name: Reset per-run CICS PROC accumulator
+  ansible.builtin.set_fact:
+    zos_extract_cics_proc_results: []
+
+- name: Discover DFHRPL/DFHCSD/SIT detail for each configured CICS PROC
+  ansible.builtin.include_tasks: _cics_proc_dump.yml
+  loop: "{{ zos_extract_cics_proc }}"
+  loop_control:
+    loop_var: zos_extract_cics_proc_name
+
+- name: Build the DFHRPL/SIT/CSD text blocks
+  ansible.builtin.set_fact:
+    zos_extract_cics_dfhrpl_text: >-
+      {% for r in zos_extract_cics_proc_results %}
+      {% for dsn in r.dfhrpl %}
+      {{ dsn }} ;;PROC={{ r.proc }}
+      {% endfor %}
+      {% endfor %}
+    zos_extract_cics_sit_text: >-
+      {% for r in zos_extract_cics_proc_results %}
+      ;;PROC={{ r.proc }}
+      {{ r.sit_text }}
+      {% endfor %}
+    zos_extract_cics_csd_text: >-
+      {% for r in zos_extract_cics_proc_results if r.csd_dsn | length > 0 %}
+      {{ r.csd_dsn }} ;;PROC={{ r.proc }}
+      {% endfor %}
+
+- name: Determine distinct CSD DSNs to query with DFHCSDUP, grouped with their region(s)' GRPLIST value(s)
+  ansible.builtin.set_fact:
+    zos_extract_cics_csd_targets: >-
+      {{ zos_extract_cics_proc_results
+         | selectattr('csd_dsn', 'length', 'greaterthan', 0)
+         | groupby('csd_dsn') }}
+  when: zos_extract_cics_sdfhload | length > 0
+
+- name: Run DFHCSDUP LIST for each distinct CSD DSN
+  ansible.builtin.include_tasks: _cics_csdup_dump.yml
+  loop: "{{ zos_extract_cics_csd_targets }}"
+  loop_control:
+    loop_var: zos_extract_cics_csd_target
+  when: zos_extract_cics_sdfhload | length > 0
+
+- name: Write {{ zos_extract_cics_deepening_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_deepening_outfile }}"
+    mode: "0644"
+    content: |-
+      ##DFHRPL
+      {{ zos_extract_cics_dfhrpl_text }}
+      ##SIT
+      {{ zos_extract_cics_sit_text }}
+      ##CSD
+      {{ zos_extract_cics_csd_text }}
+      ##CSDUP_REPORT
+      {{ zos_extract_cics_csdup_report_text | default('') }}
+  delegate_to: localhost

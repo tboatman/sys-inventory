@@ -1,0 +1,62 @@
+---
+# Shared worker for cics_deepening.yml, included once per distinct CSD
+# DSN discovered by _cics_proc_dump.yml (block doesn't support loop in
+# this ansible-core version, see _smplist_zone.yml's own header comment).
+# zos_extract_cics_csd_target is one [csd_dsn, [matching result dicts]]
+# pair from Jinja's groupby filter.
+#
+# Runs DFHCSDUP read-only (PARM='CSD(READONLY)' -- confirmed as a real,
+# documented DFHCSDUP parameter via IBM APAR PM04030's own title, which
+# references this exact string; see cics_deepening.yml's header comment
+# for the full reasoning) against zos_extract_cics_csd_target[0], with a
+# SYSIN built from 'LIST ALL' (always -- cheap, universally valid per
+# IBM's DFHCSDUP documentation) plus one 'LIST LIST(grplist) OBJECTS' per
+# distinct GRPLIST value found among the region(s) sharing this CSD.
+
+- name: Determine GRPLIST values feeding LIST LIST(...) OBJECTS for {{ zos_extract_cics_csd_target[0] }}
+  ansible.builtin.set_fact:
+    zos_extract_cics_csdup_grplists: >-
+      {{ zos_extract_cics_csd_target[1] | map(attribute='grplist') | select('length') | unique | list }}
+
+- name: Run DFHCSDUP LIST against {{ zos_extract_cics_csd_target[0] }}
+  ibm.ibm_zos_core.zos_mvs_raw:
+    program_name: DFHCSDUP
+    auth: true
+    parm: "CSD(READONLY)"
+    dds:
+      - dd_data_set:
+          dd_name: STEPLIB
+          data_set_name: "{{ zos_extract_cics_sdfhload }}"
+          disposition: shr
+      - dd_data_set:
+          dd_name: DFHCSD
+          data_set_name: "{{ zos_extract_cics_csd_target[0] }}"
+          disposition: shr
+      - dd_data_set:
+          dd_name: SYSUT1
+          data_set_name: "{{ zos_extract_cics_workhlq }}.SYSUT1"
+          disposition: new
+          type: seq
+          record_format: fb
+          record_length: 80
+          space_primary: 100
+          space_type: trk
+          replace: true
+          disposition_normal: delete
+          disposition_abnormal: delete
+      - dd_input:
+          dd_name: SYSIN
+          content: "{{ ['LIST ALL'] + (zos_extract_cics_csdup_grplists | map('regex_replace', '^(.*)$', 'LIST LIST(\\1) OBJECTS') | list) }}"
+      - dd_output:
+          dd_name: SYSPRINT
+          return_content:
+            type: text
+  register: zos_extract_cics_csdup_result
+
+- name: Append {{ zos_extract_cics_csd_target[0] }}'s DFHCSDUP report to the accumulator
+  ansible.builtin.set_fact:
+    zos_extract_cics_csdup_report_text: >-
+      {{ (zos_extract_cics_csdup_report_text | default(''))
+         ~ ';;CSD_DSN=' ~ zos_extract_cics_csd_target[0] ~ '\n'
+         ~ ((zos_extract_cics_csdup_result.dd_names | selectattr('dd_name', 'equalto', 'SYSPRINT') | first).content | join('\n'))
+         ~ '\n' }}
