@@ -923,3 +923,170 @@ Still outstanding from the original "not yet validated" list: DSNTEP2
 report format (CICS) -- these four aren't console
 `D`-commands runnable via a quick `opercmd` paste (they all need a
 batch JCL run instead).
+
+---
+
+## 9. Broader active-PARMLIB-member capture (26 more IEASYSxx-named members)
+
+**Context:** `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` (this round)
+established the pattern -- IEASYSxx's own keywords (`SSN=`, `CMD=`,
+`PROD=`, `MSTRJCL=`, `OMVS=`, ...) each name an *active* PARMLIB member of
+a specific type, and this pipeline can fetch+save+parse that member's
+real content generically instead of treating IEASYSxx as just a
+suffix-selector lookup table. The user asked for the same treatment
+across 26 more (IEASYSxx keyword, member type) pairs:
+
+```
+AUTOR/AUTORxx     CATALOG/IGGCATxx  CLOCK/CLOCKxx     CMD/COMMNDxx
+CON/CONSOLxx      COUPLE/COUPLxx    DEVSUP/DEVSUPxx   DIAG/DIAGxx
+FIX/IEAFIXxx      GRSCNF/GRSCNFxx   GRSRNL/GRSRNLxx   IOS/IECIOSxx
+IZU/IZUPRMxx      LPA/LPALSTxx      MLPA/IEALPAxx     MSTRJCL/MSTJCLxx
+OPT/IEAOPTxx      PROG/PROGxx       PAK/IEAPAKxx      SMS/IGDSMSxx
+SCH/SCHEDxx       SMF/SMFxx         SSN/IEFSSNxx      SVC/IEASVCxx
+UNI/CUNIMGxx      VAL/VATLSTxx
+```
+
+**Before writing 23 more parsers, two things need to happen first** (this
+section is that plan, not an implementation):
+
+### 9.0. Three of these need *no new work at all*
+
+- **SSN/IEFSSNxx** -- already fully ingested: `ssn_parser.parse_subsystems()`,
+  `Subsystem` table, `inventory subsystems`.
+- **CMD/COMMNDxx** -- already fully ingested: `ssn_parser.parse_started_tasks()`,
+  `StartedTask` table, `inventory started-tasks`.
+- **MSTRJCL/MSTJCLxx** -- this member's content *is* real JCL (the master
+  scheduler's own startup JCL), not KEYWORD=value/statement config like
+  the other 25. It's already captured generically once PARMLIB's full
+  member dump runs (`proclib.yml`, tag `proclib`, `.*` member regex) and
+  parsed by the existing `jcl_parser`/lineage pipeline -- no new parser
+  needed, just confirm `inventory lineage MSTJCLxx` (or whatever suffix)
+  shows real steps once that tag has been run. `discover_mstrjcl_proclibs.yml`
+  already separately extracts this member's own PROCLIB-concatenation
+  additions.
+
+That leaves 23.
+
+### 9.1. Architectural change needed before scaling past 2 more of these
+
+`ieasys_snapshot`/`bpxprm_snapshot` each got their own hand-written
+ansible task file pair (`_fetch_active_*_member.yml` + `*_snapshot.yml`)
+and their own hand-written Python parser. That was the right call for
+*two* domains (each genuinely needed its own review), but copy-pasting
+this 23 more times would be a real maintenance burden and error-prone
+(the `ieasys_snapshot` tag-propagation bug just fixed is exactly the kind
+of mistake that gets repeated at scale). Two refactors should land first:
+
+**Ansible: one parameterized fetch worker instead of N near-duplicates.**
+Replace `_fetch_active_ieasys_member.yml`/`_fetch_active_bpxprm_member.yml`
+with a single `_fetch_active_parmlib_member.yml` parameterized by
+`zos_extract_active_member_prefix` (e.g. `"SCHED"`), a suffix (from the
+loop), and an accumulator fact name (via Ansible's dict-literal
+`set_fact: "{{ {accumulator_name: ...} }}"` / `vars[accumulator_name]`
+indirection). Driven by one data table (list of `{ieasys_keyword,
+member_prefix, outfile, tag}` entries) in `defaults/main.yml`, with a
+single generic task in `discover_active_members.yml` that loops the table
+twice: once to extract every `zos_extract_active_<keyword>_suffixes` list
+generically (replacing the current copy-pasted `SSN@@@`/`CMD@@@`/
+`PROD@@@`/`OMVS@@@`/`MSTRJCL@@@` blocks with one loop), once to fetch+
+accumulate+write each member type. `main.yml`'s tag wiring becomes a loop
+too (one `include_tasks` per table row) instead of one hand-written
+import block per domain -- and critically, *every* row automatically gets
+its tag added to `discover_parmlib.yml`/`discover_active_parmlib_
+suffixes.yml`/`discover_active_members.yml`'s tag lists from the same
+table, so the "forgot to add the tag to the prerequisite" bug class
+becomes structurally impossible instead of a thing to remember 23 times.
+
+**Python: two shared parsing engines, not 23 copy-pasted ones.** Group the
+23 by real shape (see 9.2 below) and extract each shape's logic into one
+reusable function each domain's thin parser module calls:
+- `_flat_keyword_engine(text) -> dict[str, str|None]` -- generalizes
+  `ieasys_parser.py`'s comma-split logic (IEASYSxx's own shape).
+- `_statement_engine(text, keywords: set[str]) -> list[(stmt, operands)]`
+  -- generalizes `bpxprm_parser.py`'s (itself modeled on
+  `tcpip_parser.py`'s PROFILE.TCPIP logic) fold-into-current-statement
+  approach, parameterized by each member type's own keyword vocabulary.
+- Category D (below) reuses `jes2parm_parser.py`'s existing
+  `_split_params`/`_join_continuations` as-is; it's already generic.
+- Category E (below) needs small dedicated parsers -- genuinely
+  different shapes, not worth forcing into either engine above.
+
+Each of the 23 still gets its own `dataclass` (in `models.py`), its own
+`store.py` table, and its own `inventory <name>` command -- only the
+*parsing mechanics* are shared, not the domains' identities. This mirrors
+how `Jes2InitStatement`/`VtamStartOption`/`CicsSitOverride` already share
+one *idea* ("generic KEYWORD capture") without sharing one *class*.
+
+### 9.2. The 23, categorized by real syntax shape
+
+**B -- flat `KEYWORD=value`, comma-continued (reuse the IEASYSxx engine):**
+- `DEVSUP`/`DEVSUPxx`, `OPT`/`IEAOPTxx`, `CLOCK`/`CLOCKxx` (mostly flat;
+  a few `KEYWORD(value)` entries, but `IeasysStatement`'s "keep parens in
+  the value" convention already handles that fine)
+
+**C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
+continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
+domain):**
+- `AUTOR`/`AUTORxx` (ARM policy statements), `CATALOG`/`IGGCATxx`,
+  `CON`/`CONSOLxx`, `COUPLE`/`COUPLxx`, `DIAG`/`DIAGxx`,
+  `GRSCNF`/`GRSCNFxx`, `GRSRNL`/`GRSRNLxx` (RNLDEF statements),
+  `IOS`/`IECIOSxx`, `SMS`/`IGDSMSxx` (**naming collision to watch**: this
+  project already has an unrelated `sms` tag/`SmsStorageGroup` table for
+  the *live* `D SMS,STORGRP` console command -- this new one needs its own
+  distinct tag, e.g. `igdsms_snapshot`, and its own table name, not
+  `sms_*`), `SCH`/`SCHEDxx` (PPT entries), `SMF`/`SMFxx`, and `PROG`/`PROGxx`
+  (**the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
+  all distinct sub-statement types inside one PROGxx member; treat as its
+  own careful pass, not a drive-by addition alongside the simpler ones)
+
+**D -- `STMT param,KEYWORD=value,...` (reuse jes2parm_parser.py's engine
+as-is):**
+- `SVC`/`IEASVCxx` (`SVCPARM nnn,KEYWORD=value,...` -- note the leading
+  `nnn` is a bare positional parameter, not a parenthesized subscript like
+  JES2's own `JOBCLASS(1)`; `jes2parm_parser.py`'s `_STMT` regex needs a
+  small extension to accept that shape, not a fresh rewrite)
+
+**E -- positional/list formats, not KEYWORD=value at all (need their own
+small dedicated parsers, closer to how `lnklst.txt`/`apf.txt` are
+handled than any of the above):**
+- `LPA`/`LPALSTxx` -- a dataset name list, same shape LNKLST already is
+- `FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx` -- `modname,ddname` pairs, same
+  shape as each other
+- `VAL`/`VATLSTxx` -- volume attribute list (`PRIVATE`/`PUBLIC`/`STORAGE`
+  + volser lists)
+
+**F -- needs research before committing to *any* design, not just a
+"not yet validated" flag like everything above:**
+- `PAK`/`IEAPAKxx` -- not confident this is a real, current z/OS PARMLIB
+  member at all (no documentation found while writing this plan); verify
+  it exists before designing anything
+- `UNI`/`CUNIMGxx` -- real member, but its exact statement syntax isn't
+  confidently known here; needs the same doc research pass
+  `bpxprm_parser.py` got before implementing
+- `IZU`/`IZUPRMxx` (z/OSMF configuration) -- likely real and likely more
+  elaborate/nested than a flat statement list (z/OSMF's own config
+  surface is large); expect this to need its own careful pass like
+  `PROG`/`PROGxx`, probably the single most speculative one here,
+  comparable to `wlm_zosmf.txt`'s own "most speculative in the pipeline"
+  tier
+
+### 9.3. Suggested sequencing
+
+1. The two refactors in 9.1 (parameterized ansible worker + shared Python
+   engines) -- do this before adding a third hand-written domain, not
+   after the fifth.
+2. Category B (3 domains) -- cheapest, most mechanical once 9.1 lands.
+3. Category E (4 domains) -- simple positional formats, no engine
+   dependency, can happen in parallel with B.
+4. Category C minus PROG/IGDSMS (8 domains) -- mechanical once the
+   statement engine exists.
+5. Category D (1 domain, SVC) -- needs the small `jes2parm_parser.py`
+   extension first.
+6. `PROG`/`IGDSMS` on their own, given their complexity.
+7. Category F (3 domains) -- research first, implement last.
+
+Each domain still needs: model + parser + `store.py` table + `cli.py`
+command + fixture + tests + doc updates (`zos-extract.md`/`ansible.md`/
+`inventory.md`), same as `ieasys`/`bpxprm` this round -- 9.1's refactor
+only removes the *ansible* and *parsing-engine* duplication, not this
+per-domain wiring, which is inherently one-per-domain.
