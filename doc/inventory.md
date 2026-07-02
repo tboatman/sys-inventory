@@ -157,15 +157,43 @@ Full resolved execution path for one PROCLIB/PARMLIB member:
 ```
 $ inventory lineage MYPROC
 MYPROC
-  step STEP1: PGM=IEFBR14 dataset=MY.SITE.LINKLIB zone=TZONE2 FMID=? [APF]  [module IEFBR14 not found in zone TZONE2's FILE list]
-  step NSTEP1: PGM=IGYCRCTL dataset=SYS1.LINKLIB zone=TZONE1 FMID=HLA2280 [non-APF]  [resolved via STEPLIB (APPLIED)]
+  step STEP1: PGM=IEFBR14 dataset=MY.SITE.LINKLIB zone=TZONE2 FMID=? CSI=EDUC.TEST.GLOBAL.CSI [APF]  [module IEFBR14 not found in zone TZONE2's FILE list]
+  step NSTEP1: PGM=IGYCRCTL dataset=SYS1.LINKLIB zone=TZONE1 FMID=HLA2280 CSI=EDUC.TEST.GLOBAL.CSI [non-APF]  [resolved via STEPLIB (APPLIED)]
 ```
 
 Nested `EXEC PROCNAME` steps are already flattened into this list — you
 don't need to separately look up the nested PROC. `[APF]`/`[non-APF]`
 shows APF authorization status (only shown as `[APF=?]` if you didn't
-ingest an `apf.txt`). The bracketed text at the end of each line explains
-*how* that hop was resolved, or why it couldn't be.
+ingest an `apf.txt`). `CSI` is the SMP/E CSI dataset that owns the
+resolved zone (shown as `?` if the ingested `*smplist*.txt` file predates
+the `##CSI` sentinel line — see `inventory/smpe_parser.py`). The bracketed
+text at the end of each line explains *how* that hop was resolved, or why
+it couldn't be.
+
+### `inventory trace NAME`
+
+Full traceability for one name, tying together everything that's
+otherwise spread across `started-tasks`/`active`/`lineage`: is `NAME`
+defined as a `COMMNDxx` auto-start task, is it running right now, and (by
+reusing the same PROCLIB-member lookup `lineage` uses — a started task's
+name *is* the PROC member name per real MVS `START
+procname[.identifier]` syntax) its full resolved execution path down to
+the SMP/E zone/FMID/holding CSI for every step:
+
+```
+$ inventory trace CICSPROD
+TRACE: CICSPROD
+  defined as auto-start: S CICSPROD.CICSA  [COMMND00]
+  not currently active (or no active_jobs.txt ingested)
+  no PROCLIB/PARMLIB member named CICSPROD was ingested -- cannot resolve an execution path
+```
+
+This is the one command that answers "started task -> proclib -> program
+-> SMP/E holding CSI" end to end without cross-referencing `started-tasks`/
+`lineage` by hand. Known gap: `ssn_parser.py` doesn't yet parse the
+`S task,PROC=realproc` override form of the `START` command, so a task
+started that way won't join correctly by name alone — see `doc/TODO.md`
+("8b").
 
 ### `inventory report [--output file.csv]`
 
@@ -174,9 +202,9 @@ The same information as `lineage`, but for every member at once, as CSV
 
 ```
 $ inventory report
-member,step_name,pgm,dataset,zone,fmid,resolution,apf_authorized
-JOBPROC,JSTEP1,SAMPMOD,MY.SITE.LINKLIB,TZONE2,USER001,resolved via JOBLIB (APPLIED),1
-LNKPROC,LSTEP1,IEBGENER,SYS1.LINKLIB,TZONE1,HBB7790,resolved via LNKLST (APPLIED),0
+member,step_name,pgm,dataset,zone,fmid,csi,resolution,apf_authorized
+JOBPROC,JSTEP1,SAMPMOD,MY.SITE.LINKLIB,TZONE2,USER001,EDUC.TEST.GLOBAL.CSI,resolved via JOBLIB (APPLIED),1
+LNKPROC,LSTEP1,IEBGENER,SYS1.LINKLIB,TZONE1,HBB7790,EDUC.TEST.GLOBAL.CSI,resolved via LNKLST (APPLIED),0
 ...
 ```
 
@@ -666,6 +694,8 @@ See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
    entries (`LIST DDDEF` output).
 4. The module is looked up in that zone's `LIST FILE` output to get the
    owning FMID, with status (APPLIED/ACCEPTED) from `LIST SYSMOD`.
+   The zone's owning CSI (`Zone.csi`), if known, rides along on the
+   resolved step too — see the `##CSI` sentinel note below.
 5. If `apf.txt` was ingested, the resolved dataset is flagged
    `apf_authorized` True/False; if `apf.txt` wasn't ingested, the flag is
    `None` (unknown) rather than defaulting to either True or False.
@@ -675,6 +705,19 @@ dataset-to-zone DDDEF matching step 3 above uses, exposed specifically so
 other domains can reuse it without duplicating that logic — `cics-dfhrpl`
 entries (see below) are zone/APF-resolved this way at ingest time
 (`cli.py`), not by `cics_proc_parser.py` itself.
+
+Each ingested `*smplist*.txt` file can optionally start with a `##CSI
+<dsn>` sentinel line naming the CSI it was generated from (both
+`zos-extract/python/smplist.py` and the `ansible/` role's
+`_smplist_zone.yml` write this automatically); every `Zone` parsed from
+that file is stamped with it, and it rides along into `lineage`/`report`/
+`trace` as the `csi` column/field. A file with no `##CSI` line (e.g. one
+captured before this existed) still parses fine — `csi` is just empty for
+those zones. This is currently a single-CSI-per-ingest convenience, not
+full multi-CSI support: if you ingest `*smplist*.txt` files from more than
+one distinct CSI in the same run, `merge_zones()` still keys purely on
+zone *name*, so two same-named zones from different CSIs would collide —
+see `doc/TODO.md` ("8c") for the planned fix.
 
 Any hop that can't be resolved (no STEPLIB and no LNKLST match, a dataset
 not claimed by any ingested zone, etc.) is still recorded with a

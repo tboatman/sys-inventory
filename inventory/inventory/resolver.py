@@ -88,6 +88,7 @@ def resolve_member(
 
         zone_name = _dataset_to_zone(dataset, zones) if dataset else None
         fmid = _fmid_for_module(step.pgm, zone_name, zones)
+        csi = (zones[zone_name].csi or None) if zone_name else None
 
         if dataset is None:
             resolution = "no STEPLIB/JOBLIB and no LNKLST data available"
@@ -111,6 +112,7 @@ def resolve_member(
                 fmid=fmid,
                 resolution=resolution,
                 apf_authorized=apf_authorized,
+                csi=csi,
             )
         )
 

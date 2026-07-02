@@ -125,6 +125,10 @@ def main():
 
         report_text = datasets.read(output_dsn)
         with open(args.outfile, "w", encoding="utf-8") as out:
+            # ##CSI sentinel line, read by inventory/smpe_parser.py to stamp
+            # every Zone parsed from this file with its owning CSI -- see
+            # that module's docstring and doc/TODO.md ("8a. Zone.csi field").
+            out.write("##CSI {}\n".format(args.csi))
             out.write(report_text)
 
     finally:

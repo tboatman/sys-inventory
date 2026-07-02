@@ -33,6 +33,7 @@ def test_full_chain_member_to_fmid_via_steplib_and_nested_proc():
     assert direct_steplib_hop.zone == "TZONE2"
     assert direct_steplib_hop.fmid is None  # IEFBR14 isn't in TZONE2's FILE list
     assert direct_steplib_hop.apf_authorized is True
+    assert direct_steplib_hop.csi == "EDUC.TEST.GLOBAL.CSI"
 
     nested_hop = chain[1]
     assert nested_hop.pgm == "IGYCRCTL"
@@ -41,6 +42,7 @@ def test_full_chain_member_to_fmid_via_steplib_and_nested_proc():
     assert nested_hop.fmid == "HLA2280"
     assert "APPLIED" in nested_hop.resolution
     assert nested_hop.apf_authorized is False
+    assert nested_hop.csi == "EDUC.TEST.GLOBAL.CSI"
 
 
 def test_lnklst_fallback_resolution():

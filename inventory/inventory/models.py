@@ -51,6 +51,9 @@ class Zone:
     """One SMP/E target (or global) zone, parsed from LIST ZONES/DDDEF."""
 
     name: str
+    csi: str = ""   # owning CSI dataset name, from an optional ##CSI sentinel
+                     # line in the *smplist*.txt file (see smpe_parser.py);
+                     # "" if the file predates that sentinel or omits it.
     dddefs: dict[str, str] = field(default_factory=dict)   # ddname -> DSN
     # module name -> owning FMID, derived from LIST FILE / LIST SYSMOD
     module_fmid: dict[str, str] = field(default_factory=dict)
@@ -83,6 +86,9 @@ class LineageStep:
                                           # and `dataset` was/wasn't in it;
                                           # None if apf.txt wasn't ingested or
                                           # `dataset` is None
+    csi: str | None = None   # owning CSI dataset name (Zone.csi), if `zone`
+                              # resolved and that zone's file carried a
+                              # ##CSI sentinel; None otherwise
 
 
 @dataclass

@@ -10,6 +10,20 @@ always appear in LIST output (ZONE, DDNAME, DSNAME, FMID, STATUS) and is
 deliberately tolerant of surrounding whitespace/noise. If your
 installation's report differs enough that this misses data, tune the
 regexes below — the section state machine itself shouldn't need to change.
+
+Every `Zone` parsed from one file is stamped with that file's owning CSI,
+via an optional `##CSI <dsn>` sentinel line -- the same `##BLOCKNAME`
+convention `sysinfo_parser.py`/`vtam_parser.py` use, just a single value
+rather than a whole block. Both producers of `*.smplist.txt`
+(`zos-extract/python/smplist.py` and
+`ansible/roles/zos_extract/tasks/_smplist_zone.yml`) write this line ahead
+of GIMSMP's own report text. A file with no `##CSI` line (e.g. one
+captured before this was added) simply leaves `Zone.csi` as `""` --
+nothing here requires the sentinel to be present. See `doc/TODO.md`
+("8a. Zone.csi field") for why this exists: this site alone has at least
+four separate real CSIs (`ansible/output/bes2/smpe_csi_candidates.txt`),
+and without this, merging zones from more than one of them loses which
+CSI each zone actually belongs to.
 """
 from __future__ import annotations
 
@@ -18,6 +32,7 @@ from pathlib import Path
 
 from .models import Zone
 
+_CSI_HDR = re.compile(r"^\s*##CSI\s+(\S+)", re.IGNORECASE)
 _ZONE_HDR = re.compile(r"\bZONE\s+([A-Za-z0-9$#@]+)\b")
 # Each LIST report opens with a "<zone>  <TYPE> ENTRIES" title (confirmed for
 # DDDEF against real output) that doubles as both the section marker and the
@@ -67,11 +82,17 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
     section = None  # one of None, "DDDEF", "FILE", "SYSMOD"
     pending_modname: str | None = None
     pending_sysmod: str | None = None
+    csi_name: str | None = None
 
     _SECTION_BY_TYPE = {"DDDEF": "DDDEF", "MOD": "FILE", "SYSMOD": "SYSMOD"}
 
     for raw_line in path.read_text(errors="replace").splitlines():
         line = raw_line.rstrip()
+
+        csi_match = _CSI_HDR.match(line)
+        if csi_match:
+            csi_name = csi_match.group(1)
+            continue
 
         hdr_match = _SECTION_HDR.match(line)
         if hdr_match:
@@ -137,6 +158,10 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
                 current_zone.fmid_status[pending_sysmod] = status.upper()
                 pending_sysmod = None
 
+    if csi_name:
+        for zone in zones.values():
+            zone.csi = csi_name
+
     return zones
 
 
@@ -148,6 +173,7 @@ def merge_zones(*zone_maps: dict[str, Zone]) -> dict[str, Zone]:
     for zmap in zone_maps:
         for name, zone in zmap.items():
             target = merged.setdefault(name, Zone(name=name))
+            target.csi = zone.csi or target.csi
             target.dddefs.update(zone.dddefs)
             target.module_fmid.update(zone.module_fmid)
             target.fmid_status.update(zone.fmid_status)

@@ -35,6 +35,9 @@
   ansible.builtin.copy:
     dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_zone | lower }}.smplist.txt"
     mode: "0644"
+    # ##CSI sentinel line, read by inventory/smpe_parser.py to stamp every
+    # Zone parsed from this file with its owning CSI -- see that module's
+    # docstring and doc/TODO.md ("8a. Zone.csi field").
     content: >-
-      {{ ((zos_extract_gimsmp_result.dd_names | selectattr('dd_name', 'equalto', 'SMPLIST') | first).content | join('\n')) ~ '\n' }}
+      {{ '##CSI ' ~ zos_extract_smpe_csi ~ '\n' ~ ((zos_extract_gimsmp_result.dd_names | selectattr('dd_name', 'equalto', 'SMPLIST') | first).content | join('\n')) ~ '\n' }}
   delegate_to: localhost

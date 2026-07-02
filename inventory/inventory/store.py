@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS lineage (
     dataset        TEXT,
     zone           TEXT,
     fmid           TEXT,
+    csi            TEXT,
     resolution     TEXT NOT NULL,
     apf_authorized INTEGER
 );
@@ -336,13 +337,13 @@ def save_lineage(conn: sqlite3.Connection, lineage_by_member: dict[str, list[Lin
     conn.execute("DELETE FROM lineage")
     rows = [
         (step.member, step.step_name, step.pgm, step.dataset, step.zone, step.fmid,
-         step.resolution, step.apf_authorized)
+         step.csi, step.resolution, step.apf_authorized)
         for steps in lineage_by_member.values()
         for step in steps
     ]
     conn.executemany(
-        "INSERT INTO lineage (member, step_name, pgm, dataset, zone, fmid, resolution, apf_authorized) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO lineage (member, step_name, pgm, dataset, zone, fmid, csi, resolution, apf_authorized) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows,
     )
     conn.commit()

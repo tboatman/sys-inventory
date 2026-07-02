@@ -242,6 +242,16 @@ python3 /path/to/zos-extract/python/smplist.py --csi YOUR.GLOBAL.CSI \
 SMP/E itself only needs READ access to the CSI for LIST commands (no
 APPLY/ACCEPT/RECEIVE happens here), so this is safe to run broadly.
 
+`smplist.py` (and the `ansible/` role's equivalent `_smplist_zone.yml`
+task) automatically prepends a `##CSI YOUR.GLOBAL.CSI` line ahead of the
+GIMSMP report text — `inventory/smpe_parser.py` reads it to stamp every
+zone parsed from that file with its owning CSI (`inventory
+lineage`/`report`/`trace`'s `CSI=`/`csi` column), which matters once you
+run this against more than one CSI (a real site can have several — see
+`ansible/roles/zos_extract/tasks/discover_smpe_csis.yml`). If you're
+running an older copy of either script, the file just won't have that
+line and `csi` comes back empty — nothing else changes.
+
 ### 8. Live activity snapshot (currently-running jobs and processes)
 
 Everything above is either configuration (what's *defined*) or fairly

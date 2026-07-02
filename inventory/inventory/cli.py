@@ -1,4 +1,5 @@
 """CLI entry point: `inventory ingest`, `inventory lineage`, `inventory report`,
+`inventory trace`,
 `inventory subsystems`, `inventory started-tasks`, `inventory sysinfo`,
 `inventory products`, `inventory active`, `inventory processes`,
 `inventory catalog`, `inventory vsam`, `inventory racf-users`,
@@ -244,10 +245,11 @@ def cmd_lineage(args: argparse.Namespace) -> int:
         pgm = row["pgm"] or "(no PGM)"
         zone = row["zone"] or "?"
         fmid = row["fmid"] or "?"
+        csi = row["csi"] or "?"
         dataset = row["dataset"] or "?"
         apf = _apf_str(row["apf_authorized"])
         print(f"  step {row['step_name']}: PGM={pgm} dataset={dataset} zone={zone} "
-              f"FMID={fmid} [{apf}]  [{row['resolution']}]")
+              f"FMID={fmid} CSI={csi} [{apf}]  [{row['resolution']}]")
     return 0
 
 
@@ -256,7 +258,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     rows = store.all_lineage(conn)
     conn.close()
 
-    fieldnames = ["member", "step_name", "pgm", "dataset", "zone", "fmid", "resolution", "apf_authorized"]
+    fieldnames = ["member", "step_name", "pgm", "dataset", "zone", "fmid", "csi", "resolution", "apf_authorized"]
     out = sys.stdout if args.output == "-" else open(args.output, "w", newline="")
     try:
         writer = csv.DictWriter(out, fieldnames=fieldnames)
@@ -267,6 +269,54 @@ def cmd_report(args: argparse.Namespace) -> int:
         if out is not sys.stdout:
             out.close()
     return 0
+
+
+def cmd_trace(args: argparse.Namespace) -> int:
+    """Full traceability for one name: is it a defined auto-start task, is
+    it running right now, and (reusing `lineage_for_member` -- `StartedTask.
+    task_name` is the PROC member name per real MVS `START
+    procname[.identifier]` syntax) what's its resolved execution path,
+    down to the SMP/E zone/FMID/holding CSI for each step. See doc/TODO.md
+    ("8b") for why this exists: the started-task and lineage sides were
+    never joined anywhere before this."""
+    name = args.name.upper()
+    conn = store.connect(Path(args.db))
+    started = [r for r in store.all_started_tasks(conn) if r["task_name"].upper() == name]
+    active = [r for r in store.all_active_jobs(conn) if r["name"].upper() == name]
+    lineage_rows = store.lineage_for_member(conn, name)
+    conn.close()
+
+    print(f"TRACE: {name}")
+
+    if started:
+        for row in started:
+            ident = f".{row['identifier']}" if row["identifier"] else ""
+            print(f"  defined as auto-start: S {row['task_name']}{ident}  [{row['source_member']}]")
+    else:
+        print("  no COMMNDxx auto-start command found for this name")
+
+    if active:
+        for row in active:
+            print(f"  currently active: {row['job_id']}  TYPE={row['job_type'] or '?'} "
+                  f"ASID={row['asid'] or '?'} OWNER={row['owner'] or '?'} SYSTEM={row['system'] or '?'}")
+    else:
+        print("  not currently active (or no active_jobs.txt ingested)")
+
+    if lineage_rows:
+        print("  execution path:")
+        for row in lineage_rows:
+            pgm = row["pgm"] or "(no PGM)"
+            zone = row["zone"] or "?"
+            fmid = row["fmid"] or "?"
+            csi = row["csi"] or "?"
+            dataset = row["dataset"] or "?"
+            apf = _apf_str(row["apf_authorized"])
+            print(f"    step {row['step_name']}: PGM={pgm} dataset={dataset} zone={zone} "
+                  f"FMID={fmid} CSI={csi} [{apf}]  [{row['resolution']}]")
+    else:
+        print(f"  no PROCLIB/PARMLIB member named {name} was ingested -- cannot resolve an execution path")
+
+    return 0 if (started or active or lineage_rows) else 1
 
 
 def cmd_subsystems(args: argparse.Namespace) -> int:
@@ -687,6 +737,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_report = sub.add_parser("report", help="dump the full resolved inventory as CSV")
     p_report.add_argument("--output", default="-", help="output file, or '-' for stdout")
     p_report.set_defaults(func=cmd_report)
+
+    p_trace = sub.add_parser("trace", help="full traceability for one name: auto-start definition, live status, and resolved execution path down to SMP/E zone/FMID/CSI")
+    p_trace.add_argument("name", help="started task name / PROCLIB member name")
+    p_trace.set_defaults(func=cmd_trace)
 
     p_subsystems = sub.add_parser("subsystems", help="list defined subsystems (IEFSSNxx)")
     p_subsystems.set_defaults(func=cmd_subsystems)
