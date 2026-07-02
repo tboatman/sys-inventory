@@ -6,12 +6,13 @@
 # tcpip_parser.py (off-host) does the real parsing, same "capture raw,
 # parse off-host" split as everywhere else in this pipeline.
 #
-# NOT YET CONFIRMED against a real system or a real PROFILE.TCPIP sample:
-# neither 'D TCPIP,,NETSTAT,HOME' nor the profile statement parsing has
-# been checked against actual output from this site (IBM's docs site
-# 403'd on direct fetch and no secondary source had real sample output
-# while writing this either) -- tcpip_parser.py's module docstring
-# carries the full caveat.
+# 'D TCPIP,,NETSTAT,HOME' CONFIRMED against a real reply on 2026-07-02 --
+# the real shape mixes legacy LINKNAME: rows with OSA-Express QDIO
+# INTFNAME: rows under the same HOME ADDRESS LIST, and each entry carries
+# its own FLAGS: line (sometimes PRIMARY); tcpip_parser.py was fixed to
+# match. The PROFILE.TCPIP statement parsing below is still NOT YET
+# CONFIRMED against a real sample -- tcpip_parser.py's module docstring
+# carries the full caveat for that piece.
 #
 # zos_fetch's own documented behavior (its EXAMPLES block): fetching a
 # sequential data set with flat:true names the local file after the full

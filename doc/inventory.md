@@ -140,7 +140,7 @@ just renaming them into that shape for a quick demo.)
    `inventory --db mydb.db ingest input/`). Expected output:
 
    ```
-   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 2 TCPIP home addresses, 4 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
+   inventory: ingested 5 members, 2 zones, 6 resolved steps, 2 subsystems, 2 started tasks, 2 products, 3 active jobs, 3 processes, 2 cataloged datasets, 2 VSAM clusters, 2 RACF users, 1 RACF groups, 4 USS mounts, 4 JES2 init statements, 3 VTAM major nodes, 8 VTAM start options, 6 TCPIP home addresses, 4 TCPIP profile statements, 3 SMS storage groups, 2 DB2 packages, 1 DB2 plans, 2 WLM z/OSMF entries, 2 CICS DFHRPL entries, 3 CICS SIT overrides, 3 CICS CSD definitions -> /tmp/demo/demo.db
    ```
 
    You can re-run `ingest` any time (e.g. after extracting more zones or
@@ -433,7 +433,7 @@ If you didn't ingest a `vtam.txt`, or it didn't contain a `##TOPO` block,
 this prints `no VTAM topology summary ingested` and exits with a
 non-zero status — same as `inventory sysinfo`/`inventory wlm`.
 
-### `inventory tcpip-home` / `inventory tcpip-profile` (not yet production-validated)
+### `inventory tcpip-home` (confirmed) / `inventory tcpip-profile` (not yet production-validated)
 
 TCP/IP home addresses (`D TCPIP,,NETSTAT,HOME`, always captured) and
 `PROFILE.TCPIP` configuration statements (only if
@@ -442,13 +442,21 @@ TCP/IP home addresses (`D TCPIP,,NETSTAT,HOME`, always captured) and
 name + raw operand text, `TcpipProfileStatement` in `models.py`) since
 `PROFILE.TCPIP` syntax is positional (`DEVICE`/`LINK`/`HOME`/`PORT` ...),
 not uniform `KEYWORD=VALUE` — see `tcpip_parser.py`'s module docstring.
-**Neither piece has been checked against a real system or a real
+**`tcpip-home` is confirmed against a real reply (2026-07-02)** — the
+real HOME ADDRESS LIST mixes legacy `LINKNAME:` rows with OSA-Express
+QDIO `INTFNAME:` rows, and each entry carries a `FLAGS:` line marking
+the stack's primary home address, shown as `(PRIMARY)` below.
+**`tcpip-profile` still hasn't been checked against a real
 `PROFILE.TCPIP` sample.**
 
 ```
 $ inventory tcpip-home
-ETH0LINK  10.1.1.2
+EZASAMEMVS  10.1.1.1
+EZAXCFS1  10.1.1.1
+HPRIP  10.1.1.1
 LOOPBACK  127.0.0.1
+LOOPBACK6  ::1
+QDIOLE2  10.1.1.2  (PRIMARY)
 
 $ inventory tcpip-profile
 DEVICE OSA2080 MPCIPA  [TCPIP.TCPPARMS(PROFILE1)]
@@ -731,12 +739,15 @@ record) — **the entire fixture is now confirmed against real replies
 (across two follow-up rounds), same as USS mounts above; see
 `vtam_parser.py`'s module docstring for exactly what changed from the
 original guesses.** Also
-TCP/IP parsing (`sample_tcpip.txt`, covering paired `LINKNAME:`/`ADDRESS:`
-home-address lines, a `PROFILE.TCPIP` excerpt with a comment line that
-must be skipped, and confirming the `##PROFILE` block/`source_dsn` is
-simply absent when a dump has no profile fetch) — **both also built
-against hand-constructed fixtures, not a real system reply; see
-`vtam_parser.py`/`tcpip_parser.py`'s module docstrings.** Also SMS storage
+TCP/IP parsing (`sample_tcpip.txt`, covering `LINKNAME:` rows and the
+real OSA-Express QDIO `INTFNAME:` rows the original guess never
+accounted for, a `FLAGS:`/`PRIMARY` line setting `is_primary`, a
+`PROFILE.TCPIP` excerpt with a comment line that must be skipped, and
+confirming the `##PROFILE` block/`source_dsn` is simply absent when a
+dump has no profile fetch) — **the NETSTAT HOME half is now confirmed
+against a real reply (2026-07-02); the `PROFILE.TCPIP` half is still
+built against a hand-constructed fixture, not a real sample; see
+`tcpip_parser.py`'s module docstring.** Also SMS storage
 group parsing (`sample_sms.txt`, now the real confirmed two-section reply
 shape rather than the originally-guessed one, covering a `STORGRP TYPE
 SYSTEM=` header shared across several consecutive group rows, `TYPE`

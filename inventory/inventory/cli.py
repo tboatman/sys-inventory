@@ -562,7 +562,8 @@ def cmd_tcpip_home(args: argparse.Namespace) -> int:
     conn.close()
 
     for row in rows:
-        print(f"{row['link_name']}  {row['ip_address']}")
+        marker = "  (PRIMARY)" if row["is_primary"] else ""
+        print(f"{row['link_name']}  {row['ip_address']}{marker}")
     return 0
 
 
@@ -747,7 +748,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_vtam_topology = sub.add_parser("vtam-topology", help="show the APPN topology database summary (D NET,TOPO) -- confirmed against a real reply")
     p_vtam_topology.set_defaults(func=cmd_vtam_topology)
 
-    p_tcpip_home = sub.add_parser("tcpip-home", help="list TCP/IP stack home addresses (not yet production-validated)")
+    p_tcpip_home = sub.add_parser("tcpip-home", help="list TCP/IP stack home addresses (confirmed against a real reply)")
     p_tcpip_home.set_defaults(func=cmd_tcpip_home)
 
     p_tcpip_profile = sub.add_parser("tcpip-profile", help="list PROFILE.TCPIP configuration statements, if configured (not yet production-validated)")

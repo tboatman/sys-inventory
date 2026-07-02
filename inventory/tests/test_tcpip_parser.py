@@ -12,7 +12,27 @@ def load_tcpip():
 def test_home_addresses_parsed():
     addresses, _ = load_tcpip()
     by_link = {a.link_name: a.ip_address for a in addresses}
-    assert by_link == {"ETH0LINK": "10.1.1.2", "LOOPBACK": "127.0.0.1"}
+    assert by_link == {
+        "EZASAMEMVS": "10.1.1.1",
+        "EZAXCFS1": "10.1.1.1",
+        "LOOPBACK": "127.0.0.1",
+        "QDIOLE2": "10.1.1.2",
+        "HPRIP": "10.1.1.1",
+        "LOOPBACK6": "::1",
+    }
+
+
+def test_intfname_rows_parsed_same_as_linkname_rows():
+    addresses, _ = load_tcpip()
+    assert {a.link_name for a in addresses} >= {"QDIOLE2", "HPRIP", "LOOPBACK6"}
+
+
+def test_primary_flag_parsed():
+    addresses, _ = load_tcpip()
+    by_link = {a.link_name: a.is_primary for a in addresses}
+    assert by_link["QDIOLE2"] is True
+    assert by_link["EZASAMEMVS"] is False
+    assert by_link["LOOPBACK6"] is False
 
 
 def test_profile_statements_parsed_generically():

@@ -338,7 +338,7 @@ Run `ansible-playbook playbooks/site.yml --tags jes2parm --limit lpar1`
 against a real system and check the resulting `*_jes2parm.txt` against
 what `jes2parm_parser.py` assumes before relying on that dimension.
 
-### VTAM/APPN/TCPIP (VTAM fully confirmed; TCPIP still not validated)
+### VTAM/APPN/TCPIP (VTAM and TCPIP's NETSTAT HOME confirmed; PROFILE.TCPIP still not validated)
 
 `vtam.yml` (`D NET,MAJNODES` + `D NET,VTAMOPTS` + `D NET,TOPO`) and
 `tcpip.yml` (`D TCPIP,,NETSTAT,HOME`, plus an opt-in `PROFILE.TCPIP`
@@ -346,10 +346,15 @@ dataset fetch) are implemented and unit-tested against hand-built
 fixtures the same way USS mounts/JES2 init parameters were. **All three
 VTAM commands are now confirmed against real replies** (across two
 follow-up rounds -- `D NET,TOPO` first, then `D NET,MAJNODES`/`D
-NET,VTAMOPTS`). **`D TCPIP,,NETSTAT,HOME` (and a real `PROFILE.TCPIP`
-sample) still haven't been confirmed** -- IBM's own docs site 403'd on
-direct fetch and no secondary source turned up real sample output for
-either while writing this. Specifically:
+NET,VTAMOPTS`). **`D TCPIP,,NETSTAT,HOME` is now confirmed too
+(2026-07-02)** -- the real shape mixes legacy `LINKNAME:` rows with
+OSA-Express QDIO `INTFNAME:` rows the original guess never accounted
+for, silently dropping every `INTFNAME:` entry until `tcpip_parser.py`
+was fixed; each entry also carries a `FLAGS:` line (sometimes
+`PRIMARY`), now captured as `is_primary`. **A real `PROFILE.TCPIP`
+sample still hasn't turned up** -- IBM's own docs site 403'd on direct
+fetch and no secondary source turned up real sample output for it while
+writing this. Specifically:
 
 - `vtam.yml` bundles all three D-commands' raw console replies into one
   `vtam.txt` via the same `##BLOCKNAME`-sentinel convention `sysinfo.yml`
@@ -393,11 +398,11 @@ either while writing this. Specifically:
   `VTAMOPTS`.
 
 Run `ansible-playbook playbooks/site.yml --tags tcpip --limit lpar1`
-(add `-e '{"zos_extract_tcpip_profile_dsn": "YOUR.PROFILE.DSN"}'`
-to also exercise the profile fetch) against a real system and check the
-resulting `tcpip.txt` against what `tcpip_parser.py` assumes before
-relying on that dimension -- `vtam.txt` no longer needs this since all
-three VTAM commands are confirmed.
+(add `-e '{"zos_extract_tcpip_profile_dsn": "YOUR.PROFILE.DSN"}'`)
+against a real system and check the resulting `##PROFILE` block against
+what `tcpip_parser.py` assumes before relying on that half of this
+dimension -- the `##NETSTAT_HOME` half no longer needs this since it's
+confirmed, same as `vtam.txt`'s three commands.
 
 ### SMS (storage groups confirmed; storage/management classes removed -- no such console command exists)
 
@@ -745,10 +750,10 @@ roles/zos_extract/
                                 # 'D NET,TOPO' bundled into one vtam.txt
                                 # (see above) -- all three confirmed
                                 # against real replies
-    tcpip.yml                  # 'D TCPIP,,NETSTAT,HOME' (always) + opt-in
-                                # PROFILE.TCPIP fetch, bundled into one
-                                # tcpip.txt (see above) -- not yet
-                                # validated against a real reply
+    tcpip.yml                  # 'D TCPIP,,NETSTAT,HOME' (always, now
+                                # confirmed) + opt-in PROFILE.TCPIP fetch
+                                # (still not validated), bundled into one
+                                # tcpip.txt (see above)
     sms.yml                    # 'D SMS,STORGRP(ALL),LISTVOL' captured raw
                                 # into sms.txt (see above) -- confirmed
                                 # against a real reply; storage/management

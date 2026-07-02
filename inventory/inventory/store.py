@@ -254,7 +254,8 @@ CREATE TABLE IF NOT EXISTS vtam_topology_summary (
 
 CREATE TABLE IF NOT EXISTS tcpip_home_addresses (
     link_name   TEXT NOT NULL,
-    ip_address  TEXT NOT NULL
+    ip_address  TEXT NOT NULL,
+    is_primary  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_tcpip_home_addresses_link ON tcpip_home_addresses(link_name);
 
@@ -703,8 +704,10 @@ def get_vtam_topology_summary(conn: sqlite3.Connection) -> sqlite3.Row | None:
 
 def save_tcpip_home_addresses(conn: sqlite3.Connection, addresses: list[TcpipHomeAddress]) -> None:
     conn.execute("DELETE FROM tcpip_home_addresses")
-    rows = [(a.link_name, a.ip_address) for a in addresses]
-    conn.executemany("INSERT INTO tcpip_home_addresses (link_name, ip_address) VALUES (?, ?)", rows)
+    rows = [(a.link_name, a.ip_address, int(a.is_primary)) for a in addresses]
+    conn.executemany(
+        "INSERT INTO tcpip_home_addresses (link_name, ip_address, is_primary) VALUES (?, ?, ?)", rows
+    )
     conn.commit()
 
 

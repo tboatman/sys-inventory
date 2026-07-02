@@ -411,23 +411,29 @@ IEASYSxx.)
 `zos_extract_tcpip_profile_dsn: ""`.
 
 **Python** (`inventory/inventory/tcpip_parser.py`):
-- `models.py`: `TcpipHomeAddress(link_name, ip_address)` -- narrow model,
-  low risk (NETSTAT HOME's `LINKNAME:`/`ADDRESS:` paired-line shape is
-  simple and well-documented). `TcpipProfileStatement(stmt, operands,
-  source_dsn)` -- **generic capture** again (first token = statement
-  name, rest of line = raw operand text), since `PROFILE.TCPIP` statement
-  syntax is positional and varied (`DEVICE name type ...`, `HOME ip
-  link`, `PORT ...` reservations) rather than uniform `KEYWORD=VALUE`
-  like VTAMOPTS/JES2 -- modeling every statement type isn't worth it
-  given the same uncertainty as everything else in this section. Skip
-  comment lines (`;` is `PROFILE.TCPIP`'s comment marker).
+- `models.py`: `TcpipHomeAddress(link_name, ip_address, is_primary)`.
+  `TcpipProfileStatement(stmt, operands, source_dsn)` -- **generic
+  capture** again (first token = statement name, rest of line = raw
+  operand text), since `PROFILE.TCPIP` statement syntax is positional
+  and varied (`DEVICE name type ...`, `HOME ip link`, `PORT ...`
+  reservations) rather than uniform `KEYWORD=VALUE` like VTAMOPTS/JES2 --
+  modeling every statement type isn't worth it given the same
+  uncertainty as everything else in this section. Skip comment lines
+  (`;` is `PROFILE.TCPIP`'s comment marker).
 - `parse_tcpip(path) -> tuple[list[TcpipHomeAddress],
   list[TcpipProfileStatement]]`, same shape as `parse_catalog()`/
   `parse_vtam()`.
 - `store.py`: two tables; `cli.py`: `inventory tcpip-home` / `inventory
   tcpip-profile` commands.
-- **Not yet validated against a real reply or a real `PROFILE.TCPIP`
-  sample** -- same flagging convention as everywhere else in this plan.
+- **`D TCPIP,,NETSTAT,HOME` CONFIRMED against a real reply on
+  2026-07-02** -- the real shape mixes legacy `LINKNAME:` rows with
+  OSA-Express QDIO `INTFNAME:` rows under the same HOME ADDRESS LIST,
+  and each entry carries its own `FLAGS:` line (sometimes `PRIMARY`,
+  which `is_primary` now captures); `tcpip_parser.py` was fixed to
+  handle both row kinds (the original guess only matched `LINKNAME:`
+  and silently dropped every `INTFNAME:` entry). **`PROFILE.TCPIP`
+  statement parsing is still not yet validated** against a real sample
+  -- same flagging convention as everywhere else in this plan.
 
 ---
 
@@ -708,8 +714,13 @@ USS mounts and VTAM's three commands, by contrast, turned out to already
 be tolerant enough to handle their real reply shapes without any code
 changes, just re-flagging.
 
-Still outstanding from the original "not yet validated" list: `D
-TCPIP,,NETSTAT,HOME`/`PROFILE.TCPIP`, the content of a real JES2 init-deck
+`D TCPIP,,NETSTAT,HOME` is now confirmed too (see section 4 above) --
+the real reply mixed legacy `LINKNAME:` rows with OSA-Express QDIO
+`INTFNAME:` rows the original guess never accounted for, silently
+dropping every `INTFNAME:` entry until fixed.
+
+Still outstanding from the original "not yet validated" list:
+`PROFILE.TCPIP` statement parsing, the content of a real JES2 init-deck
 member (the *discovery* mechanism above is now confirmed, but
 `jes2parm_parser.py`'s own statement-parsing regexes still haven't seen
 real member text), DSNTEP2 (DB2), IRRDBU00 (RACF), IDCAMS `LISTCAT`

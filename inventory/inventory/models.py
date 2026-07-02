@@ -288,11 +288,15 @@ class TcpipHomeAddress:
     'D TCPIP,,NETSTAT,HOME' (see ansible/roles/zos_extract/tasks/tcpip.yml)
     and parsed by tcpip_parser.py.
 
-    NOT YET VALIDATED against a real 'D TCPIP,,NETSTAT,HOME' reply --
-    see tcpip_parser.py's module docstring."""
+    CONFIRMED against a real 'D TCPIP,,NETSTAT,HOME' reply on 2026-07-02.
+    link_name covers both the legacy 'LINKNAME:' rows and the newer
+    OSA-Express QDIO 'INTFNAME:' rows -- the real reply mixes both under
+    the same HOME ADDRESS LIST -- see tcpip_parser.py's module docstring
+    for the full real shape."""
 
     link_name: str
     ip_address: str
+    is_primary: bool = False
 
 
 @dataclass
