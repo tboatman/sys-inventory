@@ -1070,10 +1070,24 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
   NOT YET VALIDATED against a real IEAOPTxx member.
 - `CLOCK`/`CLOCKxx` -- IMPLEMENTED: `ClockStatement`/`clock_parser.py`,
   `clock_statements` table, `inventory clock` command,
-  `clock_snapshot.yml`. NOT YET VALIDATED against a real CLOCKxx member.
-  Category B (DEVSUP/OPT/CLOCK) is now fully done -- confirm all three
-  plus IEASYSxx/BPXPRMxx stay/come out right on the next real-system run
-  (see "9.1"'s own note).
+  `clock_snapshot.yml`, built on the same `flat_keyword_engine()` as
+  DEVSUP/OPT above. **DISPUTED, NOT YET VALIDATED:** IBM's z/OS MVS
+  Initialization and Tuning Reference ("Statements and parameters for
+  CLOCKxx") documents CLOCKxx's 11 keywords (`ACCURACY`, `ACCMONINTV`,
+  `ETRDELTA`, `ETRMODE`, `ETRZONE`, `OPERATOR`, `SIMETRID`, `STPMODE`,
+  `STPZONE`, `TIMEDELTA`, `TIMEZONE`) as bare, space-separated `KEYWORD
+  value` pairs (e.g. `OPERATOR NOPROMPT`, `TIMEZONE W.00.00.00`) with no
+  `=`, comma, or parens -- a different shape than DEVSUPxx/IEAOPTxx,
+  which really do match the comma-separated shape above. If that's
+  right, `clock_parser.py`'s current `flat_keyword_engine()`-based
+  parsing is wrong for CLOCKxx and it needs its own small
+  space-separated parser instead of belonging to Category B. Confirm
+  against a real CLOCKxx member before trusting `clock_snapshot.txt`/
+  `inventory clock` output, and fix `clock_parser.py` at the same time
+  if the space-separated shape is confirmed.
+  Category B (DEVSUP/OPT confirmed; CLOCK's classification disputed,
+  see above) -- confirm all three plus IEASYSxx/BPXPRMxx stay/come out
+  right on the next real-system run (see "9.1"'s own note).
 
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
@@ -1174,9 +1188,11 @@ handled than any of the above):**
 1. The two refactors in 9.1 (parameterized ansible worker + shared Python
    engines) -- do this before adding a third hand-written domain, not
    after the fifth.
-2. Category B (3 domains) -- cheapest, most mechanical once 9.1 lands.
+2. Category B (2 domains, DEVSUP/OPT) plus Category G (1 domain, CLOCK,
+   its own small parser but no new engine) -- cheapest, most mechanical
+   once 9.1 lands.
 3. Category E (4 domains) -- simple positional formats, no engine
-   dependency, can happen in parallel with B.
+   dependency, can happen in parallel with B/G.
 4. Category C minus PROG/IGDSMS (8 domains) -- mechanical once the
    statement engine exists.
 5. Category D (1 domain, SVC) -- needs the small `jes2parm_parser.py`
