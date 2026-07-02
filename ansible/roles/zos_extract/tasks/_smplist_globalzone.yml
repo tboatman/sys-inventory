@@ -1,0 +1,43 @@
+---
+# Shared worker for discover_smpe_zones.yml, included once per CSI --
+# same reasoning as _smplist_zone.yml's own header comment for why a
+# dynamic include is used instead of block+loop.
+#
+# zos_extract_globalzone_csi is one CSI dataset name from
+# discover_smpe_zones.yml's loop.
+
+- name: Build the GIMSMP DD list for LIST GLOBALZONE against {{ zos_extract_globalzone_csi }}
+  ansible.builtin.set_fact:
+    zos_extract_globalzone_dds: >-
+      {{
+        [
+          {'dd_data_set': {'dd_name': 'SMPCSI', 'data_set_name': zos_extract_globalzone_csi, 'disposition': 'shr'}},
+          {'dd_dummy': {'dd_name': 'SMPLOG'}},
+          {'dd_dummy': {'dd_name': 'SMPLOGA'}},
+          {'dd_data_set': {'dd_name': 'SMPWRK6', 'data_set_name': zos_extract_smpe_workhlq ~ '.SMPWRK6',
+                            'disposition': 'new', 'type': 'pds', 'record_format': 'fb', 'record_length': 80,
+                            'directory_blocks': 10, 'space_primary': 5, 'space_type': 'm', 'replace': true,
+                            'disposition_normal': 'delete', 'disposition_abnormal': 'delete'}},
+          {'dd_input': {'dd_name': 'SMPCNTL', 'content': ['SET BDY(GLOBAL).', 'LIST GLOBALZONE .']}},
+          {'dd_output': {'dd_name': 'SMPLIST', 'return_content': {'type': 'text'}}}
+        ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_smpe_steplib, 'disposition': 'shr'}}] if zos_extract_smpe_steplib else [])
+      }}
+
+- name: Run GIMSMP LIST GLOBALZONE against {{ zos_extract_globalzone_csi }}
+  ibm.ibm_zos_core.zos_mvs_raw:
+    program_name: GIMSMP
+    auth: true
+    max_rc: 4
+    dds: "{{ zos_extract_globalzone_dds }}"
+  register: zos_extract_globalzone_result
+
+- name: Write the LIST GLOBALZONE report for {{ zos_extract_globalzone_csi }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_globalzone_csi | lower | regex_replace('[^a-z0-9]+', '_') }}.smpzones.txt"
+    mode: "0644"
+    # ##CSI sentinel line, read the same way by
+    # inventory/smpe_parser.py's parse_globalzone() -- see that module's
+    # docstring.
+    content: >-
+      {{ '##CSI ' ~ zos_extract_globalzone_csi ~ '\n' ~ ((zos_extract_globalzone_result.dd_names | selectattr('dd_name', 'equalto', 'SMPLIST') | first).content | join('\n')) ~ '\n' }}
+  delegate_to: localhost

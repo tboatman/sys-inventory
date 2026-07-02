@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .models import Zone
+from .models import Zone, ZoneIndexEntry
 
 _CSI_HDR = re.compile(r"^\s*##CSI\s+(\S+)", re.IGNORECASE)
 _ZONE_HDR = re.compile(r"\bZONE\s+([A-Za-z0-9$#@]+)\b")
@@ -198,3 +198,77 @@ def merge_zones(*zone_maps: dict[str, Zone]) -> dict[str, Zone]:
             target.module_fmid.update(zone.module_fmid)
             target.fmid_status.update(zone.fmid_status)
     return merged
+
+_GLOBALZONE_HDR = re.compile(r"^\s*(\S+)\s+ZONE\s+ENTRIES\b", re.IGNORECASE)
+# First ZONEINDEX row is on the same line as the "ZONEINDEX =" label,
+# prefixed by the owning (global) zone's own entry name; e.g.:
+#   GLOBAL    ZONEINDEX       = DZONE  DLIB    CICS.REL41.DZONE.CSI
+_ZONEINDEX_FIRST = re.compile(
+    r"^\s*\S+\s+ZONEINDEX\s*=\s*([A-Za-z0-9$#@]+)\s+([A-Za-z]+)\s+(\S+)\s*$",
+    re.IGNORECASE,
+)
+# Further rows are indented continuation lines with no "KEY =" label, just
+# the same three tokens again, e.g.:
+#                             TZONE   TARGET  CICS.REL41.TZONE.CSI
+_ZONEINDEX_CONT = re.compile(r"^\s+([A-Za-z0-9$#@]+)\s+([A-Za-z]+)\s+(\S+)\s*$")
+
+
+def parse_globalzone(path: Path) -> list[ZoneIndexEntry]:
+    """Parse one LIST GLOBALZONE report (see discover_smpe_zones.yml /
+    _smplist_globalzone.yml) into ZoneIndexEntry rows -- one per zone
+    listed in a CSI's global-zone ZONEINDEX attribute: SMP/E's own
+    authoritative census of every zone tied to that CSI, unlike
+    discover_smpe_csis.yml's naming-heuristic CSI search.
+
+    Real report shape (a "<name> ZONE ENTRIES" section -- the same
+    "<zone> <TYPE> ENTRIES" convention DDDEF/MOD/SYSMOD sections already
+    use above, just with ZONE as the type -- containing one GLOBAL-zone
+    entry whose ZONEINDEX attribute lists zone name / zone type / owning
+    CSI dataset, one per line, first row inline with "ZONEINDEX =" and
+    the rest on indented continuation lines with no label) confirmed
+    against a real third-party ZOAU/Ansible SMP/E role built against real
+    system output (github.com/LuiggiTorricelli/zos_smpe_list's
+    filter_plugins/parse_gimsmp.py -- its ZONEINDEX regex expects exactly
+    this NAME/TYPE/CSI triple shape), not yet against this site's own
+    system -- same "confirmed via third-party reference, not a real reply
+    from this shop yet" caveat racf_parser.py's byte offsets carry. Tune
+    the regexes above against your real *.smpzones.txt if this comes back
+    empty; see doc/TODO.md ("8d") for the full detail.
+    """
+    csi_name: str | None = None
+    entries: list[ZoneIndexEntry] = []
+    in_zoneindex = False
+
+    for raw_line in path.read_text(errors="replace").splitlines():
+        line = raw_line.rstrip()
+
+        csi_match = _CSI_HDR.match(line)
+        if csi_match:
+            csi_name = csi_match.group(1)
+            continue
+
+        if _GLOBALZONE_HDR.match(line):
+            in_zoneindex = False
+            continue
+
+        first_match = _ZONEINDEX_FIRST.match(line)
+        if first_match:
+            zone_name, zone_type, zone_csi = first_match.groups()
+            entries.append(ZoneIndexEntry(zone_name, zone_type.upper(), zone_csi, csi_name or ""))
+            in_zoneindex = True
+            continue
+
+        if in_zoneindex:
+            # A line with "=" (or blank) starts a new attribute/entry and
+            # ends the ZONEINDEX continuation run.
+            if "=" in line or not line.strip():
+                in_zoneindex = False
+            else:
+                cont_match = _ZONEINDEX_CONT.match(line)
+                if cont_match:
+                    zone_name, zone_type, zone_csi = cont_match.groups()
+                    entries.append(ZoneIndexEntry(zone_name, zone_type.upper(), zone_csi, csi_name or ""))
+                else:
+                    in_zoneindex = False
+
+    return entries

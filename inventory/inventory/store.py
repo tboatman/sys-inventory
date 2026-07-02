@@ -39,6 +39,7 @@ from .models import (
     VtamTopologySummary,
     WlmPolicy,
     WlmZosmfEntry,
+    ZoneIndexEntry,
 )
 
 _SCHEMA = """
@@ -324,6 +325,14 @@ CREATE TABLE IF NOT EXISTS cics_csd_definitions (
     csd_dsn   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cics_csd_definitions_name ON cics_csd_definitions(name);
+
+CREATE TABLE IF NOT EXISTS zone_index (
+    zone_name   TEXT NOT NULL,
+    zone_type   TEXT NOT NULL,
+    csi         TEXT NOT NULL,
+    source_csi  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_zone_index_zone_name ON zone_index(zone_name);
 """
 
 
@@ -859,4 +868,20 @@ def save_cics_csd_definitions(conn: sqlite3.Connection, definitions: list[CicsCs
 def all_cics_csd_definitions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM cics_csd_definitions ORDER BY grp, name")
+    return cur.fetchall()
+
+
+def save_zone_index(conn: sqlite3.Connection, entries: list[ZoneIndexEntry]) -> None:
+    conn.execute("DELETE FROM zone_index")
+    rows = [(e.zone_name, e.zone_type, e.csi, e.source_csi) for e in entries]
+    conn.executemany(
+        "INSERT INTO zone_index (zone_name, zone_type, csi, source_csi) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_zone_index(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM zone_index ORDER BY source_csi, zone_name")
     return cur.fetchall()

@@ -116,6 +116,11 @@
   tags: [smplist]
   when: zos_extract_smpe_csis | length > 0
 
+- name: SMP/E zone discovery via LIST GLOBALZONE -- authoritative zone census per CSI (see discover_smpe_zones.yml)
+  ansible.builtin.import_tasks: discover_smpe_zones.yml
+  tags: [smpe_zone_discovery]
+  when: zos_extract_smpe_csis | length > 0
+
 - name: Live activity snapshot (step 8)
   ansible.builtin.import_tasks: activity.yml
   tags: [activity]

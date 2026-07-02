@@ -1,0 +1,34 @@
+---
+# Authoritative zone census per configured CSI, via GIMSMP's LIST
+# GLOBALZONE -- unlike discover_smpe_csis.yml (a pure naming heuristic,
+# since SMP/E doesn't register CSIs anywhere central), a CSI's own global
+# zone genuinely knows every zone tied to it (target/dlib), via its
+# ZONEINDEX attribute -- no heuristic involved. Real GIMSMP report shape
+# confirmed against a third-party ZOAU/Ansible SMP/E role built against
+# real system output (github.com/LuiggiTorricelli/zos_smpe_list's
+# filter_plugins/parse_gimsmp.py), not yet against this site's own system
+# -- see inventory/smpe_parser.py's parse_globalzone() docstring for the
+# full detail and doc/TODO.md ("8d").
+#
+# Deliberately NOT wired to auto-drive smplist.yml's own per-zone loop in
+# the same run: that would mean parsing GIMSMP's report text here in
+# Jinja/Ansible, breaking this whole pipeline's "capture raw text, parse
+# off-host in Python" convention (every other domain does this). Instead
+# this writes a raw *.smpzones.txt per CSI that `inventory ingest` parses
+# and cross-references against what LIST DDDEF/MOD/SYSMOD actually
+# captured -- see `inventory zone-index`/`inventory zone-gaps`. Populating
+# zos_extract_smpe_csis' `zones:` list from what this reveals is still a
+# manual step (same human-in-the-loop precedent as
+# zos_extract_smpe_csi_search_patterns/discover_smpe_csis.yml above), just
+# now backed by an authoritative source instead of nothing at all.
+#
+# Same per-CSI dynamic-include shape smplist.yml/_smplist_zone.yml use --
+# see _smplist_zone.yml's header comment for why block+loop isn't an
+# option in this ansible-core version.
+
+- name: Run GIMSMP LIST GLOBALZONE for each configured CSI
+  ansible.builtin.include_tasks: _smplist_globalzone.yml
+  loop: "{{ zos_extract_smpe_csis | map(attribute='csi') | list }}"
+  loop_control:
+    loop_var: zos_extract_globalzone_csi
+    label: "{{ zos_extract_globalzone_csi }}"

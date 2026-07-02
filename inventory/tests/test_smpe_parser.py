@@ -85,3 +85,23 @@ def test_merge_zones_no_collision_when_csi_unknown():
     merged = smpe_parser.merge_zones(zone_a, zone_b)
     assert set(merged) == {"TZONE1"}
     assert merged["TZONE1"].csi == "EDUC.B.CSI"
+
+
+def test_parse_globalzone_reads_zoneindex():
+    entries = smpe_parser.parse_globalzone(FIXTURES / "sample_smpe_globalzone.txt")
+    assert len(entries) == 2
+
+    tzone1, dzone1 = entries
+    assert tzone1.zone_name == "TZONE1"
+    assert tzone1.zone_type == "TARGET"
+    assert tzone1.csi == "EDUC.TEST.GLOBAL.CSI"
+    assert tzone1.source_csi == "EDUC.TEST.GLOBAL.CSI"
+
+    assert dzone1.zone_name == "DZONE1"
+    assert dzone1.zone_type == "DLIB"
+    # This zone's own CSI differs from the file's ##CSI (source_csi) --
+    # a real, documented SMP/E pattern where target/dlib zones live in
+    # separate physical CSI data sets cross-referenced from one GLOBAL
+    # zone's ZONEINDEX.
+    assert dzone1.csi == "EDUC.TEST.DLIB.CSI"
+    assert dzone1.source_csi == "EDUC.TEST.GLOBAL.CSI"

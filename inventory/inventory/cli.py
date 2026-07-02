@@ -12,7 +12,7 @@
 `inventory sms-storgrps`,
 `inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
 `inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
-`inventory cics-csd`."""
+`inventory cics-csd`, `inventory zone-index`."""
 from __future__ import annotations
 
 import argparse
@@ -74,6 +74,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     zone_maps = [smpe_parser.parse_smplist(p) for p in sorted(input_dir.glob("*smplist*.txt"))]
     zones = smpe_parser.merge_zones(*zone_maps) if zone_maps else {}
+
+    zone_index_entries = [e for p in sorted(input_dir.glob("*smpzones*.txt"))
+                           for e in smpe_parser.parse_globalzone(p)]
 
     lnklst = _read_lnklst(input_dir)
     apf = _read_apf(input_dir)
@@ -198,6 +201,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_cics_dfhrpl_entries(conn, cics_dfhrpl_entries)
     store.save_cics_sit_overrides(conn, cics_sit_overrides)
     store.save_cics_csd_definitions(conn, cics_csd_definitions)
+    store.save_zone_index(conn, zone_index_entries)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -221,7 +225,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(wlm_zosmf_entries)} WLM z/OSMF entries, "
           f"{len(cics_dfhrpl_entries)} CICS DFHRPL entries, "
           f"{len(cics_sit_overrides)} CICS SIT overrides, "
-          f"{len(cics_csd_definitions)} CICS CSD definitions -> {args.db}")
+          f"{len(cics_csd_definitions)} CICS CSD definitions, "
+          f"{len(zone_index_entries)} SMP/E zone index entries -> {args.db}")
     return 0
 
 
@@ -721,6 +726,22 @@ def cmd_cics_csd(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_zone_index(args: argparse.Namespace) -> int:
+    """SMP/E's own authoritative zone census per CSI (LIST GLOBALZONE's
+    ZONEINDEX), if any *smpzones*.txt files were ingested -- independent
+    of, and not cross-referenced against, the zones actually captured via
+    *smplist*.txt's LIST DDDEF/MOD/SYSMOD (see doc/TODO.md "8f" for the
+    planned zones/fmids tables that a real gap comparison needs)."""
+    conn = store.connect(Path(args.db))
+    rows = store.all_zone_index(conn)
+    conn.close()
+
+    for row in rows:
+        csi_note = "" if row["csi"] == row["source_csi"] else f"  (cross-referenced from {row['source_csi']})"
+        print(f"{row['zone_name']}  TYPE={row['zone_type']} CSI={row['csi']}{csi_note}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="inventory")
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite inventory database path")
@@ -831,6 +852,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_cics_csd = sub.add_parser("cics-csd", help="list deepened CICS resource definitions from a DFHCSDUP LIST report (opt-in, most speculative dimension alongside db2/wlm-zosmf, not yet production-validated)")
     p_cics_csd.set_defaults(func=cmd_cics_csd)
+
+    p_zone_index = sub.add_parser("zone-index", help="list SMP/E's own authoritative zone census per CSI (LIST GLOBALZONE), if ingested -- not yet production-validated")
+    p_zone_index.set_defaults(func=cmd_zone_index)
 
     return parser
 

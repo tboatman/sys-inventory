@@ -71,6 +71,25 @@ class Fmid:
 
 
 @dataclass
+class ZoneIndexEntry:
+    """One row of a CSI's global zone ZONEINDEX, as reported by GIMSMP
+    LIST GLOBALZONE -- SMP/E's own authoritative list of every zone tied
+    to that CSI (unlike discover_smpe_csis.yml's naming-heuristic CSI
+    search, this is a real SMP/E-reported fact, not a guess). See
+    smpe_parser.parse_globalzone() and doc/TODO.md ("8d")."""
+
+    zone_name: str
+    zone_type: str   # e.g. TARGET, DLIB, GLOBAL
+    csi: str         # the CSI dataset this zone actually lives in, per
+                      # ZONEINDEX -- can differ from source_csi below if a
+                      # site splits target/dlib zones across separate
+                      # physical CSI data sets cross-referenced from one
+                      # GLOBAL zone (a real, documented SMP/E pattern)
+    source_csi: str = ""   # which CSI's LIST GLOBALZONE this entry came
+                            # from (i.e. the *.smpzones.txt file's ##CSI)
+
+
+@dataclass
 class LineageStep:
     """One resolved hop in a ProcMember's execution path, for reporting."""
 
