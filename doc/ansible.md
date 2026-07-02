@@ -45,7 +45,7 @@ that file's header comment.
 
 ## Prerequisites
 
-Everything in `zos-extract/README.md`'s "Before you start" section still
+Everything in `zos-extract.md`'s "Before you start" section still
 applies (OMVS shell, IBM Open Enterprise Python, ZOAU, read authority) --
 these modules still shell out to ZOAU/`zoautil_py` on the target under the
 hood, they just do it through `ibm_zos_core` instead of
@@ -58,7 +58,7 @@ hood, they just do it through `ibm_zos_core` instead of
   ansible-galaxy collection install -r requirements.yml
   ```
 - SSH access from that control node to each LPAR's OMVS shell as the userid
-  that has the READ/console-command authority `zos-extract/README.md`
+  that has the READ/console-command authority `zos-extract.md`
   describes.
 
 ## Setup
@@ -71,7 +71,7 @@ Edit `inventory/hosts.yml` (gitignored -- it'll hold your real dataset
 names and hostnames): add one entry under `zos.hosts` per LPAR, and fill in
 `zos_extract_proclibs`/`zos_extract_parmlibs`/`zos_extract_smpe_csi`/`zos_extract_smpe_zones`/`zos_extract_catalog_patterns` for each.
 `inventory/group_vars/zos.yml` has the shared ZOAU/Python environment variables from
-`zos-extract/README.md`'s "Basic Env requirements" section -- adjust the
+`zos-extract.md`'s "Basic Env requirements" section -- adjust the
 paths there if your site installs ZOAU/Python somewhere else. That
 environment is applied at the play level (`playbooks/site.yml`) since
 `ibm_zos_core`'s modules need it too, not just raw shell commands.
@@ -93,7 +93,7 @@ inventory ingest ../ansible/output/lpar1/
 ```
 
 Run a subset with `--tags` (each tag matches one numbered step in
-`zos-extract/README.md`):
+`zos-extract.md`):
 
 ```
 ansible-playbook playbooks/site.yml --tags lnklst,apf
@@ -282,7 +282,7 @@ candidate list.
 
 ### RACF (step 10) is opt-in on purpose
 
-Per `zos-extract/README.md`, `extrracf.py` needs a materially different and
+Per `zos-extract.md`, `extrracf.py` needs a materially different and
 harder-to-get authorization (READ access to a RACF database **copy**), and
 its output is explicitly implementation-only / not yet production-validated.
 This role won't run it unless you both set `zos_extract_racf_database_dsn` in
@@ -512,13 +512,14 @@ LRECL/BLKSIZE/VOLSER for every matching data set in one call), `zos_find`
 only returns data set names -- so `catalog.yml` queries each matched
 non-VSAM data set individually with `zos_stat` to get those attributes. This
 means roughly one extra module call per matched data set, on top of
-`zos_find`'s own call. `zos-extract/README.md` already recommends scoping
+`zos_find`'s own call. `zos-extract.md` already recommends scoping
 `zos_extract_catalog_patterns` narrowly rather than to a broad shared HLQ --
 that advice matters even more here.
 
 ## Layout
 
 ```
+ansible/
 ansible.cfg
 requirements.yml           # ibm.ibm_zos_core collection pin, plus
                             # ibm.ibm_zos_cics/ibm.ibm_zos_ims for future

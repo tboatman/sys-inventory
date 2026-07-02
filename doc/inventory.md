@@ -681,7 +681,7 @@ itself is a guess.**
   confirmed, after finding what looks like a bug in that third-party
   reference (it reads `UACC` from the same offset as `READ_CNT`). Verify
   this dimension's output against a real IRRDBU00 unload before relying on
-  it — see `zos-extract/README.md`'s RACF step for why that's a bigger
+  it — see `zos-extract.md`'s RACF step for why that's a bigger
   ask than everything else in this pipeline.
 
 ## Upgrading from an older `inventory.db`
