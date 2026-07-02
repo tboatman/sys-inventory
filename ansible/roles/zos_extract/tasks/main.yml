@@ -35,7 +35,7 @@
 
 - name: Auto-discover the PARMLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_parmlib.yml
-  tags: [proclib, ssn_commnd, ifaprd]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot]
 
 - name: Determine the active IEASYSxx/IEASYMxx suffixes
   ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
