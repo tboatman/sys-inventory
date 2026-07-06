@@ -1,0 +1,21 @@
+---
+# Explicit, always-saved capture of the active SCHEDxx member(s)' full
+# content -- PPT (Program Properties Table) entries, named by IEASYSxx's
+# own SCH= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/
+# OPT=/CLOCK=/AUTOR= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/
+# DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx. Second of the Category C
+# (statement-oriented) active-PARMLIB-member domains from doc/TODO.md
+# "9.2" -- built on the generalized _fetch_active_parmlib_member.yml
+# worker (see doc/TODO.md "9.1").
+#
+# CONFIRMED statement vocabulary (a single repeated 'PPT PGMNAME(name)
+# ...flags' statement per entry) against real-world PPT examples -- see
+# sched_parser.py's module docstring -- but the parser itself is NOT YET
+# VALIDATED against a real SCHEDxx member.
+
+- name: Write sched_snapshot.txt (active SCHEDxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_sched_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_sched_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

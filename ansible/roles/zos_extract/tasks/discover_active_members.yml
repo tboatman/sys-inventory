@@ -109,6 +109,18 @@
     zos_extract_active_clock_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^CLOCK@@@') | map('regex_replace', '^CLOCK@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # AUTOR=xx names the active AUTORxx member(s) -- same parenthesized-list
+    # shape as above, consumed by autor_snapshot.yml. First Category C
+    # (statement-oriented) domain from doc/TODO.md "9.2".
+    zos_extract_active_autor_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^AUTOR@@@') | map('regex_replace', '^AUTOR@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # SCH=xx names the active SCHEDxx member(s) -- same parenthesized-list
+    # shape as above, consumed by sched_snapshot.yml. Second Category C
+    # domain from doc/TODO.md "9.2".
+    zos_extract_active_sched_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^SCH@@@') | map('regex_replace', '^SCH@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -149,3 +161,23 @@
   vars:
     zos_extract_active_member_prefix: CLOCK
     zos_extract_active_member_blocks_var: zos_extract_clock_member_blocks
+
+- name: Fetch each active AUTORxx member's content, in order (for autor_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_autor_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "AUTOR{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: AUTOR
+    zos_extract_active_member_blocks_var: zos_extract_autor_member_blocks
+
+- name: Fetch each active SCHEDxx member's content, in order (for sched_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_sched_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "SCHED{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: SCHED
+    zos_extract_active_member_blocks_var: zos_extract_sched_member_blocks

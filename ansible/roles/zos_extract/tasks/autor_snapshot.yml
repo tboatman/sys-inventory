@@ -1,0 +1,22 @@
+---
+# Explicit, always-saved capture of the active AUTORxx member(s)' full
+# content -- WTOR auto-reply policy (NOT Automatic Restart Management,
+# despite the name's resemblance -- see autor_parser.py's own docstring),
+# named by IEASYSxx's own AUTOR= keyword the same way SSN=/CMD=/PROD=/
+# OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+# BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx. First of the Category C
+# (statement-oriented) active-PARMLIB-member domains from doc/TODO.md
+# "9.2" -- built on the generalized _fetch_active_parmlib_member.yml
+# worker (see doc/TODO.md "9.1").
+#
+# CONFIRMED statement vocabulary (NOTIFYMSGS/MSGID) against IBM's z/OS
+# MVS Initialization and Tuning Reference -- see autor_parser.py's module
+# docstring -- but the parser itself is NOT YET VALIDATED against a real
+# AUTORxx member.
+
+- name: Write autor_snapshot.txt (active AUTORxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_autor_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_autor_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
