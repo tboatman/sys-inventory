@@ -15,7 +15,8 @@
 `inventory cics-csd`, `inventory zone-index`, `inventory zones`,
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
-`inventory clock`, `inventory autor`, `inventory sched`."""
+`inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
+`inventory grsrnl`."""
 from __future__ import annotations
 
 import argparse
@@ -32,8 +33,10 @@ from . import (
     cics_csdup_parser,
     cics_proc_parser,
     clock_parser,
+    couple_parser,
     db2_catalog_parser,
     devsup_parser,
+    grsrnl_parser,
     ieasys_parser,
     ifaprd_parser,
     jcl_parser,
@@ -141,6 +144,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     sched_statements = [s for p in sorted(input_dir.glob("*sched_snapshot*.txt"))
                         for s in sched_parser.parse_sched_snapshot(p)]
 
+    couple_statements = [s for p in sorted(input_dir.glob("*couple_snapshot*.txt"))
+                         for s in couple_parser.parse_couple_snapshot(p)]
+
+    grsrnl_statements = [s for p in sorted(input_dir.glob("*grsrnl_snapshot*.txt"))
+                         for s in grsrnl_parser.parse_grsrnl_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -235,6 +244,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_clock_statements(conn, clock_statements)
     store.save_autor_statements(conn, autor_statements)
     store.save_sched_statements(conn, sched_statements)
+    store.save_couple_statements(conn, couple_statements)
+    store.save_grsrnl_statements(conn, grsrnl_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -272,6 +283,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(clock_statements)} active CLOCKxx statements, "
           f"{len(autor_statements)} active AUTORxx statements, "
           f"{len(sched_statements)} active SCHEDxx statements, "
+          f"{len(couple_statements)} active COUPLExx statements, "
+          f"{len(grsrnl_statements)} active GRSRNLxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -525,6 +538,26 @@ def cmd_autor(args: argparse.Namespace) -> int:
 def cmd_sched(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_sched_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_couple(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_couple_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_grsrnl(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_grsrnl_statements(conn)
     conn.close()
 
     for row in rows:
@@ -995,6 +1028,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sched = sub.add_parser("sched", help="list active SCHEDxx PPT (Program Properties Table) statements (not yet production-validated)")
     p_sched.set_defaults(func=cmd_sched)
+
+    p_couple = sub.add_parser("couple", help="list active COUPLExx statements -- XCF/sysplex couple dataset definitions (not yet production-validated)")
+    p_couple.set_defaults(func=cmd_couple)
+
+    p_grsrnl = sub.add_parser("grsrnl", help="list active GRSRNLxx RNLDEF statements -- global resource serialization resource name lists (not yet production-validated)")
+    p_grsrnl.set_defaults(func=cmd_grsrnl)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

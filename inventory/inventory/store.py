@@ -15,6 +15,7 @@ from .models import (
     CicsDfhrplEntry,
     CicsSitOverride,
     ClockStatement,
+    CoupleStatement,
     DatasetAccess,
     DatasetProfile,
     Db2Package,
@@ -23,6 +24,7 @@ from .models import (
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
+    GrsrnlStatement,
     IeasysStatement,
     Jes2InitStatement,
     LineageStep,
@@ -159,6 +161,20 @@ CREATE TABLE IF NOT EXISTS sched_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sched_statements_stmt ON sched_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS couple_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_couple_statements_stmt ON couple_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS grsrnl_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_grsrnl_statements_stmt ON grsrnl_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -648,6 +664,38 @@ def save_sched_statements(conn: sqlite3.Connection, statements: list[SchedStatem
 def all_sched_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM sched_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_couple_statements(conn: sqlite3.Connection, statements: list[CoupleStatement]) -> None:
+    conn.execute("DELETE FROM couple_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO couple_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_couple_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM couple_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_grsrnl_statements(conn: sqlite3.Connection, statements: list[GrsrnlStatement]) -> None:
+    conn.execute("DELETE FROM grsrnl_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO grsrnl_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_grsrnl_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM grsrnl_statements ORDER BY stmt")
     return cur.fetchall()
 
 

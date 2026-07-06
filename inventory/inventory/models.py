@@ -387,6 +387,64 @@ class SchedStatement:
 
 
 @dataclass
+class CoupleStatement:
+    """One statement from an active COUPLExx PARMLIB member -- XCF/
+    sysplex couple dataset definitions (COUPLE and DATA TYPE(...)
+    statements), named by IEASYSxx's own COUPLE= keyword the same way
+    SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH= name
+    IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/
+    CLOCKxx/AUTORxx/SCHEDxx -- note the real member name keeps the
+    trailing E (COUPLExx, e.g. COUPLE00), unlike MSTRJCL= (which drops
+    its R to name MSTJCLxx). Dumped by ansible/roles/zos_extract/tasks/
+    couple_snapshot.yml and parsed by couple_parser.py. Third of the
+    Category C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- reuses parmlib_engines.statement_engine() with
+    COUPLExx's own top-level keyword vocabulary (COUPLE, DATA),
+    capturing every sub-parameter (SYSPLEX(...)/PCOUPLE(...)/
+    ACOUPLE(...)/TYPE(...)/...) generically as raw operand text rather
+    than hand-modeling each one individually.
+
+    NOT YET VALIDATED against a real COUPLExx member -- the COUPLE/DATA
+    statement vocabulary is confirmed against IBM's z/OS MVS Setting Up
+    a Sysplex reference, but the parser itself hasn't been checked
+    against a real member, same caveat autor_parser.py/sched_parser.py
+    carry for their own unconfirmed parsing surfaces."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
+class GrsrnlStatement:
+    """One RNLDEF statement from an active GRSRNLxx PARMLIB member --
+    global resource serialization resource name lists, named by
+    IEASYSxx's own GRSRNL= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+    MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE= name IEFSSNxx/
+    COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+    AUTORxx/SCHEDxx/COUPLExx. Dumped by ansible/roles/zos_extract/tasks/
+    grsrnl_snapshot.yml and parsed by grsrnl_parser.py. Fourth of the
+    Category C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- a real GRSRNLxx member is a repeated single
+    statement shape, 'RNLDEF RNL(EXCL|INCL|CON) TYPE(GENERIC|SPECIFIC|
+    PATTERN) QNAME(...) RNAME(...)', so this reuses
+    parmlib_engines.statement_engine() with a one-keyword vocabulary
+    ({"RNLDEF"}), capturing every sub-parameter generically as raw
+    operand text rather than hand-modeling RNL/TYPE/QNAME/RNAME
+    individually -- the same generic-capture rationale
+    SchedStatement/CoupleStatement use.
+
+    NOT YET VALIDATED against a real GRSRNLxx member -- the RNLDEF
+    statement shape is confirmed against IBM's documented GRS resource
+    name list syntax, but the parser itself hasn't been checked against
+    a real member, same caveat couple_parser.py carries."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls
