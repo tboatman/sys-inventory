@@ -192,9 +192,12 @@ resemblance), and `autor_parser.py` itself is now CONFIRMED against a
 real AUTORxx member, including a multi-line `/* ... */` comment block
 preceding a live statement and a `MSGID` statement with its full operand
 list on one physical line. SCHEDxx's single repeated `PPT PGMNAME(name)
-...` statement shape is confirmed against real-world PPT examples, but
-`sched_parser.py` itself is **not yet validated against a real
-member**.
+...` statement shape is confirmed against real-world PPT examples, and
+`sched_parser.py` itself is now CONFIRMED against a real member,
+including a run of entries where every physical line -- statement line
+and every continuation line alike -- carries its own trailing
+`/* ... */` comment, stripped cleanly without bleeding into the next
+entry.
 
 `couple_snapshot`/`grsrnl_snapshot` continue Category C: IEASYSxx's own
 `COUPLE=`/`GRSRNL=` keywords name the active COUPLExx/GRSRNLxx
@@ -964,8 +967,8 @@ roles/zos_extract/
                              # Table) entries, named by IEASYSxx's own
                              # SCH= keyword; tag sched_snapshot; writes
                              # sched_snapshot.txt, ingested via
-                             # inventory sched -- not yet
-                             # production-validated
+                             # inventory sched -- CONFIRMED against a
+                             # real member
     couple_snapshot.yml      # explicit capture of the active COUPLExx
                              # member(s) -- XCF/sysplex couple dataset
                              # definitions, named by IEASYSxx's own

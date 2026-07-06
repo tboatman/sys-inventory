@@ -369,10 +369,9 @@ class SchedStatement:
     each PPT flag individually (the same generic-capture rationale
     CicsSitOverride/Jes2InitStatement use).
 
-    NOT YET VALIDATED against a real SCHEDxx member -- the PPT statement
-    shape is confirmed against real-world PPT examples, but the parser
-    itself hasn't been checked against a real member, same caveat
-    autor_parser.py carries."""
+    CONFIRMED against a real SCHEDxx member, including a run of PPT
+    entries where every physical line carries its own trailing
+    '/* ... */' comment, stripped cleanly."""
 
     stmt: str
     operands: str

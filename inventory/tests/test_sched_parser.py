@@ -11,7 +11,7 @@ def load_statements():
 
 def test_all_ppt_entries_captured():
     statements = load_statements()
-    assert len(statements) == 3
+    assert len(statements) == 12
     assert all(s.stmt == "PPT" for s in statements)
 
 
@@ -28,6 +28,22 @@ def test_continuation_line_folded_into_current_ppt_entry():
     )
 
 
-def test_source_member_set_for_every_statement():
+def test_source_member_set_correctly_across_concatenated_members():
     statements = load_statements()
-    assert all(s.source_member == "SCHEDBN" for s in statements)
+    by_member = {"SCHEDBN": 0, "SCHED01": 0}
+    for s in statements:
+        by_member[s.source_member] += 1
+    assert by_member == {"SCHEDBN": 3, "SCHED01": 9}
+
+
+def test_real_member_trailing_comment_stripped_from_every_continuation_line():
+    # SCHED01 -- CONFIRMED against a real SCHEDxx member: every physical
+    # line, including each continuation line, has its own trailing
+    # '/* ... */' comment that must be stripped without corrupting the
+    # PPT entry it belongs to or bleeding into the next entry.
+    statements = load_statements()
+    sched01 = [s for s in statements if s.source_member == "SCHED01"]
+    assert sched01[0].operands == "PGMNAME(OSZSIRIS) KEY(0) SYST"
+    assert sched01[1].operands == "PGMNAME(OSZMOSYS) KEY(0) NOCANCEL NOSWAP SYST"
+    assert sched01[-1].operands == "PGMNAME(OSZEXEC5) KEY(5)"
+    assert all("/*" not in s.operands and "*/" not in s.operands for s in sched01)

@@ -3,3 +3,29 @@ PPT PGMNAME(IEDQTCAM) NOSWAP KEY(1) SYST
 PPT PGMNAME(ZWESIS01) KEY(4) NOSWAP
 PPT PGMNAME(XGMMAIN) CANCEL KEY(4) NOSYST PRIV NOSWAP DSI PASS
     AFF(NONE) NOPREF
+##MEMBER SCHED01
+PPT  PGMNAME(OSZSIRIS)            /* RTCS SUBSYSTEM INITIATOR STC    */
+     KEY(0)                       /* RTCS SUBSYSTEM INITIATOR KEY 0  */
+     SYST                         /* NON-TIMED STARTED SYSTEM TASK   */
+PPT  PGMNAME(OSZMOSYS)            /* RTCS SUBSYSTEM ALLOCATOR STC    */
+     KEY(0)                       /* RTCS SUBSYSTEM ALLOCATOR KEY 0  */
+     NOCANCEL                     /* KERNEL    CANNOT BE CANCELLED   */
+     NOSWAP                       /* NON-SWAPPABLE, CROSS-MEMORY A/S */
+     SYST                         /* NON-TIMED STARTED SYSTEM TASK   */
+PPT  PGMNAME(OSZIRIAN)            /* RTCS SUBSYSTEM KERNEL    STC    */
+     KEY(0)                       /* RTCS SUBSYSTEM KERNEL    KEY 0  */
+     NOCANCEL                     /* MUST NOT BE CANCELLED           */
+     NOSWAP                       /* NON-SWAPPABLE, CROSS-MEMORY A/S */
+     SYST                         /* NON-TIMED STARTED SYSTEM TASK   */
+PPT  PGMNAME(OSZEXEC0)            /* RTCS SERVER    STARTED TASK - 0 */
+     KEY(0)                       /* PRODUCTS WHICH EXECUTE IN KEY 0 */
+PPT  PGMNAME(OSZEXEC1)            /* RTCS SERVER    STARTED TASK - 1 */
+     KEY(1)                       /* PRODUCTS WHICH EXECUTE IN KEY 1 */
+PPT  PGMNAME(OSZEXEC2)            /* RTCS SERVER    STARTED TASK - 2 */
+     KEY(2)                       /* PRODUCTS WHICH EXECUTE IN KEY 2 */
+PPT  PGMNAME(OSZEXEC3)            /* RTCS SERVER    STARTED TASK - 3 */
+     KEY(3)                       /* PRODUCTS WHICH EXECUTE IN KEY 3 */
+PPT  PGMNAME(OSZEXEC4)            /* RTCS SERVER    STARTED TASK - 4 */
+     KEY(4)                       /* PRODUCTS WHICH EXECUTE IN KEY 4 */
+PPT  PGMNAME(OSZEXEC5)            /* RTCS SERVER    STARTED TASK - 5 */
+     KEY(5)                       /* PRODUCTS WHICH EXECUTE IN KEY 5 */

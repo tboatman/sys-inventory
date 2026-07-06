@@ -493,7 +493,7 @@ block preceding the live statement (stripped cleanly) and the full
 operand list on one physical line rather than spread across
 continuation lines.
 
-### `inventory sched` (not yet production-validated)
+### `inventory sched`
 
 PPT (Program Properties Table) entries — every `PPT PGMNAME(name) ...`
 statement in the active SCHEDxx member(s) — if you ingested a
@@ -508,11 +508,15 @@ $ inventory sched
 PPT PGMNAME(IEDQTCAM) NOSWAP KEY(1) SYST  [SCHEDBN]
 PPT PGMNAME(ZWESIS01) KEY(4) NOSWAP  [SCHEDBN]
 PPT PGMNAME(XGMMAIN) CANCEL KEY(4) NOSYST PRIV NOSWAP DSI PASS AFF(NONE) NOPREF  [SCHEDBN]
+PPT PGMNAME(OSZSIRIS) KEY(0) SYST  [SCHED01]
+PPT PGMNAME(OSZMOSYS) KEY(0) NOCANCEL NOSWAP SYST  [SCHED01]
 ```
 
-**Built from real-world PPT examples in IBM's z/OS MVS Initialization
-and Tuning Reference — not yet checked against a real SCHEDxx member**,
-same caveat `inventory autor` carries.
+CONFIRMED against a real SCHEDxx member (the `SCHED01` rows above) —
+including a run of PPT entries where every physical line, statement
+line and every continuation line alike, carries its own trailing
+`/* ... */` comment, stripped cleanly without bleeding into the next
+entry.
 
 ### `inventory couple` (not yet production-validated)
 
@@ -530,8 +534,7 @@ DATA TYPE(LOGR) PCOUPLE(SYS1.LOGR.CDS01,VOL001) ACOUPLE(SYS1.LOGR.CDS02,VOL002) 
 ```
 
 **Built from IBM's z/OS MVS Setting Up a Sysplex reference — not yet
-checked against a real COUPLExx member**, same caveat `inventory sched`
-carries.
+checked against a real COUPLExx member.**
 
 ### `inventory grsrnl` (not yet production-validated)
 

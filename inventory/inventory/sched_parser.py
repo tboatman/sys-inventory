@@ -29,10 +29,10 @@ Jes2InitStatement use for their own large keyword surfaces.
 The PPT statement shape is confirmed against real-world PPT examples
 (IBM's z/OS MVS Initialization and Tuning Reference, SCHEDxx chapter).
 
-NOT YET VALIDATED against a real SCHEDxx member -- the statement shape
-is confirmed, but the parser itself hasn't been checked against a real
-member, same caveat autor_parser.py carries for its own unconfirmed
-parsing surface.
+CONFIRMED against a real SCHEDxx member, including a run of PPT entries
+where every physical line -- statement line and every continuation line
+alike -- carries its own trailing '/* ... */' comment, stripped cleanly
+without bleeding into the next PPT entry.
 """
 from __future__ import annotations
 

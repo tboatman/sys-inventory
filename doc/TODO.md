@@ -1114,12 +1114,16 @@ domain):**
   with its full operand list on one physical line rather than spread
   across continuation lines -- both handled correctly by
   `parmlib_engines.statement_engine()` already.
-- `SCH`/`SCHEDxx` -- IMPLEMENTED: `SchedStatement`/`sched_parser.py`
-  (PPT entries, one keyword vocabulary `{"PPT"}`), `sched_statements`
-  table, `inventory sched` command, `sched_snapshot.yml`. The
-  `PPT PGMNAME(name) flag flag KEY(n) ...` statement shape is confirmed
-  against real-world PPT examples, but NOT YET VALIDATED against a real
-  SCHEDxx member.
+- `SCH`/`SCHEDxx` -- IMPLEMENTED and CONFIRMED against a real SCHEDxx
+  member: `SchedStatement`/`sched_parser.py` (PPT entries, one keyword
+  vocabulary `{"PPT"}`), `sched_statements` table, `inventory sched`
+  command, `sched_snapshot.yml`. The `PPT PGMNAME(name) flag flag KEY(n)
+  ...` statement shape is confirmed against real-world PPT examples, and
+  the real member exercised a run of entries where every physical line
+  (statement line and every continuation line alike) carries its own
+  trailing `/* ... */` comment -- stripped cleanly by
+  `parmlib_engines.statement_engine()` without bleeding into the next
+  PPT entry.
 - `COUPLE`/`COUPLExx` -- IMPLEMENTED: `CoupleStatement`/`couple_parser.py`
   (statement vocabulary `{"COUPLE", "DATA"}`), `couple_statements` table,
   `inventory couple` command, `couple_snapshot.yml`. **Real member name
