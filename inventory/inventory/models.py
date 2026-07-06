@@ -445,6 +445,66 @@ class GrsrnlStatement:
 
 
 @dataclass
+class SmfStatement:
+    """One statement from an active SMFPRMxx PARMLIB member -- System
+    Management Facilities (SMF) recording configuration (ACTIVE/DSNAME/
+    PROMPT/NOPROMPT/SYS/SUBSYS statements), named by IEASYSxx's own SMF=
+    keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/
+    CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+    BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/
+    COUPLExx/GRSRNLxx -- note the real member name is SMFPRMxx, not
+    "SMFxx" as doc/TODO.md's own table originally had it (corrected
+    after checking a real IBM source, same class of naming error
+    COUPLE= had). Dumped by ansible/roles/zos_extract/tasks/
+    smf_snapshot.yml and parsed by smf_parser.py. Fifth of the Category
+    C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- reuses parmlib_engines.statement_engine() with
+    a PARTIAL statement vocabulary (ACTIVE, DSNAME, PROMPT, NOPROMPT,
+    SYS, SUBSYS) -- SMFPRMxx's full documented keyword surface is larger
+    than what could be confidently confirmed this round; an unrecognized
+    top-level statement keyword gets folded into the preceding
+    statement's operands instead of starting its own, the same
+    documented limitation every other statement_engine() consumer here
+    carries.
+
+    NOT YET VALIDATED against a real SMFPRMxx member -- same caveat
+    couple_parser.py/grsrnl_parser.py carry for their own unconfirmed
+    parsing surfaces, plus the extra "partial vocabulary" caveat above."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
+class IosStatement:
+    """One statement from an active IECIOSxx PARMLIB member -- I/O
+    related parameters (MIH/HOTIO/TERMINAL/FICON/STORAGE/CAPTUCB/EKM/
+    RECOVERY statements, plus CTRACE/MIDAW/HYPERPAV/HYPERWRITE/ZHPF
+    specifications), named by IEASYSxx's own IOS= keyword the same way
+    SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/
+    COUPLE=/GRSRNL=/SMF= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/
+    MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/
+    GRSRNLxx/SMFPRMxx. Dumped by ansible/roles/zos_extract/tasks/
+    ios_snapshot.yml and parsed by ios_parser.py. Sixth of the Category
+    C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- reuses parmlib_engines.statement_engine() with
+    IECIOSxx's own top-level keyword vocabulary (MIH, HOTIO, TERMINAL,
+    FICON, STORAGE, CAPTUCB, EKM, RECOVERY, CTRACE, MIDAW, HYPERPAV,
+    HYPERWRITE, ZHPF), capturing every sub-parameter generically as raw
+    operand text.
+
+    NOT YET VALIDATED against a real IECIOSxx member -- the statement
+    vocabulary is confirmed against IBM's z/OS MVS Initialization and
+    Tuning Reference, but the parser itself hasn't been checked against
+    a real member, same caveat smf_parser.py carries."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

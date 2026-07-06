@@ -26,6 +26,7 @@ from .models import (
     GeneralResourceProfile,
     GrsrnlStatement,
     IeasysStatement,
+    IosStatement,
     Jes2InitStatement,
     LineageStep,
     OptStatement,
@@ -36,6 +37,7 @@ from .models import (
     RacfSnapshot,
     RacfUser,
     SchedStatement,
+    SmfStatement,
     SmsStorageGroup,
     StartedTask,
     Subsystem,
@@ -175,6 +177,20 @@ CREATE TABLE IF NOT EXISTS grsrnl_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_grsrnl_statements_stmt ON grsrnl_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS smf_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_smf_statements_stmt ON smf_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS ios_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ios_statements_stmt ON ios_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -696,6 +712,38 @@ def save_grsrnl_statements(conn: sqlite3.Connection, statements: list[GrsrnlStat
 def all_grsrnl_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM grsrnl_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_smf_statements(conn: sqlite3.Connection, statements: list[SmfStatement]) -> None:
+    conn.execute("DELETE FROM smf_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO smf_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_smf_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM smf_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_ios_statements(conn: sqlite3.Connection, statements: list[IosStatement]) -> None:
+    conn.execute("DELETE FROM ios_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO ios_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_ios_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM ios_statements ORDER BY stmt")
     return cur.fetchall()
 
 
