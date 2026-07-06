@@ -15,7 +15,7 @@
 `inventory cics-csd`, `inventory zone-index`, `inventory zones`,
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
-`inventory clock`."""
+`inventory clock`, `inventory autor`, `inventory sched`."""
 from __future__ import annotations
 
 import argparse
@@ -26,6 +26,7 @@ from pathlib import Path
 
 from . import (
     activity_parser,
+    autor_parser,
     bpxprm_parser,
     catalog_parser,
     cics_csdup_parser,
@@ -40,6 +41,7 @@ from . import (
     opt_parser,
     parmlib_parser,
     racf_parser,
+    sched_parser,
     smpe_parser,
     sms_parser,
     ssn_parser,
@@ -133,6 +135,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     clock_statements = [s for p in sorted(input_dir.glob("*clock_snapshot*.txt"))
                         for s in clock_parser.parse_clock_snapshot(p)]
 
+    autor_statements = [s for p in sorted(input_dir.glob("*autor_snapshot*.txt"))
+                        for s in autor_parser.parse_autor_snapshot(p)]
+
+    sched_statements = [s for p in sorted(input_dir.glob("*sched_snapshot*.txt"))
+                        for s in sched_parser.parse_sched_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -225,6 +233,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_devsup_statements(conn, devsup_statements)
     store.save_opt_statements(conn, opt_statements)
     store.save_clock_statements(conn, clock_statements)
+    store.save_autor_statements(conn, autor_statements)
+    store.save_sched_statements(conn, sched_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -260,6 +270,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(devsup_statements)} active DEVSUPxx statements, "
           f"{len(opt_statements)} active IEAOPTxx statements, "
           f"{len(clock_statements)} active CLOCKxx statements, "
+          f"{len(autor_statements)} active AUTORxx statements, "
+          f"{len(sched_statements)} active SCHEDxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -497,6 +509,26 @@ def cmd_clock(args: argparse.Namespace) -> int:
     for row in rows:
         value = row["value"] if row["value"] is not None else ""
         print(f"{row['keyword']}={value}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_autor(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_autor_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_sched(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_sched_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
     return 0
 
 
@@ -957,6 +989,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_clock = sub.add_parser("clock", help="list active CLOCKxx KEYWORD=value statements -- TOD clock/timezone parameters (not yet production-validated)")
     p_clock.set_defaults(func=cmd_clock)
+
+    p_autor = sub.add_parser("autor", help="list active AUTORxx statements -- WTOR auto-reply policy (not yet production-validated)")
+    p_autor.set_defaults(func=cmd_autor)
+
+    p_sched = sub.add_parser("sched", help="list active SCHEDxx PPT (Program Properties Table) statements (not yet production-validated)")
+    p_sched.set_defaults(func=cmd_sched)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

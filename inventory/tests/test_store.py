@@ -11,6 +11,7 @@ import pytest
 from inventory import store
 from inventory.models import (
     ActiveJob,
+    AutorStatement,
     BpxprmStatement,
     CatalogDataset,
     CicsCsdDefinition,
@@ -35,6 +36,7 @@ from inventory.models import (
     RacfGroupConnection,
     RacfSnapshot,
     RacfUser,
+    SchedStatement,
     SmsStorageGroup,
     StartedTask,
     Subsystem,
@@ -57,6 +59,7 @@ EXPECTED_TABLES = {
     "lineage", "subsystems", "started_tasks", "system_info", "products",
     "parmlib_datasets", "ieasys_statements", "bpxprm_statements",
     "devsup_statements", "opt_statements", "clock_statements",
+    "autor_statements", "sched_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -273,6 +276,16 @@ ROUND_TRIP_CASES = [
         store.save_clock_statements, store.all_clock_statements,
         lambda n: [ClockStatement(keyword=f"KW{i}", value="V", source_member="CLOCK00") for i in range(n)],
         id="clock_statements",
+    ),
+    pytest.param(
+        store.save_autor_statements, store.all_autor_statements,
+        lambda n: [AutorStatement(stmt=f"STMT{i}", operands="OP", source_member="AUTOR00") for i in range(n)],
+        id="autor_statements",
+    ),
+    pytest.param(
+        store.save_sched_statements, store.all_sched_statements,
+        lambda n: [SchedStatement(stmt="PPT", operands=f"PGMNAME(PGM{i})", source_member="SCHED00") for i in range(n)],
+        id="sched_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,

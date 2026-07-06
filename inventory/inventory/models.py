@@ -333,6 +333,60 @@ class ClockStatement:
 
 
 @dataclass
+class AutorStatement:
+    """One statement from an active AUTORxx PARMLIB member -- WTOR
+    auto-reply policy (NOT Automatic Restart Management, despite the
+    name's resemblance -- confirmed via IBM's z/OS MVS Initialization
+    and Tuning Reference), named by IEASYSxx's own AUTOR= keyword the
+    same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK= name
+    IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/
+    CLOCKxx. Dumped by ansible/roles/zos_extract/tasks/
+    autor_snapshot.yml and parsed by autor_parser.py. First of the
+    Category C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- unlike Category B's flat KEYWORD=value shape,
+    a real AUTORxx member is statement-oriented (NOTIFYMSGS(...) and
+    MSGID(msgid) DELAY(nnS) REPLY(text)/NOAUTORREPLY statements), the
+    same shape BPXPRMxx has, so this reuses
+    parmlib_engines.statement_engine() directly.
+
+    NOT YET VALIDATED against a real AUTORxx member -- the top-level
+    statement vocabulary (NOTIFYMSGS, MSGID) is confirmed against IBM's
+    documented AUTORxx syntax, but the parser itself hasn't been checked
+    against a real member, same caveat bpxprm_parser.py carries."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
+class SchedStatement:
+    """One PPT (Program Properties Table) statement from an active
+    SCHEDxx PARMLIB member, named by IEASYSxx's own SCH= keyword the
+    same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=
+    name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/
+    CLOCKxx/AUTORxx. Dumped by ansible/roles/zos_extract/tasks/
+    sched_snapshot.yml and parsed by sched_parser.py. Second of the
+    Category C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- a real SCHEDxx member is a repeated single
+    statement shape, 'PPT PGMNAME(name) flag flag KEY(n) ...', so this
+    reuses parmlib_engines.statement_engine() with a one-keyword
+    vocabulary ({"PPT"}), capturing every flag/sub-parameter after
+    PGMNAME generically as raw operand text rather than hand-modeling
+    each PPT flag individually (the same generic-capture rationale
+    CicsSitOverride/Jes2InitStatement use).
+
+    NOT YET VALIDATED against a real SCHEDxx member -- the PPT statement
+    shape is confirmed against real-world PPT examples, but the parser
+    itself hasn't been checked against a real member, same caveat
+    autor_parser.py carries."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

@@ -45,6 +45,8 @@ FIXTURE_TO_REAL_NAME = {
     "sample_devsup_snapshot.txt": "devsup_snapshot.txt",
     "sample_opt_snapshot.txt": "opt_snapshot.txt",
     "sample_clock_snapshot.txt": "clock_snapshot.txt",
+    "sample_autor_snapshot.txt": "autor_snapshot.txt",
+    "sample_sched_snapshot.txt": "sched_snapshot.txt",
 }
 
 
@@ -75,6 +77,8 @@ def test_ingest_populates_every_domain(full_input_dir, tmp_path):
         assert len(store.all_devsup_statements(conn)) > 0
         assert len(store.all_opt_statements(conn)) > 0
         assert len(store.all_clock_statements(conn)) > 0
+        assert len(store.all_autor_statements(conn)) > 0
+        assert len(store.all_sched_statements(conn)) > 0
         assert len(store.all_active_jobs(conn)) > 0
         assert len(store.all_processes(conn)) > 0
         assert len(store.all_catalog_datasets(conn)) > 0
@@ -187,7 +191,7 @@ def test_ingest_picks_up_renamed_snapshot_files(tmp_path):
 # above/below instead.
 NO_ARG_SUBCOMMANDS = [
     "subsystems", "started-tasks", "sysinfo", "products", "parmlib",
-    "ieasys", "bpxprm", "devsup", "opt", "clock", "active", "processes", "catalog", "vsam",
+    "ieasys", "bpxprm", "devsup", "opt", "clock", "autor", "sched", "active", "processes", "catalog", "vsam",
     "racf-users", "racf-groups", "racf-connections", "racf-dataset-profiles",
     "racf-dataset-access", "racf-resource-profiles", "racf-resource-access",
     "uss-mounts", "jes2parm", "vtam-majnodes", "vtam-options",

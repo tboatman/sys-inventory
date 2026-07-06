@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .models import (
     ActiveJob,
+    AutorStatement,
     BpxprmStatement,
     CatalogDataset,
     CicsCsdDefinition,
@@ -32,6 +33,7 @@ from .models import (
     RacfGroupConnection,
     RacfSnapshot,
     RacfUser,
+    SchedStatement,
     SmsStorageGroup,
     StartedTask,
     Subsystem,
@@ -143,6 +145,20 @@ CREATE TABLE IF NOT EXISTS clock_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_clock_statements_keyword ON clock_statements(keyword);
+
+CREATE TABLE IF NOT EXISTS autor_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_autor_statements_stmt ON autor_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS sched_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sched_statements_stmt ON sched_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -600,6 +616,38 @@ def save_clock_statements(conn: sqlite3.Connection, statements: list[ClockStatem
 def all_clock_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM clock_statements ORDER BY keyword")
+    return cur.fetchall()
+
+
+def save_autor_statements(conn: sqlite3.Connection, statements: list[AutorStatement]) -> None:
+    conn.execute("DELETE FROM autor_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO autor_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_autor_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM autor_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_sched_statements(conn: sqlite3.Connection, statements: list[SchedStatement]) -> None:
+    conn.execute("DELETE FROM sched_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO sched_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_sched_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM sched_statements ORDER BY stmt")
     return cur.fetchall()
 
 
