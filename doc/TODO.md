@@ -1093,9 +1093,22 @@ domain):**
   `PPT PGMNAME(name) flag flag KEY(n) ...` statement shape is confirmed
   against real-world PPT examples, but NOT YET VALIDATED against a real
   SCHEDxx member.
+- `COUPLE`/`COUPLExx` -- IMPLEMENTED: `CoupleStatement`/`couple_parser.py`
+  (statement vocabulary `{"COUPLE", "DATA"}`), `couple_statements` table,
+  `inventory couple` command, `couple_snapshot.yml`. **Real member name
+  is `COUPLExx` (e.g. `COUPLE00`), not `COUPLxx`** as this table
+  originally had it above -- corrected after checking a real IBM source;
+  unlike `MSTRJCL=` (which drops its `R`), `COUPLE=` keeps its full name
+  in the member suffix. NOT YET VALIDATED against a real COUPLExx
+  member.
+- `GRSRNL`/`GRSRNLxx` -- IMPLEMENTED: `GrsrnlStatement`/
+  `grsrnl_parser.py` (RNLDEF statements, one keyword vocabulary
+  `{"RNLDEF"}`), `grsrnl_statements` table, `inventory grsrnl` command,
+  `grsrnl_snapshot.yml`. NOT YET VALIDATED against a real GRSRNLxx
+  member.
 - `CATALOG`/`IGGCATxx`,
-  `CON`/`CONSOLxx`, `COUPLE`/`COUPLxx`, `DIAG`/`DIAGxx`,
-  `GRSCNF`/`GRSCNFxx`, `GRSRNL`/`GRSRNLxx` (RNLDEF statements),
+  `CON`/`CONSOLxx`, `DIAG`/`DIAGxx`,
+  `GRSCNF`/`GRSCNFxx`,
   `IOS`/`IECIOSxx`, `SMS`/`IGDSMSxx` (**naming collision to watch**: this
   project already has an unrelated `sms` tag/`SmsStorageGroup` table for
   the *live* `D SMS,STORGRP` console command -- this new one needs its own

@@ -411,6 +411,8 @@ list of what it looks for in the directory you point it at:
 | Active CLOCKxx member snapshot (TOD clock/timezone parameters, named by IEASYSxx's own CLOCK=) | `clock_snapshot` (default filename `clock_snapshot.txt`, override via `zos_extract_clock_snapshot_outfile`) | ansible-only, `clock_snapshot.yml` -- not yet production-validated |
 | Active AUTORxx member snapshot (WTOR auto-reply policy, named by IEASYSxx's own AUTOR=) | `autor_snapshot` (default filename `autor_snapshot.txt`, override via `zos_extract_autor_snapshot_outfile`) | ansible-only, `autor_snapshot.yml` -- not yet production-validated |
 | Active SCHEDxx member snapshot (PPT/Program Properties Table entries, named by IEASYSxx's own SCH=) | `sched_snapshot` (default filename `sched_snapshot.txt`, override via `zos_extract_sched_snapshot_outfile`) | ansible-only, `sched_snapshot.yml` -- not yet production-validated |
+| Active COUPLExx member snapshot (XCF/sysplex couple dataset definitions, named by IEASYSxx's own COUPLE=) | `couple_snapshot` (default filename `couple_snapshot.txt`, override via `zos_extract_couple_snapshot_outfile`) | ansible-only, `couple_snapshot.yml` -- not yet production-validated |
+| Active GRSRNLxx member snapshot (global resource serialization resource name lists, named by IEASYSxx's own GRSRNL=) | `grsrnl_snapshot` (default filename `grsrnl_snapshot.txt`, override via `zos_extract_grsrnl_snapshot_outfile`) | ansible-only, `grsrnl_snapshot.yml` -- not yet production-validated |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Eighteen more files —
+   file naming and how to produce each file. Twenty more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -135,15 +135,19 @@ just renaming them into that shape for a quick demo.)
    `autor_snapshot.txt` (the active AUTORxx member(s) — WTOR auto-reply
    policy, named by IEASYSxx's own `AUTOR=` keyword; the first of the
    Category C, statement-oriented further active-PARMLIB-member
-   domains), and `sched_snapshot.txt` (the active SCHEDxx member(s) —
+   domains), `sched_snapshot.txt` (the active SCHEDxx member(s) —
    PPT/Program Properties Table entries, named by IEASYSxx's own `SCH=`
-   keyword)
+   keyword), `couple_snapshot.txt` (the active COUPLExx member(s) —
+   XCF/sysplex couple dataset definitions, named by IEASYSxx's own
+   `COUPLE=` keyword), and `grsrnl_snapshot.txt` (the active GRSRNLxx
+   member(s) — global resource serialization resource name lists, named
+   by IEASYSxx's own `GRSRNL=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
-   `sched_snapshot`
+   `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -155,8 +159,8 @@ just renaming them into that shape for a quick demo.)
    and especially `wlm_zosmf.txt` carry the strongest versions of that
    caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt`/
    `opt_snapshot.txt`/`clock_snapshot.txt`/`autor_snapshot.txt`/
-   `sched_snapshot.txt` (all built from documented statement syntax
-   only, no real sample yet);
+   `sched_snapshot.txt`/`couple_snapshot.txt`/`grsrnl_snapshot.txt` (all
+   built from documented statement syntax only, no real sample yet);
    `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
@@ -487,6 +491,42 @@ PPT PGMNAME(XGMMAIN) CANCEL KEY(4) NOSYST PRIV NOSWAP DSI PASS AFF(NONE) NOPREF 
 **Built from real-world PPT examples in IBM's z/OS MVS Initialization
 and Tuning Reference — not yet checked against a real SCHEDxx member**,
 same caveat `inventory autor` carries.
+
+### `inventory couple` (not yet production-validated)
+
+XCF/sysplex couple dataset definitions — every `COUPLE`/`DATA TYPE(...)`
+statement in the active COUPLExx member(s) — if you ingested a
+`couple_snapshot.txt`. Named by IEASYSxx's own `COUPLE=` keyword — note
+the real member name keeps the trailing E (`COUPLExx`, e.g. `COUPLE00`),
+unlike `MSTRJCL=` (which drops its `R` to name `MSTJCLxx`). Third of the
+Category C domains from `doc/TODO.md` "9.2":
+
+```
+$ inventory couple
+COUPLE SYSPLEX(PLEX1) PCOUPLE(SYS1.XCF.CDS01,VOL001) ACOUPLE(SYS1.XCF.CDS02,VOL002)  [COUPLE00]
+DATA TYPE(LOGR) PCOUPLE(SYS1.LOGR.CDS01,VOL001) ACOUPLE(SYS1.LOGR.CDS02,VOL002)  [COUPLE00]
+```
+
+**Built from IBM's z/OS MVS Setting Up a Sysplex reference — not yet
+checked against a real COUPLExx member**, same caveat `inventory sched`
+carries.
+
+### `inventory grsrnl` (not yet production-validated)
+
+Global resource serialization resource name lists — every `RNLDEF`
+statement in the active GRSRNLxx member(s) — if you ingested a
+`grsrnl_snapshot.txt`. Named by IEASYSxx's own `GRSRNL=` keyword.
+Fourth of the Category C domains from `doc/TODO.md` "9.2":
+
+```
+$ inventory grsrnl
+RNLDEF RNL(EXCL) TYPE(SPECIFIC) QNAME(SYSIGGV2) RNAME('ICFCAT.CAT1.SHARED')  [GRSRNL00]
+RNLDEF RNL(INCL) TYPE(GENERIC) QNAME(SYSDSN)  [GRSRNL00]
+```
+
+**Built from IBM's documented GRS resource name list syntax — not yet
+checked against a real GRSRNLxx member**, same caveat `inventory couple`
+carries.
 
 ### `inventory active`
 

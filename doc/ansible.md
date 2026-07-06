@@ -102,7 +102,8 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
-`clock_snapshot`, `autor_snapshot`, `sched_snapshot`,
+`clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
+`grsrnl_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -180,6 +181,20 @@ Reference (and is WTOR auto-reply policy, **not** Automatic Restart
 Management despite the name's resemblance); SCHEDxx's single repeated
 `PPT PGMNAME(name) ...` statement shape is confirmed against real-world
 PPT examples.
+
+`couple_snapshot`/`grsrnl_snapshot` continue Category C: IEASYSxx's own
+`COUPLE=`/`GRSRNL=` keywords name the active COUPLExx/GRSRNLxx
+member(s) (XCF/sysplex couple dataset definitions, global resource
+serialization resource name lists) -- note `COUPLE=` keeps its full name
+in the member suffix (`COUPLExx`, e.g. `COUPLE00`), unlike `MSTRJCL=`
+(which drops its `R`). Fetched the same way and written to
+`couple_snapshot.txt`/`grsrnl_snapshot.txt` -- ingested via `inventory
+couple`/`inventory grsrnl`, **not yet validated against a real member**.
+COUPLExx's `COUPLE`/`DATA` statement vocabulary is confirmed against
+IBM's z/OS MVS Setting Up a Sysplex reference; GRSRNLxx's single
+repeated `RNLDEF RNL(...) TYPE(...) QNAME(...) RNAME(...)` statement
+shape is confirmed against IBM's documented GRS resource name list
+syntax.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -921,12 +936,27 @@ roles/zos_extract/
                              # sched_snapshot.txt, ingested via
                              # inventory sched -- not yet
                              # production-validated
+    couple_snapshot.yml      # explicit capture of the active COUPLExx
+                             # member(s) -- XCF/sysplex couple dataset
+                             # definitions, named by IEASYSxx's own
+                             # COUPLE= keyword; tag couple_snapshot;
+                             # writes couple_snapshot.txt, ingested via
+                             # inventory couple -- not yet
+                             # production-validated
+    grsrnl_snapshot.yml      # explicit capture of the active GRSRNLxx
+                             # member(s) -- global resource
+                             # serialization resource name lists, named
+                             # by IEASYSxx's own GRSRNL= keyword; tag
+                             # grsrnl_snapshot; writes
+                             # grsrnl_snapshot.txt, ingested via
+                             # inventory grsrnl -- not yet
+                             # production-validated
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
-                             # AUTORxx/SCHEDxx fetches above -- see
-                             # doc/TODO.md "9.1"
+                             # AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx
+                             # fetches above -- see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs
