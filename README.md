@@ -16,6 +16,23 @@ production-validated**), and — unlike everything else here, which is
 configuration/definition data — a live snapshot of what's actually
 running right now (active jobs/tasks and USS processes).
 
+Beyond that core chain, it also covers: the active PARMLIB concatenation
+and IEASYSxx/BPXPRMxx member content actually in effect (not just where
+PARMLIB search order looks); SMP/E zones/FMIDs across multiple CSIs, plus
+SMP/E's own authoritative per-CSI zone census; mounted USS filesystems;
+JES2's own initialization statements; the network stack (VTAM major
+nodes/start options/APPN topology, TCP/IP home addresses and `PROFILE.TCPIP`
+config); SMS storage groups; the active WLM policy (and, opt-in, full
+service-class/goal definitions via z/OSMF); installed DB2 packages/plans
+(opt-in); and a deepened CICS view — DFHRPL load-library lineage, SIT
+overrides, and CSD resource definitions via DFHCSDUP (opt-in). Most of
+these have been confirmed against real command/API output from an actual
+z/OS system; a handful (DB2 catalog access, WLM z/OSMF, RACF, DFHCSDUP's
+own report format) remain implementation-only until checked against a
+real one — see [`doc/inventory.md`](doc/inventory.md) for the full,
+per-command breakdown and current confirmation status of each, and
+[`doc/TODO.md`](doc/TODO.md) for what's still planned.
+
 If you're new to any of the z/OS terms used below (PROCLIB, PARMLIB,
 SMP/E, APF, LPAR, ...), see the [Glossary](doc/zos-extract.md#glossary)
 in `doc/zos-extract.md` — it's written for exactly that.
@@ -41,14 +58,19 @@ commands), while step 2 is ordinary Python that can run anywhere —
 your laptop, a CI runner, wherever.
 
 1. **`zos-extract/`** runs on z/OS, in an OMVS (UNIX) shell, using ZOAU (Z
-   Open Automation Utilities). It reads PROCLIB/PARMLIB members, subsystem
-   and started-task definitions, product enablement, the LNKLST and
-   APF-authorized library lists, basic system identity, SMP/E's catalog, an
-   HLQ/pattern-scoped dataset catalog, and a live snapshot of what's
-   currently running — and writes what it finds out as plain text files. See
+   Open Automation Utilities), for the original ten domains (PROCLIB/PARMLIB
+   members, subsystem and started-task definitions, product enablement, the
+   LNKLST and APF-authorized library lists, basic system identity, SMP/E's
+   catalog, an HLQ/pattern-scoped dataset catalog, a live snapshot of what's
+   currently running, and a RACF security snapshot). See
    [`doc/zos-extract.md`](doc/zos-extract.md) for exactly what to
    run and in what order; it's written assuming no prior familiarity with
-   any of this.
+   any of this. **`ansible/`** covers everything since — the active
+   PARMLIB/IEASYSxx/BPXPRMxx snapshots, multi-CSI SMP/E zone discovery, USS
+   mounts, JES2 init, VTAM/TCP-IP, SMS, WLM, DB2 catalog, and CICS deepening
+   — as well as re-running the original ten across many LPARs at once; see
+   [`doc/ansible.md`](doc/ansible.md). Either path writes what it finds as
+   plain text files.
 2. You copy those text files off the mainframe (plain `scp`/`sftp`/FTP —
    no binary or VSAM transfer needed, it's all text).
 3. **`inventory/`** runs anywhere with Python 3.9+. It parses those text
@@ -83,6 +105,14 @@ your laptop, a CI runner, wherever.
  └─────────────────┘               └──────────────────────┘
 ```
 
+That diagram shows the original core chain only. `ansible/` adds a
+matching set of parsers for every domain listed above (`uss_mounts_parser`,
+`jes2parm_parser`, `vtam_parser`, `tcpip_parser`, `sms_parser`, `wlm_parser`,
+`wlm_zosmf_parser`, `db2_catalog_parser`, `cics_proc_parser`/
+`cics_csdup_parser`, `parmlib_parser`/`ieasys_parser`/`bpxprm_parser`), each
+feeding its own table(s) in the same SQLite database — see
+[`doc/inventory.md`](doc/inventory.md) for the complete list.
+
 The core resolution chain, for every PROCLIB/PARMLIB member:
 
 ```
@@ -113,7 +143,19 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_active_jobs.txt /tmp/demo/active_jobs.txt && \
   cp tests/fixtures/sample_processes.txt   /tmp/demo/processes.txt && \
   cp tests/fixtures/sample_catalog.txt     /tmp/demo/demo_catalog.txt && \
-  cp tests/fixtures/sample_racf.txt        /tmp/demo/racf.txt
+  cp tests/fixtures/sample_racf.txt        /tmp/demo/racf.txt && \
+  cp tests/fixtures/sample_uss_mounts.txt  /tmp/demo/uss_mounts.txt && \
+  cp tests/fixtures/sample_jes2parm.txt    /tmp/demo/jes2parm.txt && \
+  cp tests/fixtures/sample_vtam.txt        /tmp/demo/vtam.txt && \
+  cp tests/fixtures/sample_tcpip.txt       /tmp/demo/tcpip.txt && \
+  cp tests/fixtures/sample_sms.txt         /tmp/demo/sms.txt && \
+  cp tests/fixtures/sample_wlm.txt         /tmp/demo/wlm.txt && \
+  cp tests/fixtures/sample_db2_catalog.txt /tmp/demo/db2_catalog.txt && \
+  cp tests/fixtures/sample_wlm_zosmf.txt   /tmp/demo/wlm_zosmf.txt && \
+  cp tests/fixtures/sample_cics_deepening.txt /tmp/demo/cics_deepening.txt && \
+  cp tests/fixtures/sample_parmlib_snapshot.txt /tmp/demo/parmlib_snapshot.txt && \
+  cp tests/fixtures/sample_ieasys_snapshot.txt  /tmp/demo/ieasys_snapshot.txt && \
+  cp tests/fixtures/sample_bpxprm_snapshot.txt  /tmp/demo/bpxprm_snapshot.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 inventory --db /tmp/demo/demo.db lineage MYPROC
 inventory --db /tmp/demo/demo.db subsystems
@@ -126,7 +168,23 @@ inventory --db /tmp/demo/demo.db catalog
 inventory --db /tmp/demo/demo.db vsam
 inventory --db /tmp/demo/demo.db racf-users
 inventory --db /tmp/demo/demo.db racf-groups
+inventory --db /tmp/demo/demo.db uss-mounts
+inventory --db /tmp/demo/demo.db jes2parm
+inventory --db /tmp/demo/demo.db vtam-majnodes
+inventory --db /tmp/demo/demo.db tcpip-home
+inventory --db /tmp/demo/demo.db sms-storgrps
+inventory --db /tmp/demo/demo.db wlm
+inventory --db /tmp/demo/demo.db db2-packages
+inventory --db /tmp/demo/demo.db cics-dfhrpl
+inventory --db /tmp/demo/demo.db parmlib
+inventory --db /tmp/demo/demo.db ieasys
 ```
+
+See [`doc/inventory.md`](doc/inventory.md) for the rest of the commands
+(`vtam-options`, `vtam-topology`, `tcpip-profile`, `wlm-zosmf`, `db2-plans`,
+`cics-sit`, `cics-csd`, `bpxprm`, `zone-index`, `racf-connections`,
+`racf-dataset-profiles`, `racf-dataset-access`, `racf-resource-profiles`,
+`racf-resource-access`) and each one's current confirmation status.
 
 `inventory lineage MYPROC` should print something like:
 
@@ -143,17 +201,18 @@ use.
 
 ## Running it against a real system
 
-1. Read [`doc/zos-extract.md`](doc/zos-extract.md) and run those
-   scripts on your z/OS system (needs an OMVS shell, ZOAU, and read
-   access to the datasets you're inventorying — all covered there).
+1. Read [`doc/zos-extract.md`](doc/zos-extract.md) (the original ten
+   domains, runnable by hand with no Ansible) and/or
+   [`doc/ansible.md`](doc/ansible.md) (those ten plus everything since,
+   runnable across one or more LPARs). Either way needs an OMVS shell,
+   ZOAU, and read access to the datasets/commands you're inventorying —
+   covered in both.
 2. Copy the resulting directory of text files to your own machine.
 3. Follow [`doc/inventory.md`](doc/inventory.md): `pip install -e .`
    then `inventory ingest path/to/that/directory/`.
-4. Query it with `inventory lineage`/`report`/`subsystems`/
-   `started-tasks`/`sysinfo`/`products`/`active`/`processes`/`catalog`/
-   `vsam`/`racf-users`/`racf-groups`/`racf-connections`/
-   `racf-dataset-profiles`/`racf-dataset-access`/`racf-resource-profiles`/
-   `racf-resource-access` as shown above.
+4. Query it — see the full command list in
+   [`doc/inventory.md`](doc/inventory.md), or the representative subset
+   shown above under "Try it right now."
 
 ## Status
 
@@ -163,29 +222,43 @@ product enablement, a live active-jobs/processes snapshot, and an
 HLQ/pattern-scoped dataset catalog (non-VSAM + VSAM), proven end-to-end
 against the test fixtures in `inventory/tests/fixtures/`. The design
 scales to multiple concatenation entries and multiple zones (Global +
-every target zone) without code changes — see "Scaling" in
-`doc/inventory.md`.
+every target zone), and multiple SMP/E CSIs, without code changes — see
+"Scaling" in `doc/inventory.md`.
 
-A seventh dimension, a RACF security snapshot (users, groups, dataset and
-curated general-resource access), is implemented and unit-tested against a
-synthetic fixture, but is **explicitly not yet production-validated** —
-its `extrracf.py` extraction needs a real, and likely hard-to-get, RACF
-database read authorization this environment can't provide, and its
-parser's field layout was derived from a third-party reference rather than
-IBM's own documentation or a real unload sample. Treat it as
-implementation-only until checked against a real system. See
-`doc/zos-extract.md`'s RACF step and `doc/inventory.md`'s "How
-resolution works" for specifics.
+Since that core slice, the pipeline has grown a lot more: the active
+PARMLIB/IEASYSxx/BPXPRMxx snapshots, SMP/E's own authoritative per-CSI
+zone census, USS mounts, JES2 init statements, VTAM (major nodes, start
+options, APPN topology), TCP/IP (home addresses, `PROFILE.TCPIP`), SMS
+storage groups, the active WLM policy, installed DB2 packages/plans, and
+a deepened CICS view (DFHRPL lineage, SIT overrides, CSD definitions via
+DFHCSDUP). Most of these have been confirmed against real command/API
+output from an actual z/OS system (see `doc/TODO.md` for exactly which,
+and what changed once a real reply was checked). A handful remain
+**implementation-only, not yet production-validated**: RACF (users,
+groups, dataset and curated general-resource access — needs a real, and
+likely hard-to-get, RACF database read authorization this environment
+can't provide, and its parser's field layout was derived from a
+third-party reference rather than IBM's own documentation or a real
+unload sample), DB2 catalog access via DSNTEP2, WLM's z/OSMF REST API
+deepening (the single most speculative dimension in the pipeline), and
+DFHCSDUP's own `LIST` report print format. Treat each of those as
+implementation-only until checked against a real system — see
+`doc/inventory.md`'s per-command sections for specifics on each.
 
 ## Sub-project docs
 
 - [`doc/zos-extract.md`](doc/zos-extract.md) — beginner-friendly
   walkthrough of what to run on z/OS, a glossary of z/OS terms, exact
   parameters, output format, download instructions, and troubleshooting.
+  Covers the original ten domains only (no Ansible required).
 - [`doc/inventory.md`](doc/inventory.md) — install, CLI usage
-  (with example output for every command), resolution algorithm, test
-  suite, and troubleshooting.
-- [`doc/ansible.md`](doc/ansible.md) — optional: run
-  `zos-extract/`'s step 1 across one or more LPARs with Ansible instead of
-  by hand, and fetch the results straight into a directory ready for
-  `inventory ingest`.
+  (with example output for every command, across every domain), resolution
+  algorithm, test suite, and troubleshooting.
+- [`doc/ansible.md`](doc/ansible.md) — run extraction across one or more
+  LPARs with Ansible instead of by hand: the original ten domains plus
+  every domain added since, with results fetched straight into a directory
+  ready for `inventory ingest`.
+- [`doc/TODO.md`](doc/TODO.md) — the roadmap: what's implemented and
+  confirmed, what's implemented but not yet production-validated, and
+  what's still just planned (including the 23-more-PARMLIB-member-types
+  plan).
