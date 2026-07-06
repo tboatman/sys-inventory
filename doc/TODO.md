@@ -1004,6 +1004,15 @@ produces byte-identical `ieasys_snapshot.txt`/`bpxprm_snapshot.txt`
 output to before this change** before trusting this worker for a new
 Category B/C domain.
 
+`bpxprm_parser.py`'s own statement-parsing output (independent of the
+ansible worker above) is now further CONFIRMED against a real BPXPRMxx
+member with two real edge cases the original hand-picked sample never
+exercised: a fully commented-out `MOUNT` block (every physical line its
+own `/* ... */` comment) correctly disappears entirely rather than
+becoming a bogus statement, and multiple `MOUNT` statements in the same
+member are all kept, in order, rather than the last one silently
+overwriting the others.
+
 `ieasys_snapshot`/`bpxprm_snapshot` each got their own hand-written
 ansible task file pair (`_fetch_active_*_member.yml` + `*_snapshot.yml`)
 and their own hand-written Python parser. That was the right call for

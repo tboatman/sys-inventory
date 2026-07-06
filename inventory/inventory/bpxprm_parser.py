@@ -48,10 +48,11 @@ shared with any future Category C domain from doc/TODO.md's "9.1" that
 turns out to have the same statement shape, parameterized by each
 domain's own keyword vocabulary (_BPXPRM_STATEMENT_KEYWORDS below).
 
-NOT YET VALIDATED against a real BPXPRMxx member -- built from IBM's
-documented statement syntax only, same caveat db2_catalog_parser.py/
-wlm_zosmf_parser.py/cics_csdup_parser.py carry for their own unconfirmed
-parsing surfaces.
+CONFIRMED against a real BPXPRMxx member, including a fully
+commented-out MOUNT block (every physical line its own '/* ... */'
+comment) that disappears entirely rather than becoming a bogus
+statement, and multiple MOUNT statements in the same member, all kept
+in order rather than collapsed.
 """
 from __future__ import annotations
 

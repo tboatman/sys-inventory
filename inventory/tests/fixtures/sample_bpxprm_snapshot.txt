@@ -6,3 +6,15 @@ MOUNT FILESYSTEM('OMVS.ETC.ZFS')
       TYPE(ZFS) MODE(RDWR)
 MAXPROCSYS(3000)          /* max processes per system */
 TZ(EST5EDT)
+##MEMBER BPXPRM01
+ MOUNT  FILESYSTEM('ZFS.TOMMY')
+        MOUNTPOINT('/u/tommy')
+        TYPE(ZFS) NOAUTOMOVE
+
+ /* MOUNT  FILESYSTEM('TOMMY.PSI.ZFS') */
+ /*        MOUNTPOINT('/u/tommy/PSI') */
+ /*        TYPE(ZFS) NOAUTOMOVE */
+
+ MOUNT  FILESYSTEM('ZFS.GRB')
+        MOUNTPOINT('/usr/lpp/grb')
+        TYPE(ZFS)

@@ -11,7 +11,7 @@ def load_statements():
 
 def test_multiline_statements_fold_continuation_into_operands():
     statements = load_statements()
-    by_stmt = {s.stmt: s.operands for s in statements}
+    by_stmt = {s.stmt: s.operands for s in statements if s.source_member == "BPXPRM00"}
 
     assert by_stmt["ROOT"] == "FILESYSTEM('OMVS.ROOT.ZFS') TYPE(ZFS) MODE(RDWR)"
     assert by_stmt["MOUNT"] == "FILESYSTEM('OMVS.ETC.ZFS') MOUNTPOINT('/etc') TYPE(ZFS) MODE(RDWR)"
@@ -38,11 +38,35 @@ def test_last_statement_captured():
     assert tz.operands == "(EST5EDT)"
 
 
-def test_source_member_set_for_every_statement():
+def test_source_member_set_correctly_across_concatenated_members():
     statements = load_statements()
-    assert all(s.source_member == "BPXPRM00" for s in statements)
+    by_member = {"BPXPRM00": 0, "BPXPRM01": 0}
+    for s in statements:
+        by_member[s.source_member] += 1
+    assert by_member == {"BPXPRM00": 4, "BPXPRM01": 2}
 
 
 def test_four_statements_total():
     statements = load_statements()
     assert {s.stmt for s in statements} == {"ROOT", "MOUNT", "MAXPROCSYS", "TZ"}
+
+
+def test_multiple_mount_statements_all_captured():
+    # BPXPRM01 -- CONFIRMED against a real BPXPRMxx member: two real
+    # MOUNT statements, in order, both kept (not collapsed/overwritten).
+    statements = load_statements()
+    mounts = [s.operands for s in statements if s.source_member == "BPXPRM01" and s.stmt == "MOUNT"]
+    assert mounts == [
+        "FILESYSTEM('ZFS.TOMMY') MOUNTPOINT('/u/tommy') TYPE(ZFS) NOAUTOMOVE",
+        "FILESYSTEM('ZFS.GRB') MOUNTPOINT('/usr/lpp/grb') TYPE(ZFS)",
+    ]
+
+
+def test_fully_commented_out_statement_block_excluded():
+    # The commented-out MOUNT('TOMMY.PSI.ZFS') block in BPXPRM01 -- every
+    # physical line is its own '/* ... */' comment -- must disappear
+    # entirely, not become a third MOUNT or leak 'PSI' into another
+    # statement's operands.
+    statements = load_statements()
+    mount_operands = " ".join(s.operands for s in statements if s.source_member == "BPXPRM01" and s.stmt == "MOUNT")
+    assert "PSI" not in mount_operands

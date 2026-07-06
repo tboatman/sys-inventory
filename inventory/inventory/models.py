@@ -257,10 +257,9 @@ class BpxprmStatement:
     "known keyword vocabulary, fold everything else into operands"
     approach rather than IeasysStatement's comma-split one.
 
-    NOT YET VALIDATED against a real BPXPRMxx member -- built from IBM's
-    documented statement syntax only, same caveat db2_catalog_parser.py/
-    wlm_zosmf_parser.py/cics_csdup_parser.py carry for their own
-    unconfirmed parsing surfaces."""
+    CONFIRMED against a real BPXPRMxx member, including a fully
+    commented-out MOUNT block and multiple MOUNT statements in the same
+    member (both kept, in order)."""
 
     stmt: str
     operands: str

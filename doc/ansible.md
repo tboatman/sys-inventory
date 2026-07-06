@@ -143,9 +143,11 @@ to `discover_parmlib.yml`/`discover_active_parmlib_suffixes.yml`/
 `discover_active_members.yml`) and written to `bpxprm_snapshot.txt`.
 Unlike IEASYSxx's flat `KEYWORD=value` shape, BPXPRMxx is
 statement-oriented (`ROOT`/`MOUNT`/`FILESYSTYPE`/... spanning several
-lines each) -- ingested via `inventory bpxprm`, **not yet validated
-against a real BPXPRMxx member**, same caveat this project's other
-documentation-only parsers carry (see `bpxprm_parser.py`'s module
+lines each) -- ingested via `inventory bpxprm`, CONFIRMED against a real
+BPXPRMxx member, including a fully commented-out `MOUNT` block (each
+physical line its own `/* ... */` comment) disappearing entirely and
+multiple `MOUNT` statements in one member all being kept in order (see
+`bpxprm_parser.py`'s module
 docstring).
 
 `devsup_snapshot` is the same idea again, one keyword further out:
@@ -924,27 +926,28 @@ roles/zos_extract/
                              # member(s) -- z/OS UNIX/OMVS config, named
                              # by IEASYSxx's own OMVS= keyword; tag
                              # bpxprm_snapshot; writes bpxprm_snapshot.txt,
-                             # ingested via inventory bpxprm -- not yet
-                             # production-validated
+                             # ingested via inventory bpxprm --
+                             # CONFIRMED against a real member
     devsup_snapshot.yml      # explicit capture of the active DEVSUPxx
                              # member(s) -- device support definitions,
                              # named by IEASYSxx's own DEVSUP= keyword;
                              # tag devsup_snapshot; writes
                              # devsup_snapshot.txt, ingested via inventory
-                             # devsup -- not yet production-validated
+                             # devsup -- CONFIRMED against a real member
     opt_snapshot.yml         # explicit capture of the active IEAOPTxx
                              # member(s) -- system tuning/options
                              # parameters, named by IEASYSxx's own OPT=
                              # keyword; tag opt_snapshot; writes
                              # opt_snapshot.txt, ingested via inventory
-                             # opt -- not yet production-validated
+                             # opt -- CONFIRMED against a real member
     clock_snapshot.yml       # explicit capture of the active CLOCKxx
                              # member(s) -- TOD clock/timezone
                              # parameters, named by IEASYSxx's own
                              # CLOCK= keyword; tag clock_snapshot;
                              # writes clock_snapshot.txt, ingested via
-                             # inventory clock -- not yet
-                             # production-validated
+                             # inventory clock -- CONFIRMED against a
+                             # real member (space-separated shape, see
+                             # clock_parser.py)
     autor_snapshot.yml       # explicit capture of the active AUTORxx
                              # member(s) -- WTOR auto-reply policy,
                              # named by IEASYSxx's own AUTOR= keyword;

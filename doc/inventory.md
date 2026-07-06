@@ -366,7 +366,7 @@ model individually. Reuses the exact `D PARMLIB`/discovery machinery
 `SSN=`/`CMD=`/`PROD=`/`MSTRJCL=` for its own use, then discard) — this
 just saves and generalizes what was already being fetched.
 
-### `inventory bpxprm` (opt-in, not yet production-validated)
+### `inventory bpxprm` (opt-in)
 
 z/OS UNIX System Services (OMVS) configuration — every statement in the
 active BPXPRMxx member(s) — if you ingested a `bpxprm_snapshot.txt`.
@@ -379,6 +379,8 @@ MAXPROCSYS (3000)  [BPXPRM00]
 MOUNT FILESYSTEM('OMVS.ETC.ZFS') MOUNTPOINT('/etc') TYPE(ZFS) MODE(RDWR)  [BPXPRM00]
 ROOT FILESYSTEM('OMVS.ROOT.ZFS') TYPE(ZFS) MODE(RDWR)  [BPXPRM00]
 TZ (EST5EDT)  [BPXPRM00]
+MOUNT FILESYSTEM('ZFS.TOMMY') MOUNTPOINT('/u/tommy') TYPE(ZFS) NOAUTOMOVE  [BPXPRM01]
+MOUNT FILESYSTEM('ZFS.GRB') MOUNTPOINT('/usr/lpp/grb') TYPE(ZFS)  [BPXPRM01]
 ```
 
 Unlike `inventory ieasys`'s flat `KEYWORD=value` shape, a real BPXPRMxx
@@ -388,11 +390,11 @@ top-level statement vocabulary, same approach `tcpip-profile`'s
 PROFILE.TCPIP parsing already uses) — see `bpxprm_parser.py`'s module
 docstring for the full detail, including its known limitation (an
 unrecognized statement keyword gets folded into the preceding
-statement's operands instead of starting its own). **Built from IBM's
-documented BPXPRMxx statement syntax only — not yet checked against a
-real member**, the same caveat `db2_catalog_parser.py`/
-`wlm_zosmf_parser.py`/`cics_csdup_parser.py` carry for their own
-unconfirmed parsing surfaces.
+statement's operands instead of starting its own). CONFIRMED against a
+real BPXPRMxx member, including a fully commented-out `MOUNT` block
+(each physical line its own `/* ... */` comment) disappearing entirely
+and multiple `MOUNT` statements in one member all being kept, in order
+(the `BPXPRM01` rows above).
 
 ### `inventory devsup`
 
@@ -485,7 +487,7 @@ NOTIFYMSGS (CONSOLE)  [AUTORBN]
 name resemblance. The `NOTIFYMSGS`/`MSGID` statement vocabulary is
 confirmed against IBM's z/OS MVS Initialization and Tuning Reference,
 but the parser itself is **not yet checked against a real AUTORxx
-member**, same caveat `inventory bpxprm` carries.
+member**.
 
 ### `inventory sched` (not yet production-validated)
 
