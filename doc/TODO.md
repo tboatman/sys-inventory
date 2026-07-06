@@ -772,23 +772,24 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   look up by the actual `PGM=` name against LMOD, falling back to the
   element name for backward compatibility with the existing fixture.
 
-### 8f. Standalone `zones`/`fmids` tables + CLI
+### 8f. Standalone `zones`/`fmids` tables + CLI -- IMPLEMENTED
 
-- `store.py`: new `zones` table (name, csi, dddef count or raw dddefs as
-  JSON) and `fmids` table (fmid, zone, csi, status), populated directly
-  from the parsed `Zone` objects at ingest time -- not derived from
-  lineage, so this is queryable independent of whether any PROCLIB step
-  happens to reference the FMID.
+- `store.py`: new `zones` table (name, csi, dddefs as JSON) and `fmids`
+  table (fmid, zone, status), populated directly from the parsed `Zone`
+  objects at ingest time -- not derived from lineage, so this is
+  queryable independent of whether any PROCLIB step happens to reference
+  the FMID.
 - `cli.py`: `inventory zones` / `inventory fmids` commands -- a full
   SMP/E software inventory, not just what lineage resolution touches.
-- Retire or wire up the currently-dead `Fmid` dataclass in `models.py`
-  (defined, never instantiated anywhere today) as this table's row shape.
-- Once this `zones` table exists, add the "zone-gaps" comparison 8d's
-  `zone_index` table deliberately didn't get: cross-reference
-  `zone_index` entries against it (per CSI) to flag a zone SMP/E itself
-  says exists but that was never actually captured via `*smplist*.txt` --
-  the real "find the gaps" capability this whole round started from,
-  made permanent instead of a one-time by-hand analysis.
+- The previously-dead `Fmid` dataclass in `models.py` is now wired up as
+  this table's row shape (built by flattening every zone's `fmid_status`
+  at ingest time).
+- `inventory zone-gaps`: the cross-reference 8d's `zone_index` table
+  deliberately didn't get -- compares `zone_index` entries against the
+  `zones` table (by name) to flag a zone SMP/E itself says exists but
+  that was never actually captured via `*smplist*.txt` -- the real "find
+  the gaps" capability this whole round started from, made permanent
+  instead of a one-time by-hand analysis.
 
 ### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt`
 

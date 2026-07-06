@@ -809,19 +809,41 @@ GLOBAL zone's `ZONEINDEX` (this project's own `smpe_csi_candidates.txt`
 shows exactly this shape for a couple of products: separate `.GLOBAL.CSI`/
 `.TARGET.CSI`/`.DLIB.CSI` datasets).
 
-This is **not yet cross-referenced** against the zones actually captured
-via `*smplist*.txt`'s `LIST DDDEF`/`MOD`/`SYSMOD` (i.e. there's no
-"zone-gaps" command yet) — that needs the standalone `zones`/`fmids`
-tables planned in `doc/TODO.md` ("8f"), since comparing against `lineage`
-alone would falsely flag a zone with no PROCLIB step pointing into it as
-"missing" even when it was captured just fine.
-
 `smpe_parser.parse_globalzone()`'s report-shape parsing is confirmed
 against a real third-party ZOAU/Ansible SMP/E role built against real
 system output (not a guess from documentation alone), but **not yet
 against a real reply from this site** — same caveat `racf_parser.py`'s
 byte offsets carry. Tune its regexes against your real `*.smpzones.txt`
 if `zone-index` comes back empty.
+
+### `inventory zones` / `inventory fmids` / `inventory zone-gaps`
+
+A full, standalone SMP/E software inventory, populated directly from
+every ingested `*smplist*.txt` — independent of lineage, so it's
+queryable even for zones/FMIDs no PROCLIB step happens to reference (see
+`doc/TODO.md` "8f"):
+
+```
+$ inventory zones
+TZONE1 CSI=EDUC.TEST.GLOBAL.CSI  1 DDDEFs
+TZONE2 CSI=EDUC.TEST.GLOBAL.CSI  1 DDDEFs
+
+$ inventory fmids
+HBB7790  zone=TZONE1 (APPLIED)
+HLA2280  zone=TZONE1 (APPLIED)
+USER001  zone=TZONE2 (APPLIED)
+```
+
+`zone-gaps` is the cross-reference `zone-index` above didn't have: it
+compares `zone-index`'s `LIST GLOBALZONE` census (if any `*smpzones*.txt`
+was ingested) against the zones actually captured via `*smplist*.txt`, and
+flags any zone SMP/E itself says exists but that was never captured —
+the real "find the gaps" check, not a one-off by-hand comparison:
+
+```
+$ inventory zone-gaps
+inventory: no zone gaps found (every LIST GLOBALZONE zone was also captured via *smplist*.txt)
+```
 
 ## How resolution works
 

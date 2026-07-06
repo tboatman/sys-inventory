@@ -182,7 +182,8 @@ inventory --db /tmp/demo/demo.db ieasys
 
 See [`doc/inventory.md`](doc/inventory.md) for the rest of the commands
 (`vtam-options`, `vtam-topology`, `tcpip-profile`, `wlm-zosmf`, `db2-plans`,
-`cics-sit`, `cics-csd`, `bpxprm`, `zone-index`, `racf-connections`,
+`cics-sit`, `cics-csd`, `bpxprm`, `zone-index`, `zones`, `fmids`,
+`zone-gaps`, `racf-connections`,
 `racf-dataset-profiles`, `racf-dataset-access`, `racf-resource-profiles`,
 `racf-resource-access`) and each one's current confirmation status.
 
