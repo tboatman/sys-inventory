@@ -13,9 +13,12 @@ def test_all_keywords_captured_as_one_dict():
     statements = load_statements()
     by_keyword = {s.keyword: s.value for s in statements}
     assert by_keyword == {
-        "ETRMODE": "YES",
-        "ETRZONE": "00",
-        "TIMEZONE": "W05.00.00",
+        "OPERATOR": "NOPROMPT",
+        "TIMEZONE": "W.05.00.00",
+        "ETRMODE": "NO",
+        "ETRZONE": "NO",
+        "ETRDELTA": "1",
+        "STPMODE": "NO",
     }
 
 
@@ -24,6 +27,6 @@ def test_source_member_set_for_every_statement():
     assert all(s.source_member == "CLOCKBN" for s in statements)
 
 
-def test_last_keyword_captured_even_with_no_trailing_comma():
+def test_last_keyword_captured_with_no_trailing_line():
     statements = load_statements()
-    assert any(s.keyword == "TIMEZONE" for s in statements)
+    assert any(s.keyword == "STPMODE" for s in statements)

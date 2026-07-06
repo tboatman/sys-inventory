@@ -312,20 +312,17 @@ class OptStatement:
 
 @dataclass
 class ClockStatement:
-    """One KEYWORD=value statement from an active CLOCKxx PARMLIB
+    """One bare "KEYWORD value" statement from an active CLOCKxx PARMLIB
     member -- TOD clock/timezone parameters, named by IEASYSxx's own
     CLOCK= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/
     OPT= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
     IEAOPTxx. Dumped by ansible/roles/zos_extract/tasks/
-    clock_snapshot.yml and parsed by clock_parser.py. Third of the
-    Category B active-PARMLIB-member domains from doc/TODO.md "9.2" --
-    same flat, comma-continued KEYWORD=value shape as IEASYSxx/
-    DEVSUPxx/IEAOPTxx, so this reuses
-    parmlib_engines.flat_keyword_engine() directly.
-
-    NOT YET VALIDATED against a real CLOCKxx member -- built from IBM's
-    documented CLOCKxx keyword syntax only, same caveat devsup_parser.py/
-    opt_parser.py carry for their own unconfirmed parsing surfaces."""
+    clock_snapshot.yml and parsed by clock_parser.py. Category G (not B)
+    from doc/TODO.md "9.2" -- CONFIRMED against a real CLOCKxx member to
+    be space-separated, one keyword per line, with no `=`, comma, or
+    continuation character, unlike IEASYSxx/DEVSUPxx/IEAOPTxx -- so this
+    has its own small parser instead of reusing
+    parmlib_engines.flat_keyword_engine()."""
 
     keyword: str
     value: str | None = None

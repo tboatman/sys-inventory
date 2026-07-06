@@ -435,23 +435,27 @@ checked against a real member**, same caveat `inventory devsup` carries.
 
 ### `inventory clock` (not yet production-validated)
 
-TOD clock/timezone parameters — every `KEYWORD=value` statement in the
-active CLOCKxx member(s) — if you ingested a `clock_snapshot.txt`.
-Named by IEASYSxx's own `CLOCK=` keyword. Third of the further
-active-PARMLIB-member domains from `doc/TODO.md` "9.2", same flat
-shape and parsing engine as `inventory ieasys`/`inventory devsup`/
-`inventory opt`:
+TOD clock/timezone parameters — every bare `KEYWORD value` statement in
+the active CLOCKxx member(s) — if you ingested a `clock_snapshot.txt`.
+Named by IEASYSxx's own `CLOCK=` keyword. Category G (not B) from
+`doc/TODO.md` "9.2" — CONFIRMED against a real CLOCKxx member to be
+space-separated, one keyword per line, with no `=`, comma, or
+continuation character, unlike `inventory ieasys`/`inventory devsup`/
+`inventory opt`, so it has its own small parser (`clock_parser.py`):
 
 ```
 $ inventory clock
-ETRMODE=YES  [CLOCKBN]
-ETRZONE=00  [CLOCKBN]
-TIMEZONE=W05.00.00  [CLOCKBN]
+OPERATOR=NOPROMPT  [CLOCKBN]
+TIMEZONE=W.05.00.00  [CLOCKBN]
+ETRMODE=NO  [CLOCKBN]
+ETRZONE=NO  [CLOCKBN]
+ETRDELTA=1  [CLOCKBN]
+STPMODE=NO  [CLOCKBN]
 ```
 
-**Built from IBM's documented CLOCKxx keyword syntax only — not yet
-checked against a real member**, same caveat `inventory devsup`/
-`inventory opt` carry.
+(the `KEYWORD=value` display above is just this CLI's own consistent
+output convention across all `inventory <name>` commands — it doesn't
+reflect CLOCKxx's real on-disk syntax, which is space-separated.)
 
 ### `inventory autor` (not yet production-validated)
 

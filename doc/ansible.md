@@ -164,10 +164,15 @@ hand-written fetch file.
 `OPT=`/`CLOCK=` keywords name the active IEAOPTxx/CLOCKxx member(s)
 (system tuning/options parameters, TOD clock/timezone parameters),
 fetched the same way and written to `opt_snapshot.txt`/
-`clock_snapshot.txt` -- ingested via `inventory opt`/`inventory clock`,
-**not yet validated against a real member**. These complete Category B
-(the flat `KEYWORD=value` active-PARMLIB-member domains) from
-`doc/TODO.md` "9.2".
+`clock_snapshot.txt` -- ingested via `inventory opt`/`inventory clock`.
+`opt_snapshot`/`IEAOPTxx` completes Category B (the flat `KEYWORD=value`
+active-PARMLIB-member domains), **not yet validated against a real
+member**. `clock_snapshot`/`CLOCKxx` turned out **not** to belong to
+Category B -- CONFIRMED against a real CLOCKxx member to be its own
+Category G instead: bare, space-separated `KEYWORD value` lines, no
+`=`/comma/continuation -- see `clock_parser.py` and `doc/TODO.md` "9.2".
+The ansible-side fetch (`_fetch_active_parmlib_member.yml`) is unaffected
+either way; only the Python-side parsing differs.
 
 `autor_snapshot`/`sched_snapshot` start Category C (statement-oriented
 domains, the same shape `bpxprm_snapshot` already has): IEASYSxx's own

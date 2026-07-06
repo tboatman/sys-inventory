@@ -1052,7 +1052,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_opt = sub.add_parser("opt", help="list active IEAOPTxx KEYWORD=value statements -- system tuning/options parameters (not yet production-validated)")
     p_opt.set_defaults(func=cmd_opt)
 
-    p_clock = sub.add_parser("clock", help="list active CLOCKxx KEYWORD=value statements -- TOD clock/timezone parameters (not yet production-validated)")
+    p_clock = sub.add_parser("clock", help="list active CLOCKxx KEYWORD value statements -- TOD clock/timezone parameters (not yet production-validated)")
     p_clock.set_defaults(func=cmd_clock)
 
     p_autor = sub.add_parser("autor", help="list active AUTORxx statements -- WTOR auto-reply policy (not yet production-validated)")

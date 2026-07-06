@@ -10,21 +10,19 @@ dumps (jcl_parser.split_members()), one block per active CLOCKxx member,
 e.g.:
 
     ##MEMBER CLOCKBN
-    ETRMODE=YES,ETRZONE=00,
-    TIMEZONE=W05.00.00
+    OPERATOR NOPROMPT
+    TIMEZONE W.05.00.00
+    ETRMODE  NO
+    ETRZONE  NO
+    ETRDELTA 1
+    STPMODE  NO
 
-Statement syntax: like IEASYSxx/DEVSUPxx/IEAOPTxx, a CLOCKxx member has
-no per-line "STMT keyword=val,..." grouping -- it's one comma-separated
-sequence of KEYWORD=value pairs for the whole member, a trailing comma
-continuing onto the next line. Third of the Category B active-PARMLIB-
-member domains from doc/TODO.md "9.2" -- this is the same flat,
-comma-continued shape IEASYSxx/DEVSUPxx/IEAOPTxx have, so this module
-just calls parmlib_engines.flat_keyword_engine() directly instead of
-hand-writing another copy of that logic (see doc/TODO.md "9.1").
-
-NOT YET VALIDATED against a real CLOCKxx member -- built from IBM's
-documented CLOCKxx keyword syntax only, same caveat devsup_parser.py/
-opt_parser.py carry for their own unconfirmed parsing surfaces.
+Statement syntax: CONFIRMED against a real CLOCKxx member -- unlike
+IEASYSxx/DEVSUPxx/IEAOPTxx, CLOCKxx is one bare "KEYWORD value" pair per
+physical line, with no `=`, no comma, and no continuation character (see
+doc/TODO.md "9.2" Category G). Its own small line-oriented parser below,
+not parmlib_engines.flat_keyword_engine(), which assumes the wrong,
+comma-continued shape.
 """
 from __future__ import annotations
 
@@ -32,15 +30,20 @@ from pathlib import Path
 
 from .jcl_parser import split_members
 from .models import ClockStatement
-from .parmlib_engines import flat_keyword_engine
+from .parmlib_engines import strip_comments
 
 
 def parse_member(name: str, raw_lines: list[str]) -> list[ClockStatement]:
-    params = flat_keyword_engine(raw_lines)
-    return [
-        ClockStatement(keyword=keyword, value=value, source_member=name)
-        for keyword, value in params.items()
-    ]
+    text = strip_comments("\n".join(raw_lines))
+    statements: list[ClockStatement] = []
+    for line in text.splitlines():
+        parts = line.split(None, 1)
+        if not parts:
+            continue
+        keyword = parts[0].upper()
+        value = parts[1].strip() if len(parts) > 1 else None
+        statements.append(ClockStatement(keyword=keyword, value=value, source_member=name))
+    return statements
 
 
 def parse_clock_snapshot(path: Path) -> list[ClockStatement]:

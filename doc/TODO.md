@@ -1068,26 +1068,24 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
 - `OPT`/`IEAOPTxx` -- IMPLEMENTED: `OptStatement`/`opt_parser.py`,
   `opt_statements` table, `inventory opt` command, `opt_snapshot.yml`.
   NOT YET VALIDATED against a real IEAOPTxx member.
-- `CLOCK`/`CLOCKxx` -- IMPLEMENTED: `ClockStatement`/`clock_parser.py`,
-  `clock_statements` table, `inventory clock` command,
-  `clock_snapshot.yml`, built on the same `flat_keyword_engine()` as
-  DEVSUP/OPT above. **DISPUTED, NOT YET VALIDATED:** IBM's z/OS MVS
-  Initialization and Tuning Reference ("Statements and parameters for
-  CLOCKxx") documents CLOCKxx's 11 keywords (`ACCURACY`, `ACCMONINTV`,
-  `ETRDELTA`, `ETRMODE`, `ETRZONE`, `OPERATOR`, `SIMETRID`, `STPMODE`,
-  `STPZONE`, `TIMEDELTA`, `TIMEZONE`) as bare, space-separated `KEYWORD
-  value` pairs (e.g. `OPERATOR NOPROMPT`, `TIMEZONE W.00.00.00`) with no
-  `=`, comma, or parens -- a different shape than DEVSUPxx/IEAOPTxx,
-  which really do match the comma-separated shape above. If that's
-  right, `clock_parser.py`'s current `flat_keyword_engine()`-based
-  parsing is wrong for CLOCKxx and it needs its own small
-  space-separated parser instead of belonging to Category B. Confirm
-  against a real CLOCKxx member before trusting `clock_snapshot.txt`/
-  `inventory clock` output, and fix `clock_parser.py` at the same time
-  if the space-separated shape is confirmed.
-  Category B (DEVSUP/OPT confirmed; CLOCK's classification disputed,
-  see above) -- confirm all three plus IEASYSxx/BPXPRMxx stay/come out
-  right on the next real-system run (see "9.1"'s own note).
+- `CLOCK`/`CLOCKxx` was originally grouped in here too, on the assumption
+  it shared IEASYSxx's comma-separated shape -- **CONFIRMED WRONG**
+  against a real CLOCKxx member; moved to Category G below, its own
+  space-separated shape, and `clock_parser.py` fixed accordingly.
+  Category B is now just DEVSUP/OPT -- confirm both, plus
+  IEASYSxx/BPXPRMxx, stay/come out right on the next real-system run
+  (see "9.1"'s own note).
+
+**G -- space-separated `KEYWORD value`, no `=`/commas/continuation char,
+small known vocabulary (own small parser, not either engine above):**
+- `CLOCK`/`CLOCKxx` -- IMPLEMENTED and CONFIRMED against a real CLOCKxx
+  member (e.g. `OPERATOR NOPROMPT`, `TIMEZONE W.05.00.00`, `ETRMODE  NO`,
+  `ETRZONE  NO`, `ETRDELTA 1`, `STPMODE  NO`): `ClockStatement`/
+  `clock_parser.py` (its own small line-splitter, not
+  `parmlib_engines.flat_keyword_engine()`), `clock_statements` table,
+  `inventory clock` command, `clock_snapshot.yml` (the ansible-side fetch
+  via `_fetch_active_parmlib_member.yml` is unaffected -- only the
+  Python-side parsing differs from the original Category B assumption).
 
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
