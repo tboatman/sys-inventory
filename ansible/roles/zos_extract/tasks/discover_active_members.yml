@@ -157,6 +157,15 @@
     zos_extract_active_con_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^CON@@@') | map('regex_replace', '^CON@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # SMS=xx names the active IGDSMSxx member(s) -- same parenthesized-list
+    # shape as above, consumed by igdsms_snapshot.yml. Named
+    # zos_extract_active_igdsms_suffixes (not "..._sms_...") on purpose --
+    # this project already has an unrelated zos_extract_sms_outfile for
+    # the *live* `D SMS,STORGRP` snapshot; see igdsms_snapshot.yml's own
+    # header comment. Eighth Category C domain from doc/TODO.md "9.2".
+    zos_extract_active_igdsms_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^SMS@@@') | map('regex_replace', '^SMS@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -267,3 +276,13 @@
   vars:
     zos_extract_active_member_prefix: CONSOL
     zos_extract_active_member_blocks_var: zos_extract_consol_member_blocks
+
+- name: Fetch each active IGDSMSxx member's content, in order (for igdsms_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_igdsms_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "IGDSMS{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IGDSMS
+    zos_extract_active_member_blocks_var: zos_extract_igdsms_member_blocks

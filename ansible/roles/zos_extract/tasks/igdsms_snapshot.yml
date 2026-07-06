@@ -1,0 +1,32 @@
+---
+# Explicit, always-saved capture of the active IGDSMSxx member(s)' full
+# content -- SMS (Storage Management Subsystem) base configuration
+# (single SMS statement: ACDS/COMMDS/INTERVAL/SIZE/...), named by
+# IEASYSxx's own SMS= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+# MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+# CON= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+# IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/
+# CONSOLxx. Eighth Category C (statement-oriented) active-PARMLIB-member
+# domain from doc/TODO.md "9.2" -- built on the generalized
+# _fetch_active_parmlib_member.yml worker (see doc/TODO.md "9.1").
+#
+# NAMING COLLISION, deliberately avoided: this project already has an
+# unrelated `sms` tag/`zos_extract_sms_outfile`/`SmsStorageGroup` table
+# for the *live* `D SMS,STORGRP` console command (see sms.yml) -- a
+# completely different dimension (live storage-group status vs. this
+# member's static base configuration). This file, its own outfile
+# default (`zos_extract_igdsms_snapshot_outfile`), its own tag
+# (`igdsms_snapshot`), and the Python side's `IgdsmsStatement`/
+# `igdsms_parser.py`/`igdsms_statements`/`inventory igdsms` all use the
+# `igdsms` name instead of `sms` throughout, exactly to keep the two
+# apart.
+#
+# CONFIRMED against a real IGDSMSxx member -- see igdsms_parser.py's
+# module docstring for the confirmed statement vocabulary.
+
+- name: Write igdsms_snapshot.txt (active IGDSMSxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_igdsms_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_igdsms_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
