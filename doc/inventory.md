@@ -542,7 +542,7 @@ CONFIRMED against a real COUPLExx member (the `COUPLE01` rows above) --
 one `COUPLE` statement followed by four distinct `DATA TYPE(...)`
 statements, all kept in order rather than collapsed.
 
-### `inventory grsrnl` (not yet production-validated)
+### `inventory grsrnl`
 
 Global resource serialization resource name lists — every `RNLDEF`
 statement in the active GRSRNLxx member(s) — if you ingested a
@@ -553,10 +553,14 @@ Fourth of the Category C domains from `doc/TODO.md` "9.2":
 $ inventory grsrnl
 RNLDEF RNL(EXCL) TYPE(SPECIFIC) QNAME(SYSIGGV2) RNAME('ICFCAT.CAT1.SHARED')  [GRSRNL00]
 RNLDEF RNL(INCL) TYPE(GENERIC) QNAME(SYSDSN)  [GRSRNL00]
+RNLDEF RNL(EXCL) TYPE(SPECIFIC) QNAME(SYSDSN) RNAME(PASSWORD)  [GRSRNL01]
+RNLDEF RNL(EXCL) TYPE(SPECIFIC) QNAME(SYSDSN) RNAME(SYS1.BRODCAST)  [GRSRNL01]
 ```
 
-**Built from IBM's documented GRS resource name list syntax — not yet
-checked against a real GRSRNLxx member.**
+CONFIRMED against a real (partial) GRSRNLxx member (the `GRSRNL01` rows
+above) — including a shape not in the original documented sample:
+`QNAME(...)`/`RNAME(...)` each on their own continuation line rather
+than sharing the `RNLDEF` line, with blank lines separating entries.
 
 ### `inventory smf`
 

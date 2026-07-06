@@ -424,10 +424,9 @@ class GrsrnlStatement:
     individually -- the same generic-capture rationale
     SchedStatement/CoupleStatement use.
 
-    NOT YET VALIDATED against a real GRSRNLxx member -- the RNLDEF
-    statement shape is confirmed against IBM's documented GRS resource
-    name list syntax, but the parser itself hasn't been checked against
-    a real member, same caveat couple_parser.py carries."""
+    CONFIRMED against a real (partial) GRSRNLxx member, including
+    QNAME(...)/RNAME(...) each on their own continuation line rather
+    than sharing the RNLDEF line."""
 
     stmt: str
     operands: str

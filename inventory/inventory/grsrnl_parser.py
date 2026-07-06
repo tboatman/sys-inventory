@@ -26,10 +26,10 @@ parmlib_engines.statement_engine() with a one-keyword vocabulary
 The RNLDEF statement shape is confirmed against IBM's documented GRS
 resource name list syntax (RNL/TYPE/QNAME/RNAME).
 
-NOT YET VALIDATED against a real GRSRNLxx member -- the statement shape
-is confirmed, but the parser itself hasn't been checked against a real
-member, same caveat couple_parser.py carries for its own unconfirmed
-parsing surface.
+CONFIRMED against a real (partial) GRSRNLxx member, including a shape
+not exercised by the documented sample above: QNAME(...)/RNAME(...)
+each on their own continuation line rather than sharing the RNLDEF
+line, with blank lines separating entries.
 """
 from __future__ import annotations
 

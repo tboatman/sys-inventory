@@ -1135,11 +1135,15 @@ domain):**
   followed by four distinct `DATA TYPE(...)` statements (`CFRM`, `LOGR`,
   `BPXMCDS`, `WLM`), all correctly kept in order rather than collapsed
   by `parmlib_engines.statement_engine()`.
-- `GRSRNL`/`GRSRNLxx` -- IMPLEMENTED: `GrsrnlStatement`/
-  `grsrnl_parser.py` (RNLDEF statements, one keyword vocabulary
-  `{"RNLDEF"}`), `grsrnl_statements` table, `inventory grsrnl` command,
-  `grsrnl_snapshot.yml`. NOT YET VALIDATED against a real GRSRNLxx
-  member.
+- `GRSRNL`/`GRSRNLxx` -- IMPLEMENTED and CONFIRMED against a real
+  (partial) GRSRNLxx member: `GrsrnlStatement`/`grsrnl_parser.py`
+  (RNLDEF statements, one keyword vocabulary `{"RNLDEF"}`),
+  `grsrnl_statements` table, `inventory grsrnl` command,
+  `grsrnl_snapshot.yml`. The real member exercised a shape not in the
+  original documented sample: `QNAME(...)`/`RNAME(...)` each on their
+  own continuation line rather than sharing the `RNLDEF` line, with
+  blank lines separating entries -- both handled correctly by
+  `parmlib_engines.statement_engine()` already.
 - `SMF`/`SMFPRMxx` -- IMPLEMENTED and CONFIRMED against a real SMFPRMxx
   member: `SmfStatement`/`smf_parser.py`, `smf_statements` table,
   `inventory smf` command, `smf_snapshot.yml`. Statement vocabulary is

@@ -213,8 +213,10 @@ COUPLExx member -- one `COUPLE` statement followed by four distinct
 `DATA TYPE(...)` statements (`CFRM`, `LOGR`, `BPXMCDS`, `WLM`), all kept
 in order. GRSRNLxx's single repeated `RNLDEF RNL(...) TYPE(...)
 QNAME(...) RNAME(...)` statement shape is confirmed against IBM's
-documented GRS resource name list syntax, but `grsrnl_parser.py` itself
-is **not yet validated against a real member**.
+documented GRS resource name list syntax, and `grsrnl_parser.py` is now
+CONFIRMED against a real (partial) member -- including a shape not in
+the original documented sample, `QNAME(...)`/`RNAME(...)` each on their
+own continuation line rather than sharing the `RNLDEF` line.
 
 `smf_snapshot`/`ios_snapshot` continue Category C: IEASYSxx's own
 `SMF=`/`IOS=` keywords name the active SMFPRMxx/IECIOSxx member(s) (SMF
@@ -989,8 +991,8 @@ roles/zos_extract/
                              # by IEASYSxx's own GRSRNL= keyword; tag
                              # grsrnl_snapshot; writes
                              # grsrnl_snapshot.txt, ingested via
-                             # inventory grsrnl -- not yet
-                             # production-validated
+                             # inventory grsrnl -- CONFIRMED against a
+                             # real (partial) member
     smf_snapshot.yml         # explicit capture of the active SMFPRMxx
                              # member(s) -- SMF recording configuration,
                              # named by IEASYSxx's own SMF= keyword; tag
