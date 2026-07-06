@@ -968,9 +968,9 @@ section is that plan, not an implementation):
 
 That leaves 23.
 
-### 9.1. Architectural change needed before scaling past 2 more of these -- Python half IMPLEMENTED
+### 9.1. Architectural change needed before scaling past 2 more of these -- IMPLEMENTED
 
-**Python side done:** `parmlib_engines.py` now holds `flat_keyword_engine()`
+**Python side:** `parmlib_engines.py` now holds `flat_keyword_engine()`
 (IEASYSxx's shape) and `statement_engine()` (BPXPRMxx's shape), plus the
 shared `split_params()`/`strip_comments()` primitives underneath both
 (also now the single source `jes2parm_parser.py` imports, instead of its
@@ -979,25 +979,30 @@ actual duplicate of that same function despite its own docstring
 claiming to "reuse" it). `ieasys_parser.py`/`bpxprm_parser.py` were
 refactored to call these engines with zero behavior change (full test
 suite, including a new `tests/test_parmlib_engines.py` exercising the
-engines directly, stays green). This unblocks Category B/C domains from
-day one without copy-pasting parsing logic a third/fourth time.
+engines directly, stays green).
 
-**Ansible side still NOT done** -- deliberately held back this round.
-Unlike the Python refactor (mechanical, fully unit-tested, zero risk),
-generalizing `_fetch_active_ieasys_member.yml`/
-`_fetch_active_bpxprm_member.yml` into one parameterized worker needs the
-dynamic-accumulator-name `set_fact` indirection sketched below, which
-isn't exercised by `ansible-playbook --syntax-check` (that only confirms
-YAML/Jinja parses, not that the indirection resolves correctly at
-runtime) and isn't safely testable without running it against a real
-system -- and both existing task files are already confirmed working
-against this site's real IEASYSxx/BPXPRMxx members. Rewriting confirmed,
-working automation blind, with no way to verify the rewrite before the
-next real-system run, isn't worth the risk for a refactor with zero
-user-visible behavior change. Do this alongside (not before) implementing
-the first Category B domain, so there's a real new domain to validate the
-generalized worker against on the next real-system pass, not just a
-resweep of the two that already work.
+**Ansible side:** the former `_fetch_active_ieasys_member.yml`/
+`_fetch_active_bpxprm_member.yml` (two hand-written, near-identical
+files) are replaced by one generic `_fetch_active_parmlib_member.yml`,
+parameterized by member prefix (`IEASYS`/`BPXPRM`/...) and driven by
+Ansible's documented "templated variable name" `set_fact` idiom
+(`set_fact: "{{ var_name }}": value`) so it can append into whichever
+accumulator fact name its caller passes in, instead of each domain
+hand-writing its own copy of the same fetch-and-accumulate logic.
+`discover_active_members.yml`'s two loops now call this generic worker
+via `vars:` instead of the two retired per-domain files.
+
+**NOT YET RUN against a real system in this generalized form.** Both
+predecessor files were individually confirmed working against this
+site's real IEASYSxx/BPXPRMxx members; this rewrite preserves their
+logic task-for-task and passed `ansible-playbook --syntax-check` plus an
+isolated Jinja2 check of the `vars[name]` accumulator-read pattern used,
+but that only confirms it parses and that the indirection technique
+itself works in principle -- not that it behaves correctly end-to-end
+against a real PARMLIB concatenation. **Confirm the next real-system run
+produces byte-identical `ieasys_snapshot.txt`/`bpxprm_snapshot.txt`
+output to before this change** before trusting this worker for a new
+Category B/C domain.
 
 `ieasys_snapshot`/`bpxprm_snapshot` each got their own hand-written
 ansible task file pair (`_fetch_active_*_member.yml` + `*_snapshot.yml`)
