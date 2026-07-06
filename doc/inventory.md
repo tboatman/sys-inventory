@@ -121,12 +121,18 @@ just renaming them into that shape for a quick demo.)
    uses internally), `ieasys_snapshot.txt` (the active IEASYSxx
    member(s)' actual `KEYWORD=value` content — the real system parameters
    `D PARMLIB` itself can't show, since it only reports the PARMLIB
-   dataset search order), and `bpxprm_snapshot.txt` (the active BPXPRMxx
+   dataset search order), `bpxprm_snapshot.txt` (the active BPXPRMxx
    member(s) — z/OS UNIX/OMVS configuration, named by IEASYSxx's own
-   `OMVS=` keyword) — have no standalone `zos-extract/python` script
+   `OMVS=` keyword), and `devsup_snapshot.txt` (the active DEVSUPxx
+   member(s) — device support definitions, named by IEASYSxx's own
+   `DEVSUP=` keyword; the first of the further active-PARMLIB-member
+   domains from `doc/TODO.md` "9.2", built on the same generalized
+   ansible fetch worker `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` now
+   share) — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
-   `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`
+   `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
+   `devsup_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -136,8 +142,8 @@ just renaming them into that shape for a quick demo.)
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
-   caveat, alongside `bpxprm_snapshot.txt` (built from documented BPXPRMxx
-   statement syntax only, no real sample);
+   caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt` (both
+   built from documented statement syntax only, no real sample yet);
    `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
@@ -363,6 +369,28 @@ documented BPXPRMxx statement syntax only — not yet checked against a
 real member**, the same caveat `db2_catalog_parser.py`/
 `wlm_zosmf_parser.py`/`cics_csdup_parser.py` carry for their own
 unconfirmed parsing surfaces.
+
+### `inventory devsup` (not yet production-validated)
+
+Device support definitions — every `KEYWORD=value` statement in the
+active DEVSUPxx member(s) — if you ingested a `devsup_snapshot.txt`.
+Named by IEASYSxx's own `DEVSUP=` keyword the same way `SSN=`/`CMD=`/
+`PROD=`/`OMVS=`/`MSTRJCL=` name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/
+MSTJCLxx. Same flat, comma-continued shape as `inventory ieasys` (this
+is the first of the further active-PARMLIB-member domains from
+`doc/TODO.md` "9.2", and reuses `ieasys`'s own parsing engine directly):
+
+```
+$ inventory devsup
+ITASKID=NO  [DEVSUPBN]
+IZBGENQ=NO  [DEVSUPBN]
+LOWAD=YES  [DEVSUPBN]
+QTIP=(600,50)  [DEVSUPBN]
+RTYPTABL=DTRT00  [DEVSUPBN]
+```
+
+**Built from IBM's documented DEVSUPxx keyword syntax only — not yet
+checked against a real member**, same caveat `inventory bpxprm` carries.
 
 ### `inventory active`
 

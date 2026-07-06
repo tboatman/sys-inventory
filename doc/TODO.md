@@ -1055,9 +1055,19 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
 ### 9.2. The 23, categorized by real syntax shape
 
 **B -- flat `KEYWORD=value`, comma-continued (reuse the IEASYSxx engine):**
-- `DEVSUP`/`DEVSUPxx`, `OPT`/`IEAOPTxx`, `CLOCK`/`CLOCKxx` (mostly flat;
-  a few `KEYWORD(value)` entries, but `IeasysStatement`'s "keep parens in
-  the value" convention already handles that fine)
+- `DEVSUP`/`DEVSUPxx` -- IMPLEMENTED: `DevsupStatement`/`devsup_parser.py`
+  (a thin wrapper around `parmlib_engines.flat_keyword_engine()`),
+  `devsup_statements` table, `inventory devsup` command,
+  `devsup_snapshot.yml` (built on the generalized
+  `_fetch_active_parmlib_member.yml` worker from "9.1" -- the first
+  domain to actually exercise it). NOT YET VALIDATED against a real
+  DEVSUPxx member -- built from IBM's documented DEVSUPxx keyword syntax
+  only; confirm on the next real-system run (see "9.1"'s own note about
+  confirming `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` stay
+  byte-identical at the same time).
+- `OPT`/`IEAOPTxx`, `CLOCK`/`CLOCKxx` still to do (mostly flat; a few
+  `KEYWORD(value)` entries, but `IeasysStatement`'s "keep parens in the
+  value" convention already handles that fine)
 
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
