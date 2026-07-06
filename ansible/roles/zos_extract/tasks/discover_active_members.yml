@@ -87,6 +87,13 @@
     zos_extract_active_mstrjcl_suffix: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^MSTRJCL@@@') | map('regex_replace', '^MSTRJCL@@@', '')
           | list | last | default('')) }}
+    # DEVSUP=xx names the active DEVSUPxx member(s) -- same
+    # parenthesized-list shape as SSN=/CMD=/PROD=/OMVS= above, consumed by
+    # devsup_snapshot.yml via the same generic worker below. First of the
+    # Category B active-PARMLIB-member domains from doc/TODO.md "9.2".
+    zos_extract_active_devsup_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^DEVSUP@@@') | map('regex_replace', '^DEVSUP@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -97,3 +104,13 @@
   vars:
     zos_extract_active_member_prefix: BPXPRM
     zos_extract_active_member_blocks_var: zos_extract_bpxprm_member_blocks
+
+- name: Fetch each active DEVSUPxx member's content, in order (for devsup_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_devsup_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "DEVSUP{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: DEVSUP
+    zos_extract_active_member_blocks_var: zos_extract_devsup_member_blocks

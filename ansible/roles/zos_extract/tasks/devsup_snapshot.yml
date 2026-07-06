@@ -1,0 +1,21 @@
+---
+# Explicit, always-saved capture of the active DEVSUPxx member(s)' full
+# content -- device support definitions (esitre error/DASD/tape device
+# support tables) named by IEASYSxx's own DEVSUP= keyword the same way
+# SSN=/CMD=/PROD=/OMVS=/MSTRJCL= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+# BPXPRMxx/MSTJCLxx. First of the Category B active-PARMLIB-member
+# domains from doc/TODO.md "9.2" -- direct analog of ieasys_snapshot.yml/
+# bpxprm_snapshot.yml, just for DEVSUPxx, and the first domain built on
+# top of the generalized _fetch_active_parmlib_member.yml worker (see
+# doc/TODO.md "9.1").
+#
+# NOT YET VALIDATED against a real DEVSUPxx member -- built from IBM's
+# documented DEVSUPxx keyword syntax only, same caveat bpxprm_parser.py
+# carries for its own unconfirmed parsing surface.
+
+- name: Write devsup_snapshot.txt (active DEVSUPxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_devsup_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_devsup_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
