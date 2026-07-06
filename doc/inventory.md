@@ -143,16 +143,18 @@ just renaming them into that shape for a quick demo.)
    member(s) — global resource serialization resource name lists, named
    by IEASYSxx's own `GRSRNL=` keyword), `smf_snapshot.txt` (the active
    SMFPRMxx member(s) — SMF recording configuration, named by
-   IEASYSxx's own `SMF=` keyword), and `ios_snapshot.txt` (the active
+   IEASYSxx's own `SMF=` keyword), `ios_snapshot.txt` (the active
    IECIOSxx member(s) — I/O related parameters, named by IEASYSxx's own
-   `IOS=` keyword)
+   `IOS=` keyword), and `consol_snapshot.txt` (the active CONSOLxx
+   member(s) — MCS/EMCS console definitions, named by IEASYSxx's own
+   `CON=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
-   `ios_snapshot`
+   `ios_snapshot`/`consol_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -615,6 +617,31 @@ ZHPF YES  [IECIOS00]
 
 **Built from IBM's z/OS MVS Initialization and Tuning Reference — not
 yet checked against a real IECIOSxx member.**
+
+### `inventory consol`
+
+MCS/EMCS console definitions — every `INIT`/`DEFAULT`/`CONSOLE`/
+`HARDCOPY` statement in the active CONSOLxx member(s) — if you ingested
+a `consol_snapshot.txt`. Named by IEASYSxx's own `CON=` keyword.
+Seventh of the Category C domains from `doc/TODO.md` "9.2":
+
+```
+$ inventory consol
+CONSOLE DEVNUM(SMCS) AUTH(ALL) LOGON(REQUIRED) CON(N) DEL(R) MFORM(J,T) MONITOR(JOBNAMES-T) NAME(SMCS01) PFKTAB(PFKTAB1) RNUM(19) ROUTCODE(ALL) RTME(1) SEG(14)  [CONSOL00]
+DEFAULT ROUTCODE(ALL)  [CONSOL00]
+HARDCOPY DEVNUM(SYSLOG,OPERLOG) CMDLEVEL(CMDS) ROUTCODE(ALL)  [CONSOL00]
+INIT CMDDELIM(") MLIM(1500) APPLID(SMCS&SYSCLONE.) MONITOR(DSNAME) MPF(00) PFK(00) RLIM(10) UEXIT(N) CNGRP(00) AMRF(N)  [CONSOL00]
+```
+
+CONFIRMED against a real CONSOLxx member: multiple `CONSOLE` statements
+(one per device), a `CONSOLE` statement whose first keyword(s) shared
+the `CONSOLE` line itself rather than starting on a continuation line,
+and an `INIT` statement whose `CMDDELIM(")` value is itself a literal
+quote character inside the parens — all handled correctly with no code
+change needed. **Partial statement vocabulary**: only `INIT`, `DEFAULT`,
+`CONSOLE`, and `HARDCOPY` were exercised by the confirming member —
+CONSOLxx's full documented statement surface may still be larger (e.g.
+`ALTGRP`, `CNGRP`, `MSCOPE`, `SPECIAL`).
 
 ### `inventory active`
 

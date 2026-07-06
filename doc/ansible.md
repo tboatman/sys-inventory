@@ -103,7 +103,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
-`grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`,
+`grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -236,6 +236,20 @@ a real member**; its full statement vocabulary (`MIH`, `HOTIO`,
 `TERMINAL`, `FICON`, `STORAGE`, `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`,
 `MIDAW`, `HYPERPAV`, `HYPERWRITE`, `ZHPF`) is confirmed against IBM's
 z/OS MVS Initialization and Tuning Reference.
+
+`consol_snapshot` is the seventh Category C domain: IEASYSxx's own
+`CON=` keyword names the active CONSOLxx member(s) (MCS/EMCS console
+definitions), fetched the same way and written to `consol_snapshot.txt`
+-- ingested via `inventory consol`. `consol_parser.py` is CONFIRMED
+against a real CONSOLxx member with a statement vocabulary of `INIT`,
+`DEFAULT`, `CONSOLE`, `HARDCOPY` -- the real member exercised multiple
+`CONSOLE` statements (one per device), a `CONSOLE` statement whose
+first keyword(s) shared the `CONSOLE` line itself rather than starting
+on a continuation line, and an `INIT` statement whose `CMDDELIM(")`
+value is itself a literal quote character inside the parens, all
+handled correctly with no code change needed. CONSOLxx's full
+documented statement surface may still be larger (e.g. `ALTGRP`,
+`CNGRP`, `MSCOPE`, `SPECIAL`).
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1005,13 +1019,20 @@ roles/zos_extract/
                              # ios_snapshot; writes ios_snapshot.txt,
                              # ingested via inventory ios -- not yet
                              # production-validated
+    consol_snapshot.yml      # explicit capture of the active CONSOLxx
+                             # member(s) -- MCS/EMCS console
+                             # definitions, named by IEASYSxx's own
+                             # CON= keyword; tag consol_snapshot; writes
+                             # consol_snapshot.txt, ingested via
+                             # inventory consol -- CONFIRMED against a
+                             # real member
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
-                             # SMFPRMxx/IECIOSxx fetches above -- see
-                             # doc/TODO.md "9.1"
+                             # SMFPRMxx/IECIOSxx/CONSOLxx fetches above
+                             # -- see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

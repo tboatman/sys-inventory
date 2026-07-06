@@ -1164,8 +1164,21 @@ domain):**
   `HYPERWRITE`, `ZHPF`), `ios_statements` table, `inventory ios`
   command, `ios_snapshot.yml`. NOT YET VALIDATED against a real
   IECIOSxx member.
-- `CATALOG`/`IGGCATxx`,
-  `CON`/`CONSOLxx`, `DIAG`/`DIAGxx`,
+- `CON`/`CONSOLxx` -- IMPLEMENTED and CONFIRMED against a real CONSOLxx
+  member: `ConsolStatement`/`consol_parser.py`, `consol_statements`
+  table, `inventory consol` command, `consol_snapshot.yml`. Statement
+  vocabulary is `INIT`, `DEFAULT`, `CONSOLE`, `HARDCOPY` -- the real
+  member exercised multiple `CONSOLE` statements (one per device),
+  a `CONSOLE` statement whose first keyword(s) shared the `CONSOLE`
+  line itself rather than starting on a continuation line, and an
+  `INIT` statement whose `CMDDELIM(")` value is itself a literal quote
+  character inside the parens -- all handled correctly by
+  `parmlib_engines.statement_engine()` with no code change needed.
+  CONSOLxx's full documented statement surface may still be larger
+  (e.g. `ALTGRP`, `CNGRP`, `MSCOPE`, `SPECIAL`); broaden
+  `_CONSOL_STATEMENT_KEYWORDS` if a future real member exercises one
+  not yet in this set.
+- `CATALOG`/`IGGCATxx`, `DIAG`/`DIAGxx`,
   `GRSCNF`/`GRSCNFxx`,
   `SMS`/`IGDSMSxx` (**naming collision to watch**: this
   project already has an unrelated `sms` tag/`SmsStorageGroup` table for
