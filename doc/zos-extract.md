@@ -409,6 +409,8 @@ list of what it looks for in the directory you point it at:
 | Active DEVSUPxx member snapshot (device support definitions, named by IEASYSxx's own DEVSUP=) | `devsup_snapshot` (default filename `devsup_snapshot.txt`, override via `zos_extract_devsup_snapshot_outfile`) | ansible-only, `devsup_snapshot.yml` -- not yet production-validated |
 | Active IEAOPTxx member snapshot (system tuning/options parameters, named by IEASYSxx's own OPT=) | `opt_snapshot` (default filename `opt_snapshot.txt`, override via `zos_extract_opt_snapshot_outfile`) | ansible-only, `opt_snapshot.yml` -- not yet production-validated |
 | Active CLOCKxx member snapshot (TOD clock/timezone parameters, named by IEASYSxx's own CLOCK=) | `clock_snapshot` (default filename `clock_snapshot.txt`, override via `zos_extract_clock_snapshot_outfile`) | ansible-only, `clock_snapshot.yml` -- not yet production-validated |
+| Active AUTORxx member snapshot (WTOR auto-reply policy, named by IEASYSxx's own AUTOR=) | `autor_snapshot` (default filename `autor_snapshot.txt`, override via `zos_extract_autor_snapshot_outfile`) | ansible-only, `autor_snapshot.yml` -- not yet production-validated |
+| Active SCHEDxx member snapshot (PPT/Program Properties Table entries, named by IEASYSxx's own SCH=) | `sched_snapshot` (default filename `sched_snapshot.txt`, override via `zos_extract_sched_snapshot_outfile`) | ansible-only, `sched_snapshot.yml` -- not yet production-validated |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

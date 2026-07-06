@@ -102,7 +102,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
-`clock_snapshot`,
+`clock_snapshot`, `autor_snapshot`, `sched_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -167,6 +167,19 @@ fetched the same way and written to `opt_snapshot.txt`/
 **not yet validated against a real member**. These complete Category B
 (the flat `KEYWORD=value` active-PARMLIB-member domains) from
 `doc/TODO.md` "9.2".
+
+`autor_snapshot`/`sched_snapshot` start Category C (statement-oriented
+domains, the same shape `bpxprm_snapshot` already has): IEASYSxx's own
+`AUTOR=`/`SCH=` keywords name the active AUTORxx/SCHEDxx member(s) (WTOR
+auto-reply policy, PPT/Program Properties Table entries), fetched the
+same way and written to `autor_snapshot.txt`/`sched_snapshot.txt` --
+ingested via `inventory autor`/`inventory sched`, **not yet validated
+against a real member**. AUTORxx's `NOTIFYMSGS`/`MSGID` statement
+vocabulary is confirmed against IBM's z/OS MVS Initialization and Tuning
+Reference (and is WTOR auto-reply policy, **not** Automatic Restart
+Management despite the name's resemblance); SCHEDxx's single repeated
+`PPT PGMNAME(name) ...` statement shape is confirmed against real-world
+PPT examples.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -894,11 +907,26 @@ roles/zos_extract/
                              # writes clock_snapshot.txt, ingested via
                              # inventory clock -- not yet
                              # production-validated
+    autor_snapshot.yml       # explicit capture of the active AUTORxx
+                             # member(s) -- WTOR auto-reply policy,
+                             # named by IEASYSxx's own AUTOR= keyword;
+                             # tag autor_snapshot; writes
+                             # autor_snapshot.txt, ingested via
+                             # inventory autor -- not yet
+                             # production-validated
+    sched_snapshot.yml       # explicit capture of the active SCHEDxx
+                             # member(s) -- PPT (Program Properties
+                             # Table) entries, named by IEASYSxx's own
+                             # SCH= keyword; tag sched_snapshot; writes
+                             # sched_snapshot.txt, ingested via
+                             # inventory sched -- not yet
+                             # production-validated
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
-                             # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx
-                             # fetches above -- see doc/TODO.md "9.1"
+                             # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+                             # AUTORxx/SCHEDxx fetches above -- see
+                             # doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

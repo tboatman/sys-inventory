@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Sixteen more files —
+   file naming and how to produce each file. Eighteen more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -130,13 +130,20 @@ just renaming them into that shape for a quick demo.)
    ansible fetch worker `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` now
    share), `opt_snapshot.txt` (the active IEAOPTxx member(s) — system
    tuning/options parameters, named by IEASYSxx's own `OPT=` keyword),
-   and `clock_snapshot.txt` (the active CLOCKxx member(s) — TOD
-   clock/timezone parameters, named by IEASYSxx's own `CLOCK=` keyword)
+   `clock_snapshot.txt` (the active CLOCKxx member(s) — TOD
+   clock/timezone parameters, named by IEASYSxx's own `CLOCK=` keyword),
+   `autor_snapshot.txt` (the active AUTORxx member(s) — WTOR auto-reply
+   policy, named by IEASYSxx's own `AUTOR=` keyword; the first of the
+   Category C, statement-oriented further active-PARMLIB-member
+   domains), and `sched_snapshot.txt` (the active SCHEDxx member(s) —
+   PPT/Program Properties Table entries, named by IEASYSxx's own `SCH=`
+   keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
-   `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`
+   `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
+   `sched_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -147,8 +154,9 @@ just renaming them into that shape for a quick demo.)
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
    caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt`/
-   `opt_snapshot.txt`/`clock_snapshot.txt` (all built from documented
-   statement syntax only, no real sample yet);
+   `opt_snapshot.txt`/`clock_snapshot.txt`/`autor_snapshot.txt`/
+   `sched_snapshot.txt` (all built from documented statement syntax
+   only, no real sample yet);
    `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
@@ -434,6 +442,51 @@ TIMEZONE=W05.00.00  [CLOCKBN]
 **Built from IBM's documented CLOCKxx keyword syntax only — not yet
 checked against a real member**, same caveat `inventory devsup`/
 `inventory opt` carry.
+
+### `inventory autor` (not yet production-validated)
+
+WTOR auto-reply policy — every statement in the active AUTORxx
+member(s) — if you ingested an `autor_snapshot.txt`. Named by IEASYSxx's
+own `AUTOR=` keyword. First of the Category C (statement-oriented)
+domains from `doc/TODO.md` "9.2" — unlike `inventory ieasys`/`inventory
+devsup`/`inventory opt`/`inventory clock`'s flat shape, a real AUTORxx
+member is statement-oriented (`NOTIFYMSGS(...)` and `MSGID(msgid)
+DELAY(nnS) REPLY(text)`/`NOAUTORREPLY`), the same shape `inventory
+bpxprm` has, so this reuses that parsing engine:
+
+```
+$ inventory autor
+MSGID (ARC0380A) DELAY(60S) REPLY(CANCEL)  [AUTORBN]
+MSGID (IEE094D) NOAUTORREPLY  [AUTORBN]
+NOTIFYMSGS (CONSOLE)  [AUTORBN]
+```
+
+**Not** Automatic Restart Management policy, despite the superficial
+name resemblance. The `NOTIFYMSGS`/`MSGID` statement vocabulary is
+confirmed against IBM's z/OS MVS Initialization and Tuning Reference,
+but the parser itself is **not yet checked against a real AUTORxx
+member**, same caveat `inventory bpxprm` carries.
+
+### `inventory sched` (not yet production-validated)
+
+PPT (Program Properties Table) entries — every `PPT PGMNAME(name) ...`
+statement in the active SCHEDxx member(s) — if you ingested a
+`sched_snapshot.txt`. Named by IEASYSxx's own `SCH=` keyword. Second of
+the Category C domains from `doc/TODO.md` "9.2" — a real SCHEDxx member
+is a repeated single statement shape, so every flag/sub-parameter after
+`PGMNAME` (`NOSWAP`/`PRIV`/`SYST`/`KEY(n)`/`AFF(...)`/...) is captured
+generically as raw operand text rather than modeled individually:
+
+```
+$ inventory sched
+PPT PGMNAME(IEDQTCAM) NOSWAP KEY(1) SYST  [SCHEDBN]
+PPT PGMNAME(ZWESIS01) KEY(4) NOSWAP  [SCHEDBN]
+PPT PGMNAME(XGMMAIN) CANCEL KEY(4) NOSYST PRIV NOSWAP DSI PASS AFF(NONE) NOPREF  [SCHEDBN]
+```
+
+**Built from real-world PPT examples in IBM's z/OS MVS Initialization
+and Tuning Reference — not yet checked against a real SCHEDxx member**,
+same caveat `inventory autor` carries.
 
 ### `inventory active`
 

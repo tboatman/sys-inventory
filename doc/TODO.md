@@ -1078,22 +1078,37 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
 domain):**
-- `AUTOR`/`AUTORxx` (WTOR auto-reply policy -- `NOTIFYMSGS(...)` and
+- `AUTOR`/`AUTORxx` -- IMPLEMENTED: `AutorStatement`/`autor_parser.py`,
+  `autor_statements` table, `inventory autor` command,
+  `autor_snapshot.yml`. WTOR auto-reply policy -- `NOTIFYMSGS(...)` and
   `MSGID(msgid) DELAY(nnS) REPLY(text)`/`NOAUTORREPLY` statements
-  defining automatic operator replies to specific WTORs; confirmed via
-  IBM's z/OS MVS Initialization and Tuning Reference -- **not** Automatic
-  Restart Management policy, an earlier draft of this plan mislabeled it),
-  `CATALOG`/`IGGCATxx`,
+  defining automatic operator replies to specific WTORs; the top-level
+  statement vocabulary is confirmed via IBM's z/OS MVS Initialization
+  and Tuning Reference -- **not** Automatic Restart Management policy,
+  an earlier draft of this plan mislabeled it -- but the parser itself
+  is NOT YET VALIDATED against a real AUTORxx member.
+- `SCH`/`SCHEDxx` -- IMPLEMENTED: `SchedStatement`/`sched_parser.py`
+  (PPT entries, one keyword vocabulary `{"PPT"}`), `sched_statements`
+  table, `inventory sched` command, `sched_snapshot.yml`. The
+  `PPT PGMNAME(name) flag flag KEY(n) ...` statement shape is confirmed
+  against real-world PPT examples, but NOT YET VALIDATED against a real
+  SCHEDxx member.
+- `CATALOG`/`IGGCATxx`,
   `CON`/`CONSOLxx`, `COUPLE`/`COUPLxx`, `DIAG`/`DIAGxx`,
   `GRSCNF`/`GRSCNFxx`, `GRSRNL`/`GRSRNLxx` (RNLDEF statements),
   `IOS`/`IECIOSxx`, `SMS`/`IGDSMSxx` (**naming collision to watch**: this
   project already has an unrelated `sms` tag/`SmsStorageGroup` table for
   the *live* `D SMS,STORGRP` console command -- this new one needs its own
   distinct tag, e.g. `igdsms_snapshot`, and its own table name, not
-  `sms_*`), `SCH`/`SCHEDxx` (PPT entries), `SMF`/`SMFxx`, and `PROG`/`PROGxx`
+  `sms_*`), `SMF`/`SMFxx`, and `PROG`/`PROGxx`
   (**the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
   all distinct sub-statement types inside one PROGxx member; treat as its
   own careful pass, not a drive-by addition alongside the simpler ones)
+  still to do. **`IGGCATxx`'s own exact statement vocabulary couldn't be
+  confidently confirmed this round** (IBM's docs pages and known mirrors
+  all 403'd on direct fetch, same recurring friction this project has
+  hit before) -- needs a real member sample or a working docs fetch
+  before implementing, not a guess.
 
 **D -- `STMT param,KEYWORD=value,...` (reuse jes2parm_parser.py's engine
 as-is):**
