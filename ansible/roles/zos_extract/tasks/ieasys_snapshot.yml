@@ -5,7 +5,7 @@
 # dataset search order, all that console command can report at all).
 #
 # discover_active_members.yml already fetches this exact content (via
-# _fetch_active_ieasys_member.yml) to pull out SSN=/CMD=/PROD=/MSTRJCL=
+# _fetch_active_parmlib_member.yml) to pull out SSN=/CMD=/PROD=/MSTRJCL=
 # for its own internal use, then discards it -- same "computed,
 # consumed narrowly, thrown away" situation discover_parmlib.yml's own
 # implicit 'D PARMLIB' call was in before parmlib_snapshot.yml. This

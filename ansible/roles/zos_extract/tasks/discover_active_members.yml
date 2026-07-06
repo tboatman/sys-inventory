@@ -39,11 +39,15 @@
 # feature existed.
 
 - name: Fetch each active IEASYSxx member's content, in order
-  ansible.builtin.include_tasks: _fetch_active_ieasys_member.yml
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
   loop: "{{ zos_extract_ieasys_suffixes }}"
   loop_control:
-    loop_var: zos_extract_ieasys_suffix
-    label: "IEASYS{{ zos_extract_ieasys_suffix }}"
+    loop_var: zos_extract_active_member_suffix
+    label: "IEASYS{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IEASYS
+    zos_extract_active_member_blocks_var: zos_extract_ieasys_member_blocks
+    zos_extract_active_member_texts_var: zos_extract_ieasys_member_texts
 
 - name: Flatten all fetched IEASYSxx member lines in order
   ansible.builtin.set_fact:
@@ -69,9 +73,9 @@
       {{ (zos_extract_ieasys_kv_lines | select('match', '^PROD@@@') | map('regex_replace', '^PROD@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
     # OMVS=xx names the active BPXPRMxx member(s) -- same parenthesized-list
-    # shape as SSN=/CMD=/PROD= above, consumed by bpxprm_snapshot.yml (see
-    # _fetch_active_bpxprm_member.yml, the BPXPRMxx analog of
-    # _fetch_active_ieasys_member.yml below).
+    # shape as SSN=/CMD=/PROD= above, consumed by bpxprm_snapshot.yml via
+    # the same _fetch_active_parmlib_member.yml generic worker below,
+    # parameterized for BPXPRMxx instead of IEASYSxx.
     zos_extract_active_omvs_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^OMVS@@@') | map('regex_replace', '^OMVS@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
@@ -85,8 +89,11 @@
           | list | last | default('')) }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
-  ansible.builtin.include_tasks: _fetch_active_bpxprm_member.yml
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
   loop: "{{ zos_extract_active_omvs_suffixes }}"
   loop_control:
-    loop_var: zos_extract_bpxprm_suffix
-    label: "BPXPRM{{ zos_extract_bpxprm_suffix }}"
+    loop_var: zos_extract_active_member_suffix
+    label: "BPXPRM{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: BPXPRM
+    zos_extract_active_member_blocks_var: zos_extract_bpxprm_member_blocks

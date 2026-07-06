@@ -20,7 +20,7 @@
 #
 # zos_extract_smpe_csis is a list of {csi, zones} -- flattened here via
 # the `subelements` filter (same "one dict + one of its list-valued keys"
-# flattening idiom `_fetch_active_ieasys_member.yml`/`_cics_proc_dump.yml`
+# flattening idiom `_fetch_active_parmlib_member.yml`/`_cics_proc_dump.yml`
 # already use for dataset+member pairs) into one (csi_entry, zone) pair
 # per zone, across every configured CSI,
 # so a single run can cover more than one CSI (see doc/TODO.md "8c").

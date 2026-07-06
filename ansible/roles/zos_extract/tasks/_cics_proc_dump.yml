@@ -9,7 +9,7 @@
 # Locates and fetches one CICS startup PROC (zos_extract_cics_proc_name)
 # from the already-configured zos_extract_proclibs concatenation -- same
 # zos_find + subelements/selectattr + zos_fetch idiom
-# discover_mstrjcl_proclibs.yml/_fetch_active_ieasys_member.yml already
+# discover_mstrjcl_proclibs.yml/_fetch_active_parmlib_member.yml already
 # use for MSTJCLxx/IEASYSxx -- then pulls DFHRPL DSNs and the DFHCSD DSN
 # out of the fetched JCL text via the same "DD group" regex_findall idiom
 # discover_mstrjcl_proclibs.yml uses for IEFPDSI, reused near-verbatim,

@@ -1,0 +1,100 @@
+---
+# Generic worker for discover_active_members.yml (doc/TODO.md "9.1"):
+# given a PARMLIB member prefix (zos_extract_active_member_prefix, e.g.
+# "IEASYS"/"BPXPRM") and one suffix (zos_extract_active_member_suffix,
+# the loop var), finds which configured PARMLIB (in search-priority
+# order) contains <prefix><suffix> and appends its raw content to two
+# dynamically-named accumulator facts, using Ansible's documented
+# "templated variable name" set_fact idiom (`set_fact: "{{ var_name }}":
+# value`) so one worker file can serve any active-member domain instead
+# of each domain hand-writing its own near-identical copy:
+#
+#   zos_extract_active_member_blocks_var (required) -- the fact name to
+#     append this member's '##MEMBER <prefix><suffix>'-wrapped content
+#     to, in order. Always built -- this is what each domain's own
+#     '<domain>_snapshot.yml' file writes out for ingestion.
+#   zos_extract_active_member_texts_var (optional, omit or "" to skip)
+#     -- the fact name to append this member's *plain*, unwrapped
+#     content to, in order. Only needed by a caller (like
+#     discover_active_members.yml itself, for IEASYSxx) that parses
+#     keyword values out of the content internally, in the same run,
+#     before it's saved.
+#
+# Replaces the former _fetch_active_ieasys_member.yml /
+# _fetch_active_bpxprm_member.yml (two hand-written, near-identical
+# files) -- see their own git history for the per-domain nuance this
+# generalizes.
+#
+# NOT YET RUN against a real system in this generalized form. Both
+# predecessor files were individually confirmed working against this
+# site's real IEASYSxx/BPXPRMxx members, and this rewrite preserves
+# their logic task-for-task, but the dynamic-accumulator-name set_fact
+# indirection is new -- ansible-playbook --syntax-check only confirms
+# this parses, not that the indirection resolves correctly at runtime.
+# Confirm IEASYSxx/BPXPRMxx snapshots still come out identical to before
+# on the next real-system run, then trust this for a new Category B/C
+# domain.
+#
+# Included via include_tasks (not import_tasks) since it's invoked in a
+# loop with per-iteration state threaded across tasks -- see
+# _member_dump.yml's header comment for why that's safe here under
+# --tags filtering (this carries no tags of its own).
+
+- name: List every member of each configured PARMLIB
+  ibm.ibm_zos_core.zos_find:
+    patterns: "{{ zos_extract_parmlibs | map(attribute='dsn') | list }}"
+  register: zos_extract_active_member_find
+
+- name: "Determine which configured PARMLIB(s) actually contain {{ zos_extract_active_member_prefix }}{{ zos_extract_active_member_suffix }}"
+  ansible.builtin.set_fact:
+    zos_extract_active_member_containing_dsns: >-
+      {{ (zos_extract_active_member_find.data_sets | default([]))
+         | subelements('members', skip_missing=True)
+         | selectattr('1', 'equalto', zos_extract_active_member_prefix ~ zos_extract_active_member_suffix)
+         | map(attribute='0.name') | list }}
+
+- name: Pick the highest-priority PARMLIB dsn that has it
+  ansible.builtin.set_fact:
+    zos_extract_active_member_dsn: >-
+      {{ (zos_extract_parmlibs
+          | selectattr('dsn', 'in', zos_extract_active_member_containing_dsns)
+          | map(attribute='dsn') | list | first | default('')) }}
+
+- name: "Create a scratch directory for {{ zos_extract_active_member_prefix }}{{ zos_extract_active_member_suffix }}"
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_
+  register: zos_extract_active_member_scratch
+  delegate_to: localhost
+  when: zos_extract_active_member_dsn | length > 0
+
+- name: "Fetch {{ zos_extract_active_member_prefix }}{{ zos_extract_active_member_suffix }}"
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_active_member_dsn }}({{ zos_extract_active_member_prefix }}{{ zos_extract_active_member_suffix }})"
+    dest: "{{ zos_extract_active_member_scratch.path }}/"
+    flat: true
+  when: zos_extract_active_member_dsn | length > 0
+
+- name: Append this member's content to the ordered '##MEMBER'-wrapped list
+  ansible.builtin.set_fact:
+    "{{ zos_extract_active_member_blocks_var }}": >-
+      {{ (vars[zos_extract_active_member_blocks_var] | default([]))
+         + [ '##MEMBER ' ~ zos_extract_active_member_prefix ~ zos_extract_active_member_suffix ~ '\n'
+             ~ lookup('ansible.builtin.file', zos_extract_active_member_scratch.path ~ '/' ~ zos_extract_active_member_prefix ~ zos_extract_active_member_suffix) ] }}
+  when: zos_extract_active_member_dsn | length > 0
+
+- name: Append this member's content to the ordered plain-text list (only when a caller needs it internally)
+  ansible.builtin.set_fact:
+    "{{ zos_extract_active_member_texts_var }}": >-
+      {{ (vars[zos_extract_active_member_texts_var] | default([]))
+         + [ lookup('ansible.builtin.file', zos_extract_active_member_scratch.path ~ '/' ~ zos_extract_active_member_prefix ~ zos_extract_active_member_suffix) ] }}
+  when: >-
+    zos_extract_active_member_dsn | length > 0
+    and (zos_extract_active_member_texts_var | default('')) | length > 0
+
+- name: "Remove scratch directory for {{ zos_extract_active_member_prefix }}{{ zos_extract_active_member_suffix }}"
+  ansible.builtin.file:
+    path: "{{ zos_extract_active_member_scratch.path }}"
+    state: absent
+  delegate_to: localhost
+  when: zos_extract_active_member_scratch.path is defined

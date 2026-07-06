@@ -21,7 +21,7 @@
 # and the already-discovered zos_extract_proclibs (discover_proclib.yml) --
 # MSTJCLxx itself lives in the PROCLIB concatenation, same as any other
 # PROCLIB member, so it's looked up there the same way
-# _fetch_active_ieasys_member.yml looks up IEASYSxx in PARMLIB.
+# _fetch_active_parmlib_member.yml looks up IEASYSxx in PARMLIB.
 #
 # Any DSN found here that isn't already in zos_extract_proclibs is
 # appended with the next available NN prefix, so proclib.yml's dump loop
@@ -35,14 +35,14 @@
   # back already attached. So this lists every member of every
   # configured PROCLIB, then the next task picks out which one(s)
   # actually contain MSTJCL{{ zos_extract_active_mstrjcl_suffix }}
-  # client-side -- same fix as _fetch_active_ieasys_member.yml needed.
+  # client-side -- same fix as _fetch_active_parmlib_member.yml needed.
   ibm.ibm_zos_core.zos_find:
     patterns: "{{ zos_extract_proclibs | map(attribute='dsn') | list }}"
   register: zos_extract_mstrjcl_find
   when: zos_extract_active_mstrjcl_suffix | length > 0
 
 - name: Determine which configured PROCLIB(s) actually contain MSTJCL{{ zos_extract_active_mstrjcl_suffix }}
-  # See _fetch_active_ieasys_member.yml for why subelements+selectattr,
+  # See _fetch_active_parmlib_member.yml for why subelements+selectattr,
   # not a plain selectattr('members', 'in', [...]), is needed here.
   ansible.builtin.set_fact:
     zos_extract_mstrjcl_containing_dsns: >-
