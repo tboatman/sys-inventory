@@ -125,5 +125,13 @@ def resolve_all(
     lnklst: list[str],
     apf: set[str] | None = None,
 ) -> dict[str, list[LineageStep]]:
-    by_name = {m.name: m for m in members}
-    return {m.name: resolve_member(m, by_name, zones, lnklst, apf) for m in members}
+    """Resolve every member's lineage. When the same member name is ingested
+    from more than one PROCLIB/PARMLIB concatenation entry, the one from the
+    lowest-sorting `library` (the NN-prefix convention documented in
+    doc/zos-extract.md -- lower number searched first) wins, matching real
+    PROCLIB/PARMLIB search order -- not whichever instance happened to be
+    read last."""
+    by_name: dict[str, ProcMember] = {}
+    for m in sorted(members, key=lambda m: m.library):
+        by_name.setdefault(m.name, m)
+    return {name: resolve_member(m, by_name, zones, lnklst, apf) for name, m in by_name.items()}

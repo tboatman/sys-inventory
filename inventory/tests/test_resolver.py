@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from inventory import jcl_parser, smpe_parser
+from inventory.models import JclStep, ProcMember
 from inventory.resolver import resolve_all
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -87,3 +88,29 @@ def test_apf_authorized_none_when_apf_not_ingested():
     for chain in lineage.values():
         for hop in chain:
             assert hop.apf_authorized is None
+
+
+def test_duplicate_member_name_resolves_to_lowest_numbered_library():
+    """Per doc/zos-extract.md's NN-prefix convention, when the same member
+    name is ingested from more than one PROCLIB/PARMLIB library, the one
+    from the lowest-numbered (searched-first) library must win -- not
+    whichever instance happens to be last in the input list."""
+    first = ProcMember(
+        name="MYPROC",
+        library="00_proclib",
+        steps=[JclStep(step_name="STEP1", pgm="FIRSTPGM")],
+    )
+    second = ProcMember(
+        name="MYPROC",
+        library="01_proclib",
+        steps=[JclStep(step_name="STEP1", pgm="SECONDPGM")],
+    )
+
+    # Order in the input list must not matter -- feed it backwards (as a
+    # naive last-write-wins dict comprehension would receive it if cli.py's
+    # glob ever returned libraries out of order) and confirm the
+    # lower-numbered library still wins.
+    lineage = resolve_all([second, first], zones={}, lnklst=[])
+
+    assert list(lineage.keys()) == ["MYPROC"]
+    assert lineage["MYPROC"][0].pgm == "FIRSTPGM"
