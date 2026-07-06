@@ -34,10 +34,10 @@ Restart Management policy, despite the superficial name resemblance (an
 earlier draft of doc/TODO.md's plan mislabeled it before being
 corrected).
 
-NOT YET VALIDATED against a real AUTORxx member -- the statement
-vocabulary is confirmed, but the parser itself hasn't been checked
-against a real member, same caveat bpxprm_parser.py carries for its own
-unconfirmed parsing surface.
+CONFIRMED against a real AUTORxx member, including a multi-line
+'/* ... */' comment block preceding a live statement (stripped without
+corrupting it) and a MSGID statement with its full operand list on one
+physical line rather than spread across continuation lines.
 """
 from __future__ import annotations
 

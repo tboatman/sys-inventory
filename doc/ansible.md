@@ -184,13 +184,17 @@ domains, the same shape `bpxprm_snapshot` already has): IEASYSxx's own
 `AUTOR=`/`SCH=` keywords name the active AUTORxx/SCHEDxx member(s) (WTOR
 auto-reply policy, PPT/Program Properties Table entries), fetched the
 same way and written to `autor_snapshot.txt`/`sched_snapshot.txt` --
-ingested via `inventory autor`/`inventory sched`, **not yet validated
-against a real member**. AUTORxx's `NOTIFYMSGS`/`MSGID` statement
-vocabulary is confirmed against IBM's z/OS MVS Initialization and Tuning
-Reference (and is WTOR auto-reply policy, **not** Automatic Restart
-Management despite the name's resemblance); SCHEDxx's single repeated
-`PPT PGMNAME(name) ...` statement shape is confirmed against real-world
-PPT examples.
+ingested via `inventory autor`/`inventory sched`. AUTORxx's
+`NOTIFYMSGS`/`MSGID` statement vocabulary is confirmed against IBM's
+z/OS MVS Initialization and Tuning Reference (and is WTOR auto-reply
+policy, **not** Automatic Restart Management despite the name's
+resemblance), and `autor_parser.py` itself is now CONFIRMED against a
+real AUTORxx member, including a multi-line `/* ... */` comment block
+preceding a live statement and a `MSGID` statement with its full operand
+list on one physical line. SCHEDxx's single repeated `PPT PGMNAME(name)
+...` statement shape is confirmed against real-world PPT examples, but
+`sched_parser.py` itself is **not yet validated against a real
+member**.
 
 `couple_snapshot`/`grsrnl_snapshot` continue Category C: IEASYSxx's own
 `COUPLE=`/`GRSRNL=` keywords name the active COUPLExx/GRSRNLxx
@@ -953,8 +957,8 @@ roles/zos_extract/
                              # named by IEASYSxx's own AUTOR= keyword;
                              # tag autor_snapshot; writes
                              # autor_snapshot.txt, ingested via
-                             # inventory autor -- not yet
-                             # production-validated
+                             # inventory autor -- CONFIRMED against a
+                             # real member
     sched_snapshot.yml       # explicit capture of the active SCHEDxx
                              # member(s) -- PPT (Program Properties
                              # Table) entries, named by IEASYSxx's own

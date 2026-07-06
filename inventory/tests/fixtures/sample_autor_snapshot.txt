@@ -5,3 +5,9 @@ MSGID(ARC0380A)
    REPLY(CANCEL)
 MSGID(IEE094D)
    NOAUTORREPLY
+##MEMBER AUTOR01
+/* IEFC166D REPLY Y/N TO EXECUTE/SUPPRESS COMMAND                   */
+/*                                                                  */
+/* RULE: 1                                                          */
+/*                                                                  */
+   MSGID(IEFC166D)   DELAY(2S) REPLY(Y)

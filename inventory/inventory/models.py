@@ -343,10 +343,9 @@ class AutorStatement:
     same shape BPXPRMxx has, so this reuses
     parmlib_engines.statement_engine() directly.
 
-    NOT YET VALIDATED against a real AUTORxx member -- the top-level
-    statement vocabulary (NOTIFYMSGS, MSGID) is confirmed against IBM's
-    documented AUTORxx syntax, but the parser itself hasn't been checked
-    against a real member, same caveat bpxprm_parser.py carries."""
+    CONFIRMED against a real AUTORxx member, including a multi-line
+    '/* ... */' comment block preceding a live statement and a MSGID
+    statement with its full operand list on one physical line."""
 
     stmt: str
     operands: str

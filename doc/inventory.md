@@ -465,7 +465,7 @@ STPMODE=NO  [CLOCKBN]
 output convention across all `inventory <name>` commands — it doesn't
 reflect CLOCKxx's real on-disk syntax, which is space-separated.)
 
-### `inventory autor` (not yet production-validated)
+### `inventory autor`
 
 WTOR auto-reply policy — every statement in the active AUTORxx
 member(s) — if you ingested an `autor_snapshot.txt`. Named by IEASYSxx's
@@ -481,13 +481,17 @@ $ inventory autor
 MSGID (ARC0380A) DELAY(60S) REPLY(CANCEL)  [AUTORBN]
 MSGID (IEE094D) NOAUTORREPLY  [AUTORBN]
 NOTIFYMSGS (CONSOLE)  [AUTORBN]
+MSGID (IEFC166D) DELAY(2S) REPLY(Y)  [AUTOR01]
 ```
 
 **Not** Automatic Restart Management policy, despite the superficial
 name resemblance. The `NOTIFYMSGS`/`MSGID` statement vocabulary is
 confirmed against IBM's z/OS MVS Initialization and Tuning Reference,
-but the parser itself is **not yet checked against a real AUTORxx
-member**.
+and `autor_parser.py` is now CONFIRMED against a real AUTORxx member
+(the `AUTOR01` row above) — including a multi-line `/* ... */` comment
+block preceding the live statement (stripped cleanly) and the full
+operand list on one physical line rather than spread across
+continuation lines.
 
 ### `inventory sched` (not yet production-validated)
 

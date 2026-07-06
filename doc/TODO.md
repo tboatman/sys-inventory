@@ -1101,15 +1101,19 @@ small known vocabulary (own small parser, not either engine above):**
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per
 domain):**
-- `AUTOR`/`AUTORxx` -- IMPLEMENTED: `AutorStatement`/`autor_parser.py`,
-  `autor_statements` table, `inventory autor` command,
-  `autor_snapshot.yml`. WTOR auto-reply policy -- `NOTIFYMSGS(...)` and
-  `MSGID(msgid) DELAY(nnS) REPLY(text)`/`NOAUTORREPLY` statements
-  defining automatic operator replies to specific WTORs; the top-level
-  statement vocabulary is confirmed via IBM's z/OS MVS Initialization
-  and Tuning Reference -- **not** Automatic Restart Management policy,
-  an earlier draft of this plan mislabeled it -- but the parser itself
-  is NOT YET VALIDATED against a real AUTORxx member.
+- `AUTOR`/`AUTORxx` -- IMPLEMENTED and CONFIRMED against a real AUTORxx
+  member: `AutorStatement`/`autor_parser.py`, `autor_statements` table,
+  `inventory autor` command, `autor_snapshot.yml`. WTOR auto-reply
+  policy -- `NOTIFYMSGS(...)` and `MSGID(msgid) DELAY(nnS) REPLY(text)`/
+  `NOAUTORREPLY` statements defining automatic operator replies to
+  specific WTORs; the top-level statement vocabulary is confirmed via
+  IBM's z/OS MVS Initialization and Tuning Reference -- **not** Automatic
+  Restart Management policy, an earlier draft of this plan mislabeled it.
+  The real member exercised a multi-line `/* ... */` comment block
+  preceding a live statement (stripped cleanly) and a `MSGID` statement
+  with its full operand list on one physical line rather than spread
+  across continuation lines -- both handled correctly by
+  `parmlib_engines.statement_engine()` already.
 - `SCH`/`SCHEDxx` -- IMPLEMENTED: `SchedStatement`/`sched_parser.py`
   (PPT entries, one keyword vocabulary `{"PPT"}`), `sched_statements`
   table, `inventory sched` command, `sched_snapshot.yml`. The
