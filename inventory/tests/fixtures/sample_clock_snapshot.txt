@@ -1,0 +1,3 @@
+##MEMBER CLOCKBN
+ETRMODE=YES,ETRZONE=00,         /* sysplex timer settings */
+TIMEZONE=W05.00.00

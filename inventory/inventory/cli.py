@@ -14,7 +14,8 @@
 `inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
 `inventory cics-csd`, `inventory zone-index`, `inventory zones`,
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
-`inventory ieasys`, `inventory bpxprm`, `inventory devsup`."""
+`inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
+`inventory clock`."""
 from __future__ import annotations
 
 import argparse
@@ -29,12 +30,14 @@ from . import (
     catalog_parser,
     cics_csdup_parser,
     cics_proc_parser,
+    clock_parser,
     db2_catalog_parser,
     devsup_parser,
     ieasys_parser,
     ifaprd_parser,
     jcl_parser,
     jes2parm_parser,
+    opt_parser,
     parmlib_parser,
     racf_parser,
     smpe_parser,
@@ -123,6 +126,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     devsup_statements = [s for p in sorted(input_dir.glob("*devsup_snapshot*.txt"))
                          for s in devsup_parser.parse_devsup_snapshot(p)]
+
+    opt_statements = [s for p in sorted(input_dir.glob("*opt_snapshot*.txt"))
+                      for s in opt_parser.parse_opt_snapshot(p)]
+
+    clock_statements = [s for p in sorted(input_dir.glob("*clock_snapshot*.txt"))
+                        for s in clock_parser.parse_clock_snapshot(p)]
 
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
@@ -214,6 +223,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_ieasys_statements(conn, ieasys_statements)
     store.save_bpxprm_statements(conn, bpxprm_statements)
     store.save_devsup_statements(conn, devsup_statements)
+    store.save_opt_statements(conn, opt_statements)
+    store.save_clock_statements(conn, clock_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -247,6 +258,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(ieasys_statements)} active IEASYSxx statements, "
           f"{len(bpxprm_statements)} active BPXPRMxx statements, "
           f"{len(devsup_statements)} active DEVSUPxx statements, "
+          f"{len(opt_statements)} active IEAOPTxx statements, "
+          f"{len(clock_statements)} active CLOCKxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -457,6 +470,28 @@ def cmd_bpxprm(args: argparse.Namespace) -> int:
 def cmd_devsup(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_devsup_statements(conn)
+    conn.close()
+
+    for row in rows:
+        value = row["value"] if row["value"] is not None else ""
+        print(f"{row['keyword']}={value}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_opt(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_opt_statements(conn)
+    conn.close()
+
+    for row in rows:
+        value = row["value"] if row["value"] is not None else ""
+        print(f"{row['keyword']}={value}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_clock(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_clock_statements(conn)
     conn.close()
 
     for row in rows:
@@ -916,6 +951,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_devsup = sub.add_parser("devsup", help="list active DEVSUPxx KEYWORD=value statements -- device support definitions (not yet production-validated)")
     p_devsup.set_defaults(func=cmd_devsup)
+
+    p_opt = sub.add_parser("opt", help="list active IEAOPTxx KEYWORD=value statements -- system tuning/options parameters (not yet production-validated)")
+    p_opt.set_defaults(func=cmd_opt)
+
+    p_clock = sub.add_parser("clock", help="list active CLOCKxx KEYWORD=value statements -- TOD clock/timezone parameters (not yet production-validated)")
+    p_clock.set_defaults(func=cmd_clock)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

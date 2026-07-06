@@ -290,6 +290,49 @@ class DevsupStatement:
 
 
 @dataclass
+class OptStatement:
+    """One KEYWORD=value statement from an active IEAOPTxx PARMLIB
+    member -- system tuning/options parameters, named by IEASYSxx's own
+    OPT= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP= name
+    IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx. Dumped by
+    ansible/roles/zos_extract/tasks/opt_snapshot.yml and parsed by
+    opt_parser.py. Second of the Category B active-PARMLIB-member
+    domains from doc/TODO.md "9.2" -- same flat, comma-continued
+    KEYWORD=value shape as IEASYSxx/DEVSUPxx, so this reuses
+    parmlib_engines.flat_keyword_engine() directly.
+
+    NOT YET VALIDATED against a real IEAOPTxx member -- built from IBM's
+    documented IEAOPTxx keyword syntax only, same caveat
+    devsup_parser.py carries for its own unconfirmed parsing surface."""
+
+    keyword: str
+    value: str | None = None
+    source_member: str = ""
+
+
+@dataclass
+class ClockStatement:
+    """One KEYWORD=value statement from an active CLOCKxx PARMLIB
+    member -- TOD clock/timezone parameters, named by IEASYSxx's own
+    CLOCK= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/
+    OPT= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+    IEAOPTxx. Dumped by ansible/roles/zos_extract/tasks/
+    clock_snapshot.yml and parsed by clock_parser.py. Third of the
+    Category B active-PARMLIB-member domains from doc/TODO.md "9.2" --
+    same flat, comma-continued KEYWORD=value shape as IEASYSxx/
+    DEVSUPxx/IEAOPTxx, so this reuses
+    parmlib_engines.flat_keyword_engine() directly.
+
+    NOT YET VALIDATED against a real CLOCKxx member -- built from IBM's
+    documented CLOCKxx keyword syntax only, same caveat devsup_parser.py/
+    opt_parser.py carry for their own unconfirmed parsing surfaces."""
+
+    keyword: str
+    value: str | None = None
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

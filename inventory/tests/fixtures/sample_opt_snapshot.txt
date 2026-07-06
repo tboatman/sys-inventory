@@ -1,0 +1,3 @@
+##MEMBER IEAOPTBN
+MCCFXEPR=YES,MCCAFCTH=90,       /* frame/cache tuning */
+CNTRYCD=1

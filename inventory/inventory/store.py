@@ -13,6 +13,7 @@ from .models import (
     CicsCsdDefinition,
     CicsDfhrplEntry,
     CicsSitOverride,
+    ClockStatement,
     DatasetAccess,
     DatasetProfile,
     Db2Package,
@@ -24,6 +25,7 @@ from .models import (
     IeasysStatement,
     Jes2InitStatement,
     LineageStep,
+    OptStatement,
     ParmlibDataset,
     Product,
     RacfGroup,
@@ -127,6 +129,20 @@ CREATE TABLE IF NOT EXISTS devsup_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_devsup_statements_keyword ON devsup_statements(keyword);
+
+CREATE TABLE IF NOT EXISTS opt_statements (
+    keyword        TEXT NOT NULL,
+    value          TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_opt_statements_keyword ON opt_statements(keyword);
+
+CREATE TABLE IF NOT EXISTS clock_statements (
+    keyword        TEXT NOT NULL,
+    value          TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_clock_statements_keyword ON clock_statements(keyword);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -552,6 +568,38 @@ def save_devsup_statements(conn: sqlite3.Connection, statements: list[DevsupStat
 def all_devsup_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM devsup_statements ORDER BY keyword")
+    return cur.fetchall()
+
+
+def save_opt_statements(conn: sqlite3.Connection, statements: list[OptStatement]) -> None:
+    conn.execute("DELETE FROM opt_statements")
+    rows = [(s.keyword, s.value, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO opt_statements (keyword, value, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_opt_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM opt_statements ORDER BY keyword")
+    return cur.fetchall()
+
+
+def save_clock_statements(conn: sqlite3.Connection, statements: list[ClockStatement]) -> None:
+    conn.execute("DELETE FROM clock_statements")
+    rows = [(s.keyword, s.value, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO clock_statements (keyword, value, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_clock_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM clock_statements ORDER BY keyword")
     return cur.fetchall()
 
 

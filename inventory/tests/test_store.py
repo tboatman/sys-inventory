@@ -16,6 +16,7 @@ from inventory.models import (
     CicsCsdDefinition,
     CicsDfhrplEntry,
     CicsSitOverride,
+    ClockStatement,
     DatasetAccess,
     DatasetProfile,
     Db2Package,
@@ -27,6 +28,7 @@ from inventory.models import (
     IeasysStatement,
     Jes2InitStatement,
     LineageStep,
+    OptStatement,
     ParmlibDataset,
     Product,
     RacfGroup,
@@ -54,7 +56,7 @@ from inventory.models import (
 EXPECTED_TABLES = {
     "lineage", "subsystems", "started_tasks", "system_info", "products",
     "parmlib_datasets", "ieasys_statements", "bpxprm_statements",
-    "devsup_statements",
+    "devsup_statements", "opt_statements", "clock_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -261,6 +263,16 @@ ROUND_TRIP_CASES = [
         store.save_devsup_statements, store.all_devsup_statements,
         lambda n: [DevsupStatement(keyword=f"KW{i}", value="V", source_member="DEVSUP00") for i in range(n)],
         id="devsup_statements",
+    ),
+    pytest.param(
+        store.save_opt_statements, store.all_opt_statements,
+        lambda n: [OptStatement(keyword=f"KW{i}", value="V", source_member="IEAOPT00") for i in range(n)],
+        id="opt_statements",
+    ),
+    pytest.param(
+        store.save_clock_statements, store.all_clock_statements,
+        lambda n: [ClockStatement(keyword=f"KW{i}", value="V", source_member="CLOCK00") for i in range(n)],
+        id="clock_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,
