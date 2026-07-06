@@ -30,6 +30,7 @@ from inventory.models import (
     GeneralResourceProfile,
     GrsrnlStatement,
     IeasysStatement,
+    IgdsmsStatement,
     IosStatement,
     Jes2InitStatement,
     LineageStep,
@@ -65,7 +66,7 @@ EXPECTED_TABLES = {
     "parmlib_datasets", "ieasys_statements", "bpxprm_statements",
     "devsup_statements", "opt_statements", "clock_statements",
     "autor_statements", "sched_statements", "couple_statements", "grsrnl_statements",
-    "smf_statements", "ios_statements", "consol_statements",
+    "smf_statements", "ios_statements", "consol_statements", "igdsms_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -317,6 +318,11 @@ ROUND_TRIP_CASES = [
         store.save_consol_statements, store.all_consol_statements,
         lambda n: [ConsolStatement(stmt=f"STMT{i}", operands="OP", source_member="CONSOL00") for i in range(n)],
         id="consol_statements",
+    ),
+    pytest.param(
+        store.save_igdsms_statements, store.all_igdsms_statements,
+        lambda n: [IgdsmsStatement(stmt="SMS", operands=f"OP{i}", source_member="IGDSMSTB") for i in range(n)],
+        id="igdsms_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,

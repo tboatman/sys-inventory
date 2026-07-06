@@ -16,7 +16,8 @@
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
-`inventory grsrnl`, `inventory smf`, `inventory ios`, `inventory consol`."""
+`inventory grsrnl`, `inventory smf`, `inventory ios`, `inventory consol`,
+`inventory igdsms`."""
 from __future__ import annotations
 
 import argparse
@@ -40,6 +41,7 @@ from . import (
     grsrnl_parser,
     ieasys_parser,
     ifaprd_parser,
+    igdsms_parser,
     ios_parser,
     jcl_parser,
     jes2parm_parser,
@@ -162,6 +164,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     consol_statements = [s for p in sorted(input_dir.glob("*consol_snapshot*.txt"))
                          for s in consol_parser.parse_consol_snapshot(p)]
 
+    igdsms_statements = [s for p in sorted(input_dir.glob("*igdsms_snapshot*.txt"))
+                         for s in igdsms_parser.parse_igdsms_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -205,8 +210,15 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         tcpip_home_addresses.extend(addresses)
         tcpip_profile_statements.extend(statements)
 
+    # Excludes '*igdsms*' matches -- that's a separate dimension (the
+    # active IGDSMSxx PARMLIB member, see below), and '*sms*' would
+    # otherwise also match its filename (igdsms_snapshot.txt contains
+    # "sms" as a substring) -- same precedent as '*wlm*'/'*wlm_zosmf*'
+    # below (doc/TODO.md "9.2").
     sms_storage_groups = []
     for path in sorted(input_dir.glob("*sms*.txt")):
+        if "igdsms" in path.name:
+            continue
         sms_storage_groups.extend(sms_parser.parse_sms(path))
 
     # Excludes '*wlm_zosmf*' matches -- that's a separate dimension (see
@@ -261,6 +273,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_smf_statements(conn, smf_statements)
     store.save_ios_statements(conn, ios_statements)
     store.save_consol_statements(conn, consol_statements)
+    store.save_igdsms_statements(conn, igdsms_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -303,6 +316,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(smf_statements)} active SMFPRMxx statements, "
           f"{len(ios_statements)} active IECIOSxx statements, "
           f"{len(consol_statements)} active CONSOLxx statements, "
+          f"{len(igdsms_statements)} active IGDSMSxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -606,6 +620,16 @@ def cmd_ios(args: argparse.Namespace) -> int:
 def cmd_consol(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_consol_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_igdsms(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_igdsms_statements(conn)
     conn.close()
 
     for row in rows:
@@ -1091,6 +1115,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_consol = sub.add_parser("consol", help="list active CONSOLxx statements -- MCS/EMCS console definitions")
     p_consol.set_defaults(func=cmd_consol)
+
+    p_igdsms = sub.add_parser("igdsms", help="list active IGDSMSxx SMS statements -- SMS base configuration (distinct from sms-storgrps, the live D SMS,STORGRP snapshot)")
+    p_igdsms.set_defaults(func=cmd_igdsms)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

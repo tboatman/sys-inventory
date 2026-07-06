@@ -521,6 +521,37 @@ class ConsolStatement:
 
 
 @dataclass
+class IgdsmsStatement:
+    """One SMS statement from an active IGDSMSxx PARMLIB member -- SMS
+    (Storage Management Subsystem) base configuration (ACDS(...)/
+    COMMDS(...)/INTERVAL(...)/SIZE(...)/... sub-parameters), named by
+    IEASYSxx's own SMS= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+    MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+    CON= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+    IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/
+    IECIOSxx/CONSOLxx. Dumped by ansible/roles/zos_extract/tasks/
+    igdsms_snapshot.yml and parsed by igdsms_parser.py. Eighth of the
+    Category C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- reuses parmlib_engines.statement_engine() with
+    a one-keyword vocabulary ({"SMS"}), CONFIRMED against a real
+    IGDSMSxx member, capturing every sub-parameter generically as raw
+    operand text rather than hand-modeling each one individually.
+
+    NAMING, deliberately distinct from SmsStorageGroup: this project
+    already has an unrelated `SmsStorageGroup`/`sms_storage_groups`
+    table for the *live* `D SMS,STORGRP` console command (see
+    sms_parser.py) -- a completely different dimension (live
+    storage-group status vs. this member's static base configuration).
+    `IgdsmsStatement`/`igdsms_parser.py`/`igdsms_statements`/`inventory
+    igdsms` all use the `igdsms` name instead of `sms` throughout,
+    exactly to keep the two apart (doc/TODO.md "9.2")."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

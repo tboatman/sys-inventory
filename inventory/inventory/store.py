@@ -27,6 +27,7 @@ from .models import (
     GeneralResourceProfile,
     GrsrnlStatement,
     IeasysStatement,
+    IgdsmsStatement,
     IosStatement,
     Jes2InitStatement,
     LineageStep,
@@ -199,6 +200,17 @@ CREATE TABLE IF NOT EXISTS consol_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_consol_statements_stmt ON consol_statements(stmt);
+
+-- Deliberately named igdsms_statements, not sms_* -- this project
+-- already has an unrelated sms_storage_groups table for the *live*
+-- `D SMS,STORGRP` console command (see SmsStorageGroup); this is the
+-- active IGDSMSxx PARMLIB member instead (doc/TODO.md "9.2").
+CREATE TABLE IF NOT EXISTS igdsms_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_igdsms_statements_stmt ON igdsms_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -768,6 +780,22 @@ def save_consol_statements(conn: sqlite3.Connection, statements: list[ConsolStat
 def all_consol_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM consol_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_igdsms_statements(conn: sqlite3.Connection, statements: list[IgdsmsStatement]) -> None:
+    conn.execute("DELETE FROM igdsms_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO igdsms_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_igdsms_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM igdsms_statements ORDER BY stmt")
     return cur.fetchall()
 
 
