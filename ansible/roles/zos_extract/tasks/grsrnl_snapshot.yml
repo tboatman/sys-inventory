@@ -1,0 +1,23 @@
+---
+# Explicit, always-saved capture of the active GRSRNLxx member(s)' full
+# content -- global resource serialization resource name lists (RNLDEF
+# statements), named by IEASYSxx's own GRSRNL= keyword the same way
+# SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/
+# COUPLE= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+# IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx. Fourth Category C
+# (statement-oriented) active-PARMLIB-member domain from doc/TODO.md
+# "9.2" -- built on the generalized _fetch_active_parmlib_member.yml
+# worker (see doc/TODO.md "9.1").
+#
+# CONFIRMED statement vocabulary (a single repeated 'RNLDEF RNL(EXCL|
+# INCL|CON) TYPE(GENERIC|SPECIFIC|PATTERN) QNAME(...) RNAME(...)'
+# statement) against IBM's documented GRS resource name list syntax --
+# see grsrnl_parser.py's module docstring -- but the parser itself is
+# NOT YET VALIDATED against a real GRSRNLxx member.
+
+- name: Write grsrnl_snapshot.txt (active GRSRNLxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_grsrnl_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_grsrnl_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

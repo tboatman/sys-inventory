@@ -1,0 +1,24 @@
+---
+# Explicit, always-saved capture of the active COUPLExx member(s)' full
+# content -- XCF/sysplex couple dataset definitions (COUPLE and DATA
+# TYPE(...) statements), named by IEASYSxx's own COUPLE= keyword the
+# same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/
+# SCH= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+# IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx -- note the real member name keeps the
+# trailing E (COUPLExx, e.g. COUPLE00), unlike MSTRJCL= (which drops its
+# R to name MSTJCLxx). Third Category C (statement-oriented)
+# active-PARMLIB-member domain from doc/TODO.md "9.2" -- built on the
+# generalized _fetch_active_parmlib_member.yml worker (see doc/TODO.md
+# "9.1").
+#
+# CONFIRMED statement vocabulary (COUPLE/DATA) against IBM's z/OS MVS
+# Setting Up a Sysplex reference -- see couple_parser.py's module
+# docstring -- but the parser itself is NOT YET VALIDATED against a real
+# COUPLExx member.
+
+- name: Write couple_snapshot.txt (active COUPLExx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_couple_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_couple_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

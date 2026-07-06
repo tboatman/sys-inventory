@@ -121,6 +121,21 @@
     zos_extract_active_sched_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^SCH@@@') | map('regex_replace', '^SCH@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # COUPLE=xx names the active COUPLExx member(s) -- note the real member
+    # name keeps the trailing E (COUPLExx, e.g. COUPLE00), unlike MSTRJCL=
+    # (which drops its R to name MSTJCLxx) -- doc/TODO.md's own table had
+    # this wrong as "COUPLxx", corrected here after checking a real IBM
+    # source. Same parenthesized-list shape as above, consumed by
+    # couple_snapshot.yml. Third Category C domain from doc/TODO.md "9.2".
+    zos_extract_active_couple_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^COUPLE@@@') | map('regex_replace', '^COUPLE@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # GRSRNL=xx names the active GRSRNLxx member(s) -- same
+    # parenthesized-list shape as above, consumed by grsrnl_snapshot.yml.
+    # Fourth Category C domain from doc/TODO.md "9.2".
+    zos_extract_active_grsrnl_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^GRSRNL@@@') | map('regex_replace', '^GRSRNL@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -181,3 +196,23 @@
   vars:
     zos_extract_active_member_prefix: SCHED
     zos_extract_active_member_blocks_var: zos_extract_sched_member_blocks
+
+- name: Fetch each active COUPLExx member's content, in order (for couple_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_couple_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "COUPLE{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: COUPLE
+    zos_extract_active_member_blocks_var: zos_extract_couple_member_blocks
+
+- name: Fetch each active GRSRNLxx member's content, in order (for grsrnl_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_grsrnl_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "GRSRNL{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: GRSRNL
+    zos_extract_active_member_blocks_var: zos_extract_grsrnl_member_blocks
