@@ -20,6 +20,7 @@ from inventory.models import (
     DatasetProfile,
     Db2Package,
     Db2Plan,
+    DevsupStatement,
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
@@ -53,6 +54,7 @@ from inventory.models import (
 EXPECTED_TABLES = {
     "lineage", "subsystems", "started_tasks", "system_info", "products",
     "parmlib_datasets", "ieasys_statements", "bpxprm_statements",
+    "devsup_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -254,6 +256,11 @@ ROUND_TRIP_CASES = [
         store.save_bpxprm_statements, store.all_bpxprm_statements,
         lambda n: [BpxprmStatement(stmt=f"STMT{i}", operands="OP", source_member="BPXPRM00") for i in range(n)],
         id="bpxprm_statements",
+    ),
+    pytest.param(
+        store.save_devsup_statements, store.all_devsup_statements,
+        lambda n: [DevsupStatement(keyword=f"KW{i}", value="V", source_member="DEVSUP00") for i in range(n)],
+        id="devsup_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,

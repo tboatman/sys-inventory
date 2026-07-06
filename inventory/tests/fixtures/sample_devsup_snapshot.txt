@@ -1,0 +1,4 @@
+##MEMBER DEVSUPBN
+RTYPTABL=DTRT00,LOWAD=YES,      /* device error recovery table */
+IZBGENQ=NO,ITASKID=NO,
+QTIP=(600,50)

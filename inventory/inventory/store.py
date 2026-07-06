@@ -17,6 +17,7 @@ from .models import (
     DatasetProfile,
     Db2Package,
     Db2Plan,
+    DevsupStatement,
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
@@ -119,6 +120,13 @@ CREATE TABLE IF NOT EXISTS bpxprm_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_bpxprm_statements_stmt ON bpxprm_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS devsup_statements (
+    keyword        TEXT NOT NULL,
+    value          TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_devsup_statements_keyword ON devsup_statements(keyword);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -528,6 +536,22 @@ def save_bpxprm_statements(conn: sqlite3.Connection, statements: list[BpxprmStat
 def all_bpxprm_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM bpxprm_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_devsup_statements(conn: sqlite3.Connection, statements: list[DevsupStatement]) -> None:
+    conn.execute("DELETE FROM devsup_statements")
+    rows = [(s.keyword, s.value, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO devsup_statements (keyword, value, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_devsup_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM devsup_statements ORDER BY keyword")
     return cur.fetchall()
 
 

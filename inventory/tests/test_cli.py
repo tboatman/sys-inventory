@@ -42,6 +42,7 @@ FIXTURE_TO_REAL_NAME = {
     "sample_parmlib_snapshot.txt": "parmlib_snapshot.txt",
     "sample_ieasys_snapshot.txt": "ieasys_snapshot.txt",
     "sample_bpxprm_snapshot.txt": "bpxprm_snapshot.txt",
+    "sample_devsup_snapshot.txt": "devsup_snapshot.txt",
 }
 
 
@@ -69,6 +70,7 @@ def test_ingest_populates_every_domain(full_input_dir, tmp_path):
         assert len(store.all_parmlib_datasets(conn)) > 0
         assert len(store.all_ieasys_statements(conn)) > 0
         assert len(store.all_bpxprm_statements(conn)) > 0
+        assert len(store.all_devsup_statements(conn)) > 0
         assert len(store.all_active_jobs(conn)) > 0
         assert len(store.all_processes(conn)) > 0
         assert len(store.all_catalog_datasets(conn)) > 0
@@ -181,7 +183,7 @@ def test_ingest_picks_up_renamed_snapshot_files(tmp_path):
 # above/below instead.
 NO_ARG_SUBCOMMANDS = [
     "subsystems", "started-tasks", "sysinfo", "products", "parmlib",
-    "ieasys", "bpxprm", "active", "processes", "catalog", "vsam",
+    "ieasys", "bpxprm", "devsup", "active", "processes", "catalog", "vsam",
     "racf-users", "racf-groups", "racf-connections", "racf-dataset-profiles",
     "racf-dataset-access", "racf-resource-profiles", "racf-resource-access",
     "uss-mounts", "jes2parm", "vtam-majnodes", "vtam-options",

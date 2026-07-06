@@ -268,6 +268,28 @@ class BpxprmStatement:
 
 
 @dataclass
+class DevsupStatement:
+    """One KEYWORD=value statement from an active DEVSUPxx PARMLIB
+    member -- device support definitions, named by IEASYSxx's own
+    DEVSUP= keyword (IeasysStatement above) the same way SSN=/CMD=/
+    PROD=/OMVS=/MSTRJCL= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/
+    MSTJCLxx. Dumped by ansible/roles/zos_extract/tasks/
+    devsup_snapshot.yml and parsed by devsup_parser.py. First of the
+    Category B active-PARMLIB-member domains from doc/TODO.md "9.2" --
+    same flat, comma-continued KEYWORD=value shape as IEASYSxx, so this
+    reuses parmlib_engines.flat_keyword_engine() directly rather than
+    hand-writing a third copy of that logic.
+
+    NOT YET VALIDATED against a real DEVSUPxx member -- built from IBM's
+    documented DEVSUPxx keyword syntax only, same caveat
+    bpxprm_parser.py carries for its own unconfirmed parsing surface."""
+
+    keyword: str
+    value: str | None = None
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls
