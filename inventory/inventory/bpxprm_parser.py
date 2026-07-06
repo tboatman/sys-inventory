@@ -42,6 +42,12 @@ tcpip_parser.py.
 init decks also use) are stripped before any other processing, same
 approach ieasys_parser.py/jes2parm_parser.py use.
 
+The "known keyword vocabulary, fold anything else into the current
+statement" logic itself lives in parmlib_engines.statement_engine() --
+shared with any future Category C domain from doc/TODO.md's "9.1" that
+turns out to have the same statement shape, parameterized by each
+domain's own keyword vocabulary (_BPXPRM_STATEMENT_KEYWORDS below).
+
 NOT YET VALIDATED against a real BPXPRMxx member -- built from IBM's
 documented statement syntax only, same caveat db2_catalog_parser.py/
 wlm_zosmf_parser.py/cics_csdup_parser.py carry for their own unconfirmed
@@ -49,13 +55,11 @@ parsing surfaces.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from .jcl_parser import split_members
 from .models import BpxprmStatement
-
-_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+from .parmlib_engines import statement_engine
 
 # Top-level BPXPRMxx statement keywords, from IBM's documented BPXPRMxx
 # reference -- see the module docstring for the known limitation (an
@@ -102,31 +106,11 @@ _BPXPRM_STATEMENT_KEYWORDS = {
 }
 
 
-_STMT_START = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(.*)$")
-
-
 def parse_member(name: str, raw_lines: list[str]) -> list[BpxprmStatement]:
-    text = _COMMENT.sub(" ", "\n".join(raw_lines))
-    statements: list[BpxprmStatement] = []
-    current: BpxprmStatement | None = None
-
-    for line in text.splitlines():
-        content = " ".join(line.split())
-        if not content:
-            continue
-        # A scalar statement like MAXPROCSYS(3000) has no space between
-        # the keyword and its parenthesized value -- content.partition(" ")
-        # alone would treat the whole thing as one token. Match just the
-        # leading identifier instead, whatever immediately follows it.
-        match = _STMT_START.match(content)
-        stmt = match.group(1) if match else content
-        rest = match.group(2) if match else ""
-        if stmt.upper() in _BPXPRM_STATEMENT_KEYWORDS:
-            current = BpxprmStatement(stmt=stmt.upper(), operands=rest.strip(), source_member=name)
-            statements.append(current)
-        elif current is not None:
-            current.operands = f"{current.operands} {content}".strip()
-    return statements
+    return [
+        BpxprmStatement(stmt=stmt, operands=operands, source_member=name)
+        for stmt, operands in statement_engine(raw_lines, _BPXPRM_STATEMENT_KEYWORDS)
+    ]
 
 
 def parse_bpxprm_snapshot(path: Path) -> list[BpxprmStatement]:

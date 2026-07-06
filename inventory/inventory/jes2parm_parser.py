@@ -15,7 +15,7 @@ own initialization-statement syntax, not JCL:
 Statement syntax: STMT, optionally followed immediately by a parenthesized
 subscript (e.g. JOBCLASS(1)), then whitespace, then comma-separated
 KEY=VALUE pairs (a value can itself be a parenthesized, comma-containing
-list, e.g. JOBNUM=(999,999,1) above -- _split_params tracks paren depth
+list, e.g. JOBNUM=(999,999,1) above -- split_params (parmlib_engines.py) tracks paren depth
 so those inner commas aren't mistaken for parameter separators). A
 trailing comma continues the statement onto the next line, the same
 "continuation" idea jcl_parser.join_continuations() handles for JCL, but
@@ -39,12 +39,12 @@ noise). Two real shapes the original guess didn't account for:
    by '*/' several lines later). The original "skip a line if its
    stripped text starts with '/*'" check missed both: a trailing same-
    line comment left comment text glued onto real params (corrupting
-   _split_params with a garbage key), and a multi-line comment's
+   split_params with a garbage key), and a multi-line comment's
    non-'/*'-prefixed continuation line got fed to the statement parser
    as if it were real content. Fixed by stripping every '/* ... */' span
    (DOTALL, so a multi-line span is stripped as a whole) from the raw
    member text up front, before any line-based processing -- see
-   _strip_comments.
+   strip_comments (parmlib_engines.py).
 2. A statement can legitimately have a subscript and *no* live
    parameters at all if every real parameter on it happens to be
    documented-but-commented-out in this particular member (e.g.
@@ -64,17 +64,13 @@ from pathlib import Path
 
 from .jcl_parser import split_members
 from .models import Jes2InitStatement
+from .parmlib_engines import split_params, strip_comments
 
 _STMT = re.compile(r"^([A-Z0-9$#@]+)(?:\(([^)]*)\))?(?:\s+(.+))?$")
-_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
-
-
-def _strip_comments(text: str) -> str:
-    return _COMMENT.sub(" ", text)
 
 
 def _join_continuations(lines: list[str]) -> list[str]:
-    text = _strip_comments("\n".join(lines))
+    text = strip_comments("\n".join(lines))
     joined: list[str] = []
     buf = ""
     continuing = False
@@ -94,33 +90,6 @@ def _join_continuations(lines: list[str]) -> list[str]:
     return joined
 
 
-def _split_params(text: str) -> dict[str, str]:
-    parts: list[str] = []
-    current = ""
-    depth = 0
-    for ch in text:
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth -= 1
-        if ch == "," and depth == 0:
-            parts.append(current)
-            current = ""
-        else:
-            current += ch
-    if current:
-        parts.append(current)
-
-    params: dict[str, str] = {}
-    for part in parts:
-        part = part.strip().rstrip(",")
-        if not part:
-            continue
-        key, sep, value = part.partition("=")
-        params[key.strip().upper()] = value.strip() if sep else ""
-    return params
-
-
 def parse_member(name: str, raw_lines: list[str]) -> list[Jes2InitStatement]:
     statements = []
     for line in _join_continuations(raw_lines):
@@ -132,7 +101,7 @@ def parse_member(name: str, raw_lines: list[str]) -> list[Jes2InitStatement]:
             Jes2InitStatement(
                 stmt=stmt.upper(),
                 subscript=subscript,
-                params=_split_params(rest or ""),
+                params=split_params(rest or ""),
                 source_member=name,
             )
         )
