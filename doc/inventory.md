@@ -145,16 +145,20 @@ just renaming them into that shape for a quick demo.)
    SMFPRMxx member(s) — SMF recording configuration, named by
    IEASYSxx's own `SMF=` keyword), `ios_snapshot.txt` (the active
    IECIOSxx member(s) — I/O related parameters, named by IEASYSxx's own
-   `IOS=` keyword), and `consol_snapshot.txt` (the active CONSOLxx
+   `IOS=` keyword), `consol_snapshot.txt` (the active CONSOLxx
    member(s) — MCS/EMCS console definitions, named by IEASYSxx's own
-   `CON=` keyword)
+   `CON=` keyword), and `igdsms_snapshot.txt` (the active IGDSMSxx
+   member(s) — SMS base configuration, named by IEASYSxx's own `SMS=`
+   keyword — deliberately distinct naming from the live
+   `sms`/`SmsStorageGroup` domain below, see `inventory igdsms`'s own
+   section)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
-   `ios_snapshot`/`consol_snapshot`
+   `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -642,6 +646,33 @@ change needed. **Partial statement vocabulary**: only `INIT`, `DEFAULT`,
 `CONSOLE`, and `HARDCOPY` were exercised by the confirming member —
 CONSOLxx's full documented statement surface may still be larger (e.g.
 `ALTGRP`, `CNGRP`, `MSCOPE`, `SPECIAL`).
+
+### `inventory igdsms`
+
+SMS (Storage Management Subsystem) base configuration — the single `SMS
+ACDS(...) COMMDS(...) ...` statement in the active IGDSMSxx member(s) —
+if you ingested an `igdsms_snapshot.txt`. Named by IEASYSxx's own `SMS=`
+keyword. Eighth of the Category C domains from `doc/TODO.md` "9.2".
+
+**Deliberately distinct from `inventory sms-storgrps`** (the *live* `D
+SMS,STORGRP` console-command snapshot, a completely different
+dimension): this command, its model (`IgdsmsStatement`), its store
+table (`igdsms_statements`), and its ingest source
+(`igdsms_snapshot.txt`) all use the `igdsms` name instead of `sms`
+throughout, specifically because `igdsms_snapshot.txt` contains `sms`
+as a substring and would otherwise have been silently picked up by
+`inventory sms-storgrps`'s own ingest glob (`*sms*.txt`) — fixed by
+excluding `*igdsms*` matches there, the same precedent `*wlm*`/
+`*wlm_zosmf*` already established:
+
+```
+$ inventory igdsms
+SMS ACDS(SYS1.ZDT3.ACDS) COMMDS(SYS1.ZDT3.COMMDS) INTERVAL(15) DINTERVAL(150) REVERIFY(NO) ACSDEFAULTS(NO) OAMPROC(OAM) TRACE(ON) SIZE(128K) TYPE(ALL) JOBNAME(*) ASID(*) SELECT(ALL)  [IGDSMSTB]
+```
+
+CONFIRMED against a real IGDSMSxx member -- one `SMS` statement
+spanning 13 continuation lines, folded correctly with no code change
+needed.
 
 ### `inventory active`
 

@@ -1178,13 +1178,25 @@ domain):**
   (e.g. `ALTGRP`, `CNGRP`, `MSCOPE`, `SPECIAL`); broaden
   `_CONSOL_STATEMENT_KEYWORDS` if a future real member exercises one
   not yet in this set.
+- `SMS`/`IGDSMSxx` -- IMPLEMENTED and CONFIRMED against a real IGDSMSxx
+  member: `IgdsmsStatement`/`igdsms_parser.py`, `igdsms_statements`
+  table, `inventory igdsms` command, `igdsms_snapshot.yml`. One-keyword
+  vocabulary (`{"SMS"}`), the real member's single `SMS ACDS(...)
+  COMMDS(...) INTERVAL(...) ...` statement spanning 13 continuation
+  lines, all folded correctly with no code change needed.
+  **Naming collision avoided, not just watched**: this project already
+  has an unrelated `sms` tag/`SmsStorageGroup` table for the *live* `D
+  SMS,STORGRP` console command -- confirmed this would have been a real
+  bug, not just a cosmetic one: the live domain's ingest glob was
+  `*sms*.txt`, which would have also matched `igdsms_snapshot.txt`
+  (contains `sms` as a substring) and fed it to `sms_parser.parse_sms()`
+  by mistake. Fixed by excluding `*igdsms*` matches from that glob, the
+  same precedent `*wlm*`/`*wlm_zosmf*` already established. Every other
+  new name (`IgdsmsStatement`, `igdsms_parser.py`, `igdsms_statements`,
+  `inventory igdsms`, tag `igdsms_snapshot`) uses `igdsms`, not `sms`,
+  throughout.
 - `CATALOG`/`IGGCATxx`, `DIAG`/`DIAGxx`,
-  `GRSCNF`/`GRSCNFxx`,
-  `SMS`/`IGDSMSxx` (**naming collision to watch**: this
-  project already has an unrelated `sms` tag/`SmsStorageGroup` table for
-  the *live* `D SMS,STORGRP` console command -- this new one needs its own
-  distinct tag, e.g. `igdsms_snapshot`, and its own table name, not
-  `sms_*`), and `PROG`/`PROGxx`
+  `GRSCNF`/`GRSCNFxx`, and `PROG`/`PROGxx`
   (**the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
   all distinct sub-statement types inside one PROGxx member; treat as its
   own careful pass, not a drive-by addition alongside the simpler ones)

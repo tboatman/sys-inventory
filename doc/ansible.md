@@ -104,6 +104,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
+`igdsms_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -250,6 +251,22 @@ value is itself a literal quote character inside the parens, all
 handled correctly with no code change needed. CONSOLxx's full
 documented statement surface may still be larger (e.g. `ALTGRP`,
 `CNGRP`, `MSCOPE`, `SPECIAL`).
+
+`igdsms_snapshot` is the eighth and, for now, last Category C domain:
+IEASYSxx's own `SMS=` keyword names the active IGDSMSxx member(s) (SMS
+base configuration -- a single `SMS ACDS(...) COMMDS(...) ...`
+statement, confirmed against a real member spanning 13 continuation
+lines), fetched the same way and written to `igdsms_snapshot.txt` --
+ingested via `inventory igdsms`. **Naming, deliberately distinct from
+the existing live `sms`/`SmsStorageGroup` domain** (`D SMS,STORGRP`):
+this one uses `igdsms` throughout (`IgdsmsStatement`, `igdsms_parser.py`,
+`igdsms_statements`, tag `igdsms_snapshot`) instead of `sms`, and
+`cli.py`'s live-SMS ingest glob (`*sms*.txt`) now explicitly excludes
+`*igdsms*` matches -- confirmed this wasn't just a naming nicety:
+`igdsms_snapshot.txt` contains `sms` as a substring, so without the
+exclusion the live-SMS parser would have silently ingested the wrong
+file, the same class of bug `*wlm*`/`*wlm_zosmf*`'s existing exclusion
+already guards against.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1026,13 +1043,23 @@ roles/zos_extract/
                              # consol_snapshot.txt, ingested via
                              # inventory consol -- CONFIRMED against a
                              # real member
+    igdsms_snapshot.yml      # explicit capture of the active IGDSMSxx
+                             # member(s) -- SMS base configuration,
+                             # named by IEASYSxx's own SMS= keyword;
+                             # tag igdsms_snapshot; writes
+                             # igdsms_snapshot.txt, ingested via
+                             # inventory igdsms -- CONFIRMED against a
+                             # real member; deliberately distinct
+                             # naming from the live sms/SmsStorageGroup
+                             # domain (D SMS,STORGRP) -- see this
+                             # file's own header comment
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
-                             # SMFPRMxx/IECIOSxx/CONSOLxx fetches above
-                             # -- see doc/TODO.md "9.1"
+                             # SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx
+                             # fetches above -- see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

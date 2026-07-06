@@ -416,6 +416,7 @@ list of what it looks for in the directory you point it at:
 | Active SMFPRMxx member snapshot (SMF recording configuration, named by IEASYSxx's own SMF=) | `smf_snapshot` (default filename `smf_snapshot.txt`, override via `zos_extract_smf_snapshot_outfile`) | ansible-only, `smf_snapshot.yml` -- CONFIRMED against a real member |
 | Active IECIOSxx member snapshot (I/O related parameters, named by IEASYSxx's own IOS=) | `ios_snapshot` (default filename `ios_snapshot.txt`, override via `zos_extract_ios_snapshot_outfile`) | ansible-only, `ios_snapshot.yml` -- not yet production-validated |
 | Active CONSOLxx member snapshot (MCS/EMCS console definitions, named by IEASYSxx's own CON=) | `consol_snapshot` (default filename `consol_snapshot.txt`, override via `zos_extract_consol_snapshot_outfile`) | ansible-only, `consol_snapshot.yml` -- CONFIRMED against a real member |
+| Active IGDSMSxx member snapshot (SMS base configuration, named by IEASYSxx's own SMS= -- deliberately distinct naming from the live `sms`/`SmsStorageGroup` domain below) | `igdsms_snapshot` (default filename `igdsms_snapshot.txt`, override via `zos_extract_igdsms_snapshot_outfile`) | ansible-only, `igdsms_snapshot.yml` -- CONFIRMED against a real member |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |
