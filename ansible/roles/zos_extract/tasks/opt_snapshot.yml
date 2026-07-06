@@ -1,0 +1,19 @@
+---
+# Explicit, always-saved capture of the active IEAOPTxx member(s)' full
+# content -- system tuning/options parameters, named by IEASYSxx's own
+# OPT= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP= name
+# IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx. Second of the
+# Category B active-PARMLIB-member domains from doc/TODO.md "9.2" --
+# direct analog of devsup_snapshot.yml, built on the same generalized
+# _fetch_active_parmlib_member.yml worker (see doc/TODO.md "9.1").
+#
+# NOT YET VALIDATED against a real IEAOPTxx member -- built from IBM's
+# documented IEAOPTxx keyword syntax only, same caveat devsup_parser.py
+# carries for its own unconfirmed parsing surface.
+
+- name: Write opt_snapshot.txt (active IEAOPTxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_opt_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_opt_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

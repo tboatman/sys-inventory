@@ -1,0 +1,20 @@
+---
+# Explicit, always-saved capture of the active CLOCKxx member(s)' full
+# content -- TOD clock/timezone parameters, named by IEASYSxx's own
+# CLOCK= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/
+# OPT= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+# IEAOPTxx. Third of the Category B active-PARMLIB-member domains from
+# doc/TODO.md "9.2" -- direct analog of devsup_snapshot.yml/
+# opt_snapshot.yml, built on the same generalized
+# _fetch_active_parmlib_member.yml worker (see doc/TODO.md "9.1").
+#
+# NOT YET VALIDATED against a real CLOCKxx member -- built from IBM's
+# documented CLOCKxx keyword syntax only, same caveat devsup_parser.py/
+# opt_parser.py carry for their own unconfirmed parsing surfaces.
+
+- name: Write clock_snapshot.txt (active CLOCKxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_clock_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_clock_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

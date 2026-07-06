@@ -12,7 +12,10 @@
 # Also pulls out MSTRJCL= (the active MSTJCLxx member suffix) the same
 # way, for discover_mstrjcl_proclibs.yml's benefit -- unlike SSN/CMD/PROD
 # it isn't consumed here, just extracted here since this is already where
-# IEASYSxx gets fetched and parsed.
+# IEASYSxx gets fetched and parsed. Same for DEVSUP=/OPT=/CLOCK= (naming
+# the active DEVSUPxx/IEAOPTxx/CLOCKxx members), each fetched below via
+# the generic _fetch_active_parmlib_member.yml worker and written out by
+# its own <domain>_snapshot.yml -- see doc/TODO.md "9.2".
 #
 # The keyword parser below is deliberately general (one pass extracting
 # every KEYWORD=value statement, not three separate hand-tuned regexes
@@ -94,6 +97,18 @@
     zos_extract_active_devsup_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^DEVSUP@@@') | map('regex_replace', '^DEVSUP@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # OPT=xx names the active IEAOPTxx member(s) -- same parenthesized-list
+    # shape as above, consumed by opt_snapshot.yml. Second Category B
+    # domain from doc/TODO.md "9.2".
+    zos_extract_active_opt_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^OPT@@@') | map('regex_replace', '^OPT@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # CLOCK=xx names the active CLOCKxx member(s) -- same parenthesized-list
+    # shape as above, consumed by clock_snapshot.yml. Third Category B
+    # domain from doc/TODO.md "9.2".
+    zos_extract_active_clock_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^CLOCK@@@') | map('regex_replace', '^CLOCK@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -114,3 +129,23 @@
   vars:
     zos_extract_active_member_prefix: DEVSUP
     zos_extract_active_member_blocks_var: zos_extract_devsup_member_blocks
+
+- name: Fetch each active IEAOPTxx member's content, in order (for opt_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_opt_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "IEAOPT{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IEAOPT
+    zos_extract_active_member_blocks_var: zos_extract_opt_member_blocks
+
+- name: Fetch each active CLOCKxx member's content, in order (for clock_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_clock_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "CLOCK{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: CLOCK
+    zos_extract_active_member_blocks_var: zos_extract_clock_member_blocks

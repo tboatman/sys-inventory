@@ -35,15 +35,15 @@
 
 - name: Auto-discover the PARMLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_parmlib.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot]
 
 - name: Determine the active IEASYSxx/IEASYMxx suffixes
   ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot]
 
-- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, the full IEASYSxx content, for ieasys_snapshot.yml, the active BPXPRMxx content, for bpxprm_snapshot.yml, and the active DEVSUPxx content, for devsup_snapshot.yml)
+- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, and the full IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx content, for ieasys_snapshot.yml/bpxprm_snapshot.yml/devsup_snapshot.yml/opt_snapshot.yml/clock_snapshot.yml)
   ansible.builtin.import_tasks: discover_active_members.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot]
 
 - name: Auto-discover proclib datasets concatenated onto MSTRJCL's IEFPDSI DD, invisible to '$D PROCLIB'
   ansible.builtin.import_tasks: discover_mstrjcl_proclibs.yml
@@ -76,6 +76,14 @@
 - name: Explicit active DEVSUPxx member snapshot -- device support definitions, named by IEASYSxx's own DEVSUP= keyword (step 23, see devsup_snapshot.yml)
   ansible.builtin.import_tasks: devsup_snapshot.yml
   tags: [devsup_snapshot]
+
+- name: Explicit active IEAOPTxx member snapshot -- system tuning/options parameters, named by IEASYSxx's own OPT= keyword (step 24, see opt_snapshot.yml)
+  ansible.builtin.import_tasks: opt_snapshot.yml
+  tags: [opt_snapshot]
+
+- name: Explicit active CLOCKxx member snapshot -- TOD clock/timezone parameters, named by IEASYSxx's own CLOCK= keyword (step 25, see clock_snapshot.yml)
+  ansible.builtin.import_tasks: clock_snapshot.yml
+  tags: [clock_snapshot]
 
 - name: LNKLST dataset list (step 4)
   ansible.builtin.import_tasks: lnklst.yml
