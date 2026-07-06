@@ -301,9 +301,7 @@ class OptStatement:
     KEYWORD=value shape as IEASYSxx/DEVSUPxx, so this reuses
     parmlib_engines.flat_keyword_engine() directly.
 
-    NOT YET VALIDATED against a real IEAOPTxx member -- built from IBM's
-    documented IEAOPTxx keyword syntax only, same caveat
-    devsup_parser.py carries for its own unconfirmed parsing surface."""
+    CONFIRMED against a real IEAOPTxx member (ERV=500)."""
 
     keyword: str
     value: str | None = None

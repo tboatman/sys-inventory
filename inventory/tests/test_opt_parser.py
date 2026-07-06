@@ -13,6 +13,7 @@ def test_all_keywords_captured_as_one_dict():
     statements = load_statements()
     by_keyword = {s.keyword: s.value for s in statements}
     assert by_keyword == {
+        "ERV": "500",
         "MCCFXEPR": "YES",
         "MCCAFCTH": "90",
         "CNTRYCD": "1",

@@ -1,3 +1,4 @@
 ##MEMBER IEAOPTBN
+ERV=500,
 MCCFXEPR=YES,MCCAFCTH=90,       /* frame/cache tuning */
 CNTRYCD=1

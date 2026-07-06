@@ -10,21 +10,18 @@ dumps (jcl_parser.split_members()), one block per active IEAOPTxx
 member, e.g.:
 
     ##MEMBER IEAOPTBN
+    ERV=500,
     MCCFXEPR=YES,MCCAFCTH=90,
     CNTRYCD=1
 
 Statement syntax: like IEASYSxx/DEVSUPxx, an IEAOPTxx member has no
 per-line "STMT keyword=val,..." grouping -- it's one comma-separated
 sequence of KEYWORD=value pairs for the whole member, a trailing comma
-continuing onto the next line. Second of the Category B active-PARMLIB-
-member domains from doc/TODO.md "9.2" -- this is the same flat,
-comma-continued shape IEASYSxx/DEVSUPxx have, so this module just calls
+continuing onto the next line. CONFIRMED against a real IEAOPTxx member
+(ERV=500) -- this is the same flat, comma-continued shape
+IEASYSxx/DEVSUPxx have, so this module just calls
 parmlib_engines.flat_keyword_engine() directly instead of hand-writing
 another copy of that logic (see doc/TODO.md "9.1").
-
-NOT YET VALIDATED against a real IEAOPTxx member -- built from IBM's
-documented IEAOPTxx keyword syntax only, same caveat devsup_parser.py
-carries for its own unconfirmed parsing surface.
 """
 from __future__ import annotations
 

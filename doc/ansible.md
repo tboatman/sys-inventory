@@ -154,11 +154,14 @@ IEASYSxx's own `DEVSUP=` keyword names the active DEVSUPxx member(s)
 added to `discover_parmlib.yml`/`discover_active_parmlib_suffixes.yml`/
 `discover_active_members.yml`) and written to `devsup_snapshot.txt`.
 Same flat `KEYWORD=value` shape as IEASYSxx -- ingested via `inventory
-devsup`, **not yet validated against a real DEVSUPxx member**. This is
-the first of the further active-PARMLIB-member domains from
-`doc/TODO.md` "9.2", and the first one built on top of the generalized
+devsup`, CONFIRMED against a real DEVSUPxx member. This is the first of
+the further active-PARMLIB-member domains from `doc/TODO.md` "9.2", and
+the first one built on top of the generalized
 `_fetch_active_parmlib_member.yml` worker (see "9.1") instead of its own
-hand-written fetch file.
+hand-written fetch file. The real member also exercised a shape
+IEASYSxx's own confirmed sample never did -- a keyword taking a
+parenthesized value with no `=` at all (e.g. `DISABLE(SSR)`) -- now
+handled explicitly by `parmlib_engines.split_params()`.
 
 `opt_snapshot`/`clock_snapshot` are the same idea again: IEASYSxx's own
 `OPT=`/`CLOCK=` keywords name the active IEAOPTxx/CLOCKxx member(s)
@@ -166,8 +169,8 @@ hand-written fetch file.
 fetched the same way and written to `opt_snapshot.txt`/
 `clock_snapshot.txt` -- ingested via `inventory opt`/`inventory clock`.
 `opt_snapshot`/`IEAOPTxx` completes Category B (the flat `KEYWORD=value`
-active-PARMLIB-member domains), **not yet validated against a real
-member**. `clock_snapshot`/`CLOCKxx` turned out **not** to belong to
+active-PARMLIB-member domains), CONFIRMED against a real IEAOPTxx member
+(`ERV=500`). `clock_snapshot`/`CLOCKxx` turned out **not** to belong to
 Category B -- CONFIRMED against a real CLOCKxx member to be its own
 Category G instead: bare, space-separated `KEYWORD value` lines, no
 `=`/comma/continuation -- see `clock_parser.py` and `doc/TODO.md` "9.2".

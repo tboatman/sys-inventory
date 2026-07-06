@@ -162,11 +162,12 @@ just renaming them into that shape for a quick demo.)
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
-   caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt`/
-   `opt_snapshot.txt`/`clock_snapshot.txt`/`autor_snapshot.txt`/
+   caveat, alongside `bpxprm_snapshot.txt`/`autor_snapshot.txt`/
    `sched_snapshot.txt`/`couple_snapshot.txt`/`grsrnl_snapshot.txt`/
    `smf_snapshot.txt`/`ios_snapshot.txt` (all built from documented
-   statement syntax only, no real sample yet);
+   statement syntax only, no real sample yet -- `devsup_snapshot.txt`/
+   `opt_snapshot.txt`/`clock_snapshot.txt` have since been confirmed
+   against real members, see their own sections below);
    `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
@@ -393,7 +394,7 @@ real member**, the same caveat `db2_catalog_parser.py`/
 `wlm_zosmf_parser.py`/`cics_csdup_parser.py` carry for their own
 unconfirmed parsing surfaces.
 
-### `inventory devsup` (not yet production-validated)
+### `inventory devsup`
 
 Device support definitions — every `KEYWORD=value` statement in the
 active DEVSUPxx member(s) — if you ingested a `devsup_snapshot.txt`.
@@ -401,39 +402,44 @@ Named by IEASYSxx's own `DEVSUP=` keyword the same way `SSN=`/`CMD=`/
 `PROD=`/`OMVS=`/`MSTRJCL=` name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/
 MSTJCLxx. Same flat, comma-continued shape as `inventory ieasys` (this
 is the first of the further active-PARMLIB-member domains from
-`doc/TODO.md` "9.2", and reuses `ieasys`'s own parsing engine directly):
+`doc/TODO.md` "9.2", and reuses `ieasys`'s own parsing engine directly).
+CONFIRMED against a real DEVSUPxx member:
 
 ```
 $ inventory devsup
-ITASKID=NO  [DEVSUPBN]
-IZBGENQ=NO  [DEVSUPBN]
-LOWAD=YES  [DEVSUPBN]
-QTIP=(600,50)  [DEVSUPBN]
-RTYPTABL=DTRT00  [DEVSUPBN]
+COMPACT=YES  [DEVSUPBN]
+VOLNSNS=YES  [DEVSUPBN]
+NON_VSAM_XTIOT=YES  [DEVSUPBN]
+MEDIA1=BE01  [DEVSUPBN]
+...
+PRIVATE=BE0F  [DEVSUPBN]
+DISABLE=(SSR)  [DEVSUPBN]
 ```
 
-**Built from IBM's documented DEVSUPxx keyword syntax only — not yet
-checked against a real member**, same caveat `inventory bpxprm` carries.
+The real member also exercised a shape `inventory ieasys`'s own
+confirmed sample never did — a keyword taking a parenthesized value
+with no `=` at all (`DISABLE(SSR)` above) — now handled explicitly by
+`parmlib_engines.split_params()` rather than being swallowed whole as
+one bare keyword name.
 
-### `inventory opt` (not yet production-validated)
+### `inventory opt`
 
 System tuning/options parameters — every `KEYWORD=value` statement in
 the active IEAOPTxx member(s) — if you ingested an `opt_snapshot.txt`.
 Named by IEASYSxx's own `OPT=` keyword. Second of the further
 active-PARMLIB-member domains from `doc/TODO.md` "9.2", same flat
-shape and parsing engine as `inventory ieasys`/`inventory devsup`:
+shape and parsing engine as `inventory ieasys`/`inventory devsup`.
+CONFIRMED against a real IEAOPTxx member (`ERV=500`):
 
 ```
 $ inventory opt
 CNTRYCD=1  [IEAOPTBN]
+ERV=500  [IEAOPTBN]
 MCCAFCTH=90  [IEAOPTBN]
 MCCFXEPR=YES  [IEAOPTBN]
 ```
 
-**Built from IBM's documented IEAOPTxx keyword syntax only — not yet
-checked against a real member**, same caveat `inventory devsup` carries.
-
-### `inventory clock` (not yet production-validated)
+### `inventory clock`
 
 TOD clock/timezone parameters — every bare `KEYWORD value` statement in
 the active CLOCKxx member(s) — if you ingested a `clock_snapshot.txt`.

@@ -1055,26 +1055,28 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
 ### 9.2. The 23, categorized by real syntax shape
 
 **B -- flat `KEYWORD=value`, comma-continued (reuse the IEASYSxx engine):**
-- `DEVSUP`/`DEVSUPxx` -- IMPLEMENTED: `DevsupStatement`/`devsup_parser.py`
-  (a thin wrapper around `parmlib_engines.flat_keyword_engine()`),
-  `devsup_statements` table, `inventory devsup` command,
-  `devsup_snapshot.yml` (built on the generalized
-  `_fetch_active_parmlib_member.yml` worker from "9.1" -- the first
-  domain to actually exercise it). NOT YET VALIDATED against a real
-  DEVSUPxx member -- built from IBM's documented DEVSUPxx keyword syntax
-  only; confirm on the next real-system run (see "9.1"'s own note about
-  confirming `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` stay
-  byte-identical at the same time).
-- `OPT`/`IEAOPTxx` -- IMPLEMENTED: `OptStatement`/`opt_parser.py`,
-  `opt_statements` table, `inventory opt` command, `opt_snapshot.yml`.
-  NOT YET VALIDATED against a real IEAOPTxx member.
+- `DEVSUP`/`DEVSUPxx` -- IMPLEMENTED and CONFIRMED against a real
+  DEVSUPxx member: `DevsupStatement`/`devsup_parser.py` (a thin wrapper
+  around `parmlib_engines.flat_keyword_engine()`), `devsup_statements`
+  table, `inventory devsup` command, `devsup_snapshot.yml` (built on the
+  generalized `_fetch_active_parmlib_member.yml` worker from "9.1" --
+  the first domain to actually exercise it). One wrinkle the real member
+  exercised that IEASYSxx's own confirmed sample never did: a keyword
+  can take a parenthesized value with no `=` at all (e.g.
+  `DISABLE(SSR)`) -- `parmlib_engines.split_params()` now handles this
+  explicitly instead of swallowing the whole `KEYWORD(value)` token as
+  one bare keyword name.
+- `OPT`/`IEAOPTxx` -- IMPLEMENTED and CONFIRMED against a real IEAOPTxx
+  member (`ERV=500`): `OptStatement`/`opt_parser.py`, `opt_statements`
+  table, `inventory opt` command, `opt_snapshot.yml`.
 - `CLOCK`/`CLOCKxx` was originally grouped in here too, on the assumption
   it shared IEASYSxx's comma-separated shape -- **CONFIRMED WRONG**
   against a real CLOCKxx member; moved to Category G below, its own
   space-separated shape, and `clock_parser.py` fixed accordingly.
-  Category B is now just DEVSUP/OPT -- confirm both, plus
-  IEASYSxx/BPXPRMxx, stay/come out right on the next real-system run
-  (see "9.1"'s own note).
+  Category B (DEVSUP/OPT) is now fully confirmed against real members;
+  IEASYSxx/BPXPRMxx's own output still just needs the byte-identical
+  regression check "9.1" already calls for on the ansible-worker
+  generalization itself.
 
 **G -- space-separated `KEYWORD value`, no `=`/commas/continuation char,
 small known vocabulary (own small parser, not either engine above):**
