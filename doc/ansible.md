@@ -101,7 +101,8 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 ```
 
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
-`ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`,
+`ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
+`clock_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -157,6 +158,15 @@ the first of the further active-PARMLIB-member domains from
 `doc/TODO.md` "9.2", and the first one built on top of the generalized
 `_fetch_active_parmlib_member.yml` worker (see "9.1") instead of its own
 hand-written fetch file.
+
+`opt_snapshot`/`clock_snapshot` are the same idea again: IEASYSxx's own
+`OPT=`/`CLOCK=` keywords name the active IEAOPTxx/CLOCKxx member(s)
+(system tuning/options parameters, TOD clock/timezone parameters),
+fetched the same way and written to `opt_snapshot.txt`/
+`clock_snapshot.txt` -- ingested via `inventory opt`/`inventory clock`,
+**not yet validated against a real member**. These complete Category B
+(the flat `KEYWORD=value` active-PARMLIB-member domains) from
+`doc/TODO.md` "9.2".
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -871,11 +881,24 @@ roles/zos_extract/
                              # tag devsup_snapshot; writes
                              # devsup_snapshot.txt, ingested via inventory
                              # devsup -- not yet production-validated
+    opt_snapshot.yml         # explicit capture of the active IEAOPTxx
+                             # member(s) -- system tuning/options
+                             # parameters, named by IEASYSxx's own OPT=
+                             # keyword; tag opt_snapshot; writes
+                             # opt_snapshot.txt, ingested via inventory
+                             # opt -- not yet production-validated
+    clock_snapshot.yml       # explicit capture of the active CLOCKxx
+                             # member(s) -- TOD clock/timezone
+                             # parameters, named by IEASYSxx's own
+                             # CLOCK= keyword; tag clock_snapshot;
+                             # writes clock_snapshot.txt, ingested via
+                             # inventory clock -- not yet
+                             # production-validated
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
-                             # BPXPRMxx/DEVSUPxx fetches above -- see
-                             # doc/TODO.md "9.1"
+                             # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx
+                             # fetches above -- see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Fourteen more files —
+   file naming and how to produce each file. Sixteen more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -123,16 +123,20 @@ just renaming them into that shape for a quick demo.)
    `D PARMLIB` itself can't show, since it only reports the PARMLIB
    dataset search order), `bpxprm_snapshot.txt` (the active BPXPRMxx
    member(s) — z/OS UNIX/OMVS configuration, named by IEASYSxx's own
-   `OMVS=` keyword), and `devsup_snapshot.txt` (the active DEVSUPxx
+   `OMVS=` keyword), `devsup_snapshot.txt` (the active DEVSUPxx
    member(s) — device support definitions, named by IEASYSxx's own
    `DEVSUP=` keyword; the first of the further active-PARMLIB-member
    domains from `doc/TODO.md` "9.2", built on the same generalized
    ansible fetch worker `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` now
-   share) — have no standalone `zos-extract/python` script
+   share), `opt_snapshot.txt` (the active IEAOPTxx member(s) — system
+   tuning/options parameters, named by IEASYSxx's own `OPT=` keyword),
+   and `clock_snapshot.txt` (the active CLOCKxx member(s) — TOD
+   clock/timezone parameters, named by IEASYSxx's own `CLOCK=` keyword)
+   — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
-   `devsup_snapshot`
+   `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -142,8 +146,9 @@ just renaming them into that shape for a quick demo.)
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
-   caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt` (both
-   built from documented statement syntax only, no real sample yet);
+   caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt`/
+   `opt_snapshot.txt`/`clock_snapshot.txt` (all built from documented
+   statement syntax only, no real sample yet);
    `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
@@ -391,6 +396,44 @@ RTYPTABL=DTRT00  [DEVSUPBN]
 
 **Built from IBM's documented DEVSUPxx keyword syntax only — not yet
 checked against a real member**, same caveat `inventory bpxprm` carries.
+
+### `inventory opt` (not yet production-validated)
+
+System tuning/options parameters — every `KEYWORD=value` statement in
+the active IEAOPTxx member(s) — if you ingested an `opt_snapshot.txt`.
+Named by IEASYSxx's own `OPT=` keyword. Second of the further
+active-PARMLIB-member domains from `doc/TODO.md` "9.2", same flat
+shape and parsing engine as `inventory ieasys`/`inventory devsup`:
+
+```
+$ inventory opt
+CNTRYCD=1  [IEAOPTBN]
+MCCAFCTH=90  [IEAOPTBN]
+MCCFXEPR=YES  [IEAOPTBN]
+```
+
+**Built from IBM's documented IEAOPTxx keyword syntax only — not yet
+checked against a real member**, same caveat `inventory devsup` carries.
+
+### `inventory clock` (not yet production-validated)
+
+TOD clock/timezone parameters — every `KEYWORD=value` statement in the
+active CLOCKxx member(s) — if you ingested a `clock_snapshot.txt`.
+Named by IEASYSxx's own `CLOCK=` keyword. Third of the further
+active-PARMLIB-member domains from `doc/TODO.md` "9.2", same flat
+shape and parsing engine as `inventory ieasys`/`inventory devsup`/
+`inventory opt`:
+
+```
+$ inventory clock
+ETRMODE=YES  [CLOCKBN]
+ETRZONE=00  [CLOCKBN]
+TIMEZONE=W05.00.00  [CLOCKBN]
+```
+
+**Built from IBM's documented CLOCKxx keyword syntax only — not yet
+checked against a real member**, same caveat `inventory devsup`/
+`inventory opt` carry.
 
 ### `inventory active`
 

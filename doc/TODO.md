@@ -1065,9 +1065,15 @@ one *idea* ("generic KEYWORD capture") without sharing one *class*.
   only; confirm on the next real-system run (see "9.1"'s own note about
   confirming `ieasys_snapshot.txt`/`bpxprm_snapshot.txt` stay
   byte-identical at the same time).
-- `OPT`/`IEAOPTxx`, `CLOCK`/`CLOCKxx` still to do (mostly flat; a few
-  `KEYWORD(value)` entries, but `IeasysStatement`'s "keep parens in the
-  value" convention already handles that fine)
+- `OPT`/`IEAOPTxx` -- IMPLEMENTED: `OptStatement`/`opt_parser.py`,
+  `opt_statements` table, `inventory opt` command, `opt_snapshot.yml`.
+  NOT YET VALIDATED against a real IEAOPTxx member.
+- `CLOCK`/`CLOCKxx` -- IMPLEMENTED: `ClockStatement`/`clock_parser.py`,
+  `clock_statements` table, `inventory clock` command,
+  `clock_snapshot.yml`. NOT YET VALIDATED against a real CLOCKxx member.
+  Category B (DEVSUP/OPT/CLOCK) is now fully done -- confirm all three
+  plus IEASYSxx/BPXPRMxx stay/come out right on the next real-system run
+  (see "9.1"'s own note).
 
 **C -- statement-oriented `STMT KEYWORD(value)...`, multi-line, no
 continuation char (reuse the BPXPRMxx engine, one keyword vocabulary per

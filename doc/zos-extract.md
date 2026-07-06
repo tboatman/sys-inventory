@@ -407,6 +407,8 @@ list of what it looks for in the directory you point it at:
 | Active IEASYSxx member snapshot (the actual system parameters) | `ieasys_snapshot` (default filename `ieasys_snapshot.txt`, override via `zos_extract_ieasys_snapshot_outfile`) | ansible-only, `ieasys_snapshot.yml` |
 | Active BPXPRMxx member snapshot (z/OS UNIX/OMVS config, named by IEASYSxx's own OMVS=) | `bpxprm_snapshot` (default filename `bpxprm_snapshot.txt`, override via `zos_extract_bpxprm_snapshot_outfile`) | ansible-only, `bpxprm_snapshot.yml` -- not yet production-validated |
 | Active DEVSUPxx member snapshot (device support definitions, named by IEASYSxx's own DEVSUP=) | `devsup_snapshot` (default filename `devsup_snapshot.txt`, override via `zos_extract_devsup_snapshot_outfile`) | ansible-only, `devsup_snapshot.yml` -- not yet production-validated |
+| Active IEAOPTxx member snapshot (system tuning/options parameters, named by IEASYSxx's own OPT=) | `opt_snapshot` (default filename `opt_snapshot.txt`, override via `zos_extract_opt_snapshot_outfile`) | ansible-only, `opt_snapshot.yml` -- not yet production-validated |
+| Active CLOCKxx member snapshot (TOD clock/timezone parameters, named by IEASYSxx's own CLOCK=) | `clock_snapshot` (default filename `clock_snapshot.txt`, override via `zos_extract_clock_snapshot_outfile`) | ansible-only, `clock_snapshot.yml` -- not yet production-validated |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |
