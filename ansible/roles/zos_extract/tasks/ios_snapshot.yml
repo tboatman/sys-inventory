@@ -1,0 +1,26 @@
+---
+# Explicit, always-saved capture of the active IECIOSxx member(s)' full
+# content -- I/O related parameters (MIH/HOTIO/TERMINAL/FICON/STORAGE/
+# CAPTUCB/EKM/RECOVERY statements, plus CTRACE/MIDAW/HYPERPAV/
+# HYPERWRITE/ZHPF specifications), named by IEASYSxx's own IOS= keyword
+# the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/
+# AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+# BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/
+# GRSRNLxx/SMFPRMxx. Sixth Category C (statement-oriented)
+# active-PARMLIB-member domain from doc/TODO.md "9.2" -- built on the
+# generalized _fetch_active_parmlib_member.yml worker (see doc/TODO.md
+# "9.1").
+#
+# CONFIRMED statement vocabulary against IBM's z/OS MVS Initialization
+# and Tuning Reference ("Each record must start with MIH, HOTIO,
+# TERMINAL, FICON, STORAGE, CAPTUCB, EKM, or RECOVERY ... or must be a
+# valid CTRACE, MIDAW, HYPERPAV, HYPERWRITE, or ZHPF specification") --
+# see ios_parser.py's module docstring -- but the parser itself is NOT
+# YET VALIDATED against a real IECIOSxx member.
+
+- name: Write ios_snapshot.txt (active IECIOSxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_ios_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_ios_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

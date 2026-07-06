@@ -1,0 +1,27 @@
+---
+# Explicit, always-saved capture of the active SMFPRMxx member(s)' full
+# content -- System Management Facilities (SMF) recording configuration
+# (ACTIVE/DSNAME/PROMPT/NOPROMPT/SYS/SUBSYS statements), named by
+# IEASYSxx's own SMF= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+# MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL= name
+# IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/
+# CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx -- note the real member name
+# is SMFPRMxx, not "SMFxx" as doc/TODO.md's own table originally had it
+# (corrected here after checking a real IBM source, same class of
+# naming error COUPLE= had). Fifth Category C (statement-oriented)
+# active-PARMLIB-member domain from doc/TODO.md "9.2" -- built on the
+# generalized _fetch_active_parmlib_member.yml worker (see doc/TODO.md
+# "9.1").
+#
+# CONFIRMED (partial) statement vocabulary (ACTIVE/DSNAME/PROMPT/
+# NOPROMPT/SYS/SUBSYS) against IBM's SMFPRMxx documentation -- see
+# smf_parser.py's module docstring for the "partial vocabulary"
+# caveat -- but the parser itself is NOT YET VALIDATED against a real
+# SMFPRMxx member.
+
+- name: Write smf_snapshot.txt (active SMFPRMxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_smf_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_smf_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
