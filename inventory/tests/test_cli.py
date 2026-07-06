@@ -51,6 +51,7 @@ FIXTURE_TO_REAL_NAME = {
     "sample_grsrnl_snapshot.txt": "grsrnl_snapshot.txt",
     "sample_smf_snapshot.txt": "smf_snapshot.txt",
     "sample_ios_snapshot.txt": "ios_snapshot.txt",
+    "sample_consol_snapshot.txt": "consol_snapshot.txt",
 }
 
 
@@ -87,6 +88,7 @@ def test_ingest_populates_every_domain(full_input_dir, tmp_path):
         assert len(store.all_grsrnl_statements(conn)) > 0
         assert len(store.all_smf_statements(conn)) > 0
         assert len(store.all_ios_statements(conn)) > 0
+        assert len(store.all_consol_statements(conn)) > 0
         assert len(store.all_active_jobs(conn)) > 0
         assert len(store.all_processes(conn)) > 0
         assert len(store.all_catalog_datasets(conn)) > 0
@@ -200,7 +202,7 @@ def test_ingest_picks_up_renamed_snapshot_files(tmp_path):
 NO_ARG_SUBCOMMANDS = [
     "subsystems", "started-tasks", "sysinfo", "products", "parmlib",
     "ieasys", "bpxprm", "devsup", "opt", "clock", "autor", "sched", "couple", "grsrnl",
-    "smf", "ios", "active", "processes", "catalog", "vsam",
+    "smf", "ios", "consol", "active", "processes", "catalog", "vsam",
     "racf-users", "racf-groups", "racf-connections", "racf-dataset-profiles",
     "racf-dataset-access", "racf-resource-profiles", "racf-resource-access",
     "uss-mounts", "jes2parm", "vtam-majnodes", "vtam-options",

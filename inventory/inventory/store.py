@@ -15,6 +15,7 @@ from .models import (
     CicsDfhrplEntry,
     CicsSitOverride,
     ClockStatement,
+    ConsolStatement,
     CoupleStatement,
     DatasetAccess,
     DatasetProfile,
@@ -191,6 +192,13 @@ CREATE TABLE IF NOT EXISTS ios_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ios_statements_stmt ON ios_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS consol_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_consol_statements_stmt ON consol_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -744,6 +752,22 @@ def save_ios_statements(conn: sqlite3.Connection, statements: list[IosStatement]
 def all_ios_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM ios_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_consol_statements(conn: sqlite3.Connection, statements: list[ConsolStatement]) -> None:
+    conn.execute("DELETE FROM consol_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO consol_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_consol_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM consol_statements ORDER BY stmt")
     return cur.fetchall()
 
 

@@ -493,6 +493,34 @@ class IosStatement:
 
 
 @dataclass
+class ConsolStatement:
+    """One statement from an active CONSOLxx PARMLIB member -- MCS/EMCS
+    console definitions (INIT/DEFAULT/CONSOLE/HARDCOPY statements),
+    named by IEASYSxx's own CON= keyword the same way SSN=/CMD=/PROD=/
+    OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/
+    IOS= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/
+    IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/
+    IECIOSxx. Dumped by ansible/roles/zos_extract/tasks/
+    consol_snapshot.yml and parsed by consol_parser.py. Seventh of the
+    Category C (statement-oriented) active-PARMLIB-member domains from
+    doc/TODO.md "9.2" -- reuses parmlib_engines.statement_engine() with
+    a statement vocabulary CONFIRMED against a real CONSOLxx member
+    (INIT, DEFAULT, CONSOLE, HARDCOPY), capturing every sub-parameter
+    (CMDDELIM(...)/DEVNUM(...)/AUTH(...)/NAME(...)/ROUTCODE(...)/...)
+    generically as raw operand text rather than hand-modeling each one
+    individually. CONSOLxx's full documented statement surface may still
+    be larger (e.g. ALTGRP, CNGRP, MSCOPE, SPECIAL) -- an unrecognized
+    top-level statement keyword gets folded into the preceding
+    statement's operands instead of starting its own, the same
+    documented limitation every other statement_engine() consumer here
+    carries."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

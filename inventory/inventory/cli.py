@@ -16,7 +16,7 @@
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
-`inventory grsrnl`, `inventory smf`, `inventory ios`."""
+`inventory grsrnl`, `inventory smf`, `inventory ios`, `inventory consol`."""
 from __future__ import annotations
 
 import argparse
@@ -33,6 +33,7 @@ from . import (
     cics_csdup_parser,
     cics_proc_parser,
     clock_parser,
+    consol_parser,
     couple_parser,
     db2_catalog_parser,
     devsup_parser,
@@ -158,6 +159,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     ios_statements = [s for p in sorted(input_dir.glob("*ios_snapshot*.txt"))
                       for s in ios_parser.parse_ios_snapshot(p)]
 
+    consol_statements = [s for p in sorted(input_dir.glob("*consol_snapshot*.txt"))
+                         for s in consol_parser.parse_consol_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -256,6 +260,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_grsrnl_statements(conn, grsrnl_statements)
     store.save_smf_statements(conn, smf_statements)
     store.save_ios_statements(conn, ios_statements)
+    store.save_consol_statements(conn, consol_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -297,6 +302,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(grsrnl_statements)} active GRSRNLxx statements, "
           f"{len(smf_statements)} active SMFPRMxx statements, "
           f"{len(ios_statements)} active IECIOSxx statements, "
+          f"{len(consol_statements)} active CONSOLxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -590,6 +596,16 @@ def cmd_smf(args: argparse.Namespace) -> int:
 def cmd_ios(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_ios_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_consol(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_consol_statements(conn)
     conn.close()
 
     for row in rows:
@@ -1072,6 +1088,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_ios = sub.add_parser("ios", help="list active IECIOSxx statements -- I/O related parameters (not yet production-validated)")
     p_ios.set_defaults(func=cmd_ios)
+
+    p_consol = sub.add_parser("consol", help="list active CONSOLxx statements -- MCS/EMCS console definitions")
+    p_consol.set_defaults(func=cmd_consol)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

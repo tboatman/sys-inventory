@@ -18,6 +18,7 @@ from inventory.models import (
     CicsDfhrplEntry,
     CicsSitOverride,
     ClockStatement,
+    ConsolStatement,
     CoupleStatement,
     DatasetAccess,
     DatasetProfile,
@@ -64,7 +65,7 @@ EXPECTED_TABLES = {
     "parmlib_datasets", "ieasys_statements", "bpxprm_statements",
     "devsup_statements", "opt_statements", "clock_statements",
     "autor_statements", "sched_statements", "couple_statements", "grsrnl_statements",
-    "smf_statements", "ios_statements",
+    "smf_statements", "ios_statements", "consol_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -311,6 +312,11 @@ ROUND_TRIP_CASES = [
         store.save_ios_statements, store.all_ios_statements,
         lambda n: [IosStatement(stmt=f"STMT{i}", operands="OP", source_member="IECIOS00") for i in range(n)],
         id="ios_statements",
+    ),
+    pytest.param(
+        store.save_consol_statements, store.all_consol_statements,
+        lambda n: [ConsolStatement(stmt=f"STMT{i}", operands="OP", source_member="CONSOL00") for i in range(n)],
+        id="consol_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,
