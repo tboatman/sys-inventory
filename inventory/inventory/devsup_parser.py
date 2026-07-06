@@ -9,21 +9,22 @@ dumps (jcl_parser.split_members()), one block per active DEVSUPxx member,
 e.g.:
 
     ##MEMBER DEVSUPBN
-    RTYPTABL=DTRT00,LOWAD=YES,
-    IZBGENQ=NO,ITASKID=NO,
+    COMPACT=YES,
+    VOLNSNS=YES,
+    MEDIA1 =BE01,
+    ...
+    DISABLE(SSR)
 
 Statement syntax: like IEASYSxx (ieasys_parser.py), a DEVSUPxx member has
 no per-line "STMT keyword=val,..." grouping -- it's one comma-separated
 sequence of KEYWORD=value pairs for the whole member, a trailing comma
-continuing onto the next line. First of the Category B active-PARMLIB-
-member domains from doc/TODO.md "9.2" -- this is the same flat,
-comma-continued shape IEASYSxx has, so this module just calls
-parmlib_engines.flat_keyword_engine() directly instead of hand-writing a
-third copy of that logic (see doc/TODO.md "9.1").
-
-NOT YET VALIDATED against a real DEVSUPxx member -- built from IBM's
-documented DEVSUPxx keyword syntax only, same caveat bpxprm_parser.py
-carries for its own unconfirmed parsing surface.
+continuing onto the next line. CONFIRMED against a real DEVSUPxx member,
+including one wrinkle IEASYSxx's own confirmed sample never exercised: a
+keyword can take a parenthesized value with no '=' at all (e.g.
+DISABLE(SSR) above) -- parmlib_engines.split_params() handles this
+directly now (see its own docstring), so this module still just calls
+flat_keyword_engine() instead of hand-writing a third copy of that
+logic (see doc/TODO.md "9.1").
 """
 from __future__ import annotations
 

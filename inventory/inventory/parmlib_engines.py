@@ -23,10 +23,18 @@ def strip_comments(text: str) -> str:
     return _COMMENT.sub(" ", text)
 
 
+_BARE_PAREN = re.compile(r"^([A-Za-z0-9$#@_]+)(\(.*\))$")
+
+
 def split_params(text: str) -> dict[str, str]:
     """Split a comma-separated KEYWORD=value (or bare KEYWORD) sequence,
     tracking paren depth so a value's own internal commas (e.g.
-    REAL=(4096,ONLINE)) aren't mistaken for parameter separators."""
+    REAL=(4096,ONLINE)) aren't mistaken for parameter separators.
+
+    A keyword can also take a parenthesized value with no '=' at all
+    (e.g. DEVSUPxx's own `DISABLE(SSR)`, confirmed against a real
+    DEVSUPxx member) -- distinguished from a genuinely bare keyword like
+    IEASYSxx's `CLPA` by trailing '(...)' with nothing after it."""
     parts: list[str] = []
     current = ""
     depth = 0
@@ -49,7 +57,14 @@ def split_params(text: str) -> dict[str, str]:
         if not part:
             continue
         key, sep, value = part.partition("=")
-        params[key.strip().upper()] = value.strip() if sep else ""
+        if sep:
+            params[key.strip().upper()] = value.strip()
+            continue
+        bare_paren = _BARE_PAREN.match(part)
+        if bare_paren:
+            params[bare_paren.group(1).upper()] = bare_paren.group(2)
+        else:
+            params[part.upper()] = ""
     return params
 
 

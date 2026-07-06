@@ -280,9 +280,9 @@ class DevsupStatement:
     reuses parmlib_engines.flat_keyword_engine() directly rather than
     hand-writing a third copy of that logic.
 
-    NOT YET VALIDATED against a real DEVSUPxx member -- built from IBM's
-    documented DEVSUPxx keyword syntax only, same caveat
-    bpxprm_parser.py carries for its own unconfirmed parsing surface."""
+    CONFIRMED against a real DEVSUPxx member, including a bare
+    KEYWORD(value) form with no '=' at all (e.g. DISABLE(SSR)) that
+    parmlib_engines.split_params() now handles explicitly."""
 
     keyword: str
     value: str | None = None

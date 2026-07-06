@@ -16,6 +16,13 @@ def test_flat_keyword_engine_splits_comma_separated_keywords():
     assert params["CLPA"] is None  # bare keyword, no '='
 
 
+def test_split_params_handles_bare_keyword_with_parenthesized_value():
+    # DEVSUPxx's own DISABLE(SSR) -- confirmed against a real DEVSUPxx
+    # member: a keyword can take a parenthesized value with no '=' at
+    # all, distinct from a genuinely bare keyword like CLPA above.
+    assert split_params("COMPACT=YES,DISABLE(SSR)") == {"COMPACT": "YES", "DISABLE": "(SSR)"}
+
+
 def test_flat_keyword_engine_keeps_last_keyword_with_no_trailing_comma():
     params = flat_keyword_engine(["SSN=(BN),CMD=(BN)"])
     assert params["CMD"] == "(BN)"
