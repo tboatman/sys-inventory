@@ -396,11 +396,9 @@ class CoupleStatement:
     ACOUPLE(...)/TYPE(...)/...) generically as raw operand text rather
     than hand-modeling each one individually.
 
-    NOT YET VALIDATED against a real COUPLExx member -- the COUPLE/DATA
-    statement vocabulary is confirmed against IBM's z/OS MVS Setting Up
-    a Sysplex reference, but the parser itself hasn't been checked
-    against a real member, same caveat autor_parser.py/sched_parser.py
-    carry for their own unconfirmed parsing surfaces."""
+    CONFIRMED against a real COUPLExx member, including one COUPLE
+    statement followed by four distinct DATA TYPE(...) statements
+    (CFRM, LOGR, BPXMCDS, WLM), all kept in order."""
 
     stmt: str
     operands: str

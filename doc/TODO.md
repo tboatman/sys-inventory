@@ -1124,14 +1124,17 @@ domain):**
   trailing `/* ... */` comment -- stripped cleanly by
   `parmlib_engines.statement_engine()` without bleeding into the next
   PPT entry.
-- `COUPLE`/`COUPLExx` -- IMPLEMENTED: `CoupleStatement`/`couple_parser.py`
-  (statement vocabulary `{"COUPLE", "DATA"}`), `couple_statements` table,
+- `COUPLE`/`COUPLExx` -- IMPLEMENTED and CONFIRMED against a real
+  COUPLExx member: `CoupleStatement`/`couple_parser.py` (statement
+  vocabulary `{"COUPLE", "DATA"}`), `couple_statements` table,
   `inventory couple` command, `couple_snapshot.yml`. **Real member name
   is `COUPLExx` (e.g. `COUPLE00`), not `COUPLxx`** as this table
   originally had it above -- corrected after checking a real IBM source;
   unlike `MSTRJCL=` (which drops its `R`), `COUPLE=` keeps its full name
-  in the member suffix. NOT YET VALIDATED against a real COUPLExx
-  member.
+  in the member suffix. The real member exercised one `COUPLE` statement
+  followed by four distinct `DATA TYPE(...)` statements (`CFRM`, `LOGR`,
+  `BPXMCDS`, `WLM`), all correctly kept in order rather than collapsed
+  by `parmlib_engines.statement_engine()`.
 - `GRSRNL`/`GRSRNLxx` -- IMPLEMENTED: `GrsrnlStatement`/
   `grsrnl_parser.py` (RNLDEF statements, one keyword vocabulary
   `{"RNLDEF"}`), `grsrnl_statements` table, `inventory grsrnl` command,

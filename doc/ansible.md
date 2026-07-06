@@ -206,12 +206,15 @@ serialization resource name lists) -- note `COUPLE=` keeps its full name
 in the member suffix (`COUPLExx`, e.g. `COUPLE00`), unlike `MSTRJCL=`
 (which drops its `R`). Fetched the same way and written to
 `couple_snapshot.txt`/`grsrnl_snapshot.txt` -- ingested via `inventory
-couple`/`inventory grsrnl`, **not yet validated against a real member**.
-COUPLExx's `COUPLE`/`DATA` statement vocabulary is confirmed against
-IBM's z/OS MVS Setting Up a Sysplex reference; GRSRNLxx's single
-repeated `RNLDEF RNL(...) TYPE(...) QNAME(...) RNAME(...)` statement
-shape is confirmed against IBM's documented GRS resource name list
-syntax.
+couple`/`inventory grsrnl`. COUPLExx's `COUPLE`/`DATA` statement
+vocabulary is confirmed against IBM's z/OS MVS Setting Up a Sysplex
+reference, and `couple_parser.py` is now CONFIRMED against a real
+COUPLExx member -- one `COUPLE` statement followed by four distinct
+`DATA TYPE(...)` statements (`CFRM`, `LOGR`, `BPXMCDS`, `WLM`), all kept
+in order. GRSRNLxx's single repeated `RNLDEF RNL(...) TYPE(...)
+QNAME(...) RNAME(...)` statement shape is confirmed against IBM's
+documented GRS resource name list syntax, but `grsrnl_parser.py` itself
+is **not yet validated against a real member**.
 
 `smf_snapshot`/`ios_snapshot` continue Category C: IEASYSxx's own
 `SMF=`/`IOS=` keywords name the active SMFPRMxx/IECIOSxx member(s) (SMF
@@ -978,8 +981,8 @@ roles/zos_extract/
                              # definitions, named by IEASYSxx's own
                              # COUPLE= keyword; tag couple_snapshot;
                              # writes couple_snapshot.txt, ingested via
-                             # inventory couple -- not yet
-                             # production-validated
+                             # inventory couple -- CONFIRMED against a
+                             # real member
     grsrnl_snapshot.yml      # explicit capture of the active GRSRNLxx
                              # member(s) -- global resource
                              # serialization resource name lists, named

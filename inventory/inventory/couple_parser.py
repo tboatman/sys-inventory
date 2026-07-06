@@ -34,10 +34,9 @@ CFRMPOL(...)/INTERVAL(...)/...) individually.
 The COUPLE/DATA statement vocabulary is confirmed against IBM's z/OS MVS
 Setting Up a Sysplex reference.
 
-NOT YET VALIDATED against a real COUPLExx member -- the statement
-vocabulary is confirmed, but the parser itself hasn't been checked
-against a real member, same caveat autor_parser.py/sched_parser.py carry
-for their own unconfirmed parsing surfaces.
+CONFIRMED against a real COUPLExx member, including one COUPLE
+statement followed by four distinct DATA TYPE(...) statements (CFRM,
+LOGR, BPXMCDS, WLM), all kept in order rather than collapsed.
 """
 from __future__ import annotations
 

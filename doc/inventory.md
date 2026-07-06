@@ -518,7 +518,7 @@ line and every continuation line alike, carries its own trailing
 `/* ... */` comment, stripped cleanly without bleeding into the next
 entry.
 
-### `inventory couple` (not yet production-validated)
+### `inventory couple`
 
 XCF/sysplex couple dataset definitions — every `COUPLE`/`DATA TYPE(...)`
 statement in the active COUPLExx member(s) — if you ingested a
@@ -531,10 +531,16 @@ Category C domains from `doc/TODO.md` "9.2":
 $ inventory couple
 COUPLE SYSPLEX(PLEX1) PCOUPLE(SYS1.XCF.CDS01,VOL001) ACOUPLE(SYS1.XCF.CDS02,VOL002)  [COUPLE00]
 DATA TYPE(LOGR) PCOUPLE(SYS1.LOGR.CDS01,VOL001) ACOUPLE(SYS1.LOGR.CDS02,VOL002)  [COUPLE00]
+COUPLE SYSPLEX(&SYSPLEX) PCOUPLE(SYS1.ADCDPL.CDS01) ACOUPLE(SYS1.ADCDPL.CDS02)  [COUPLE01]
+DATA TYPE(CFRM) PCOUPLE(SYS1.ADCDPL.CFRM.CDS01) ACOUPLE(SYS1.ADCDPL.CFRM.CDS02)  [COUPLE01]
+DATA TYPE(LOGR) PCOUPLE(SYS1.ADCDPL.LOGR.CDS01) ACOUPLE(SYS1.ADCDPL.LOGR.CDS02)  [COUPLE01]
+DATA TYPE(BPXMCDS) PCOUPLE(SYS1.ADCDPL.OMVS.CDS01) ACOUPLE(SYS1.ADCDPL.OMVS.CDS02)  [COUPLE01]
+DATA TYPE(WLM) PCOUPLE(SYS1.ADCDPL.WLM.CDS01) ACOUPLE(SYS1.ADCDPL.WLM.CDS02)  [COUPLE01]
 ```
 
-**Built from IBM's z/OS MVS Setting Up a Sysplex reference — not yet
-checked against a real COUPLExx member.**
+CONFIRMED against a real COUPLExx member (the `COUPLE01` rows above) --
+one `COUPLE` statement followed by four distinct `DATA TYPE(...)`
+statements, all kept in order rather than collapsed.
 
 ### `inventory grsrnl` (not yet production-validated)
 
@@ -550,8 +556,7 @@ RNLDEF RNL(INCL) TYPE(GENERIC) QNAME(SYSDSN)  [GRSRNL00]
 ```
 
 **Built from IBM's documented GRS resource name list syntax — not yet
-checked against a real GRSRNLxx member**, same caveat `inventory couple`
-carries.
+checked against a real GRSRNLxx member.**
 
 ### `inventory smf`
 
