@@ -1106,14 +1106,29 @@ domain):**
   `{"RNLDEF"}`), `grsrnl_statements` table, `inventory grsrnl` command,
   `grsrnl_snapshot.yml`. NOT YET VALIDATED against a real GRSRNLxx
   member.
+- `SMF`/`SMFPRMxx` -- IMPLEMENTED: `SmfStatement`/`smf_parser.py`
+  (**partial** statement vocabulary: `ACTIVE`, `DSNAME`, `PROMPT`,
+  `NOPROMPT`, `SYS`, `SUBSYS` -- SMFPRMxx's full documented keyword
+  surface is materially larger; broaden once more is confirmed),
+  `smf_statements` table, `inventory smf` command, `smf_snapshot.yml`.
+  **Real member name is `SMFPRMxx` (e.g. `SMFPRM00`), not `SMFxx`** as
+  this table originally had it -- another naming error like `COUPLE=`'s,
+  corrected after checking a real IBM source. NOT YET VALIDATED against
+  a real SMFPRMxx member.
+- `IOS`/`IECIOSxx` -- IMPLEMENTED: `IosStatement`/`ios_parser.py`
+  (statement vocabulary `MIH`, `HOTIO`, `TERMINAL`, `FICON`, `STORAGE`,
+  `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`, `MIDAW`, `HYPERPAV`,
+  `HYPERWRITE`, `ZHPF`), `ios_statements` table, `inventory ios`
+  command, `ios_snapshot.yml`. NOT YET VALIDATED against a real
+  IECIOSxx member.
 - `CATALOG`/`IGGCATxx`,
   `CON`/`CONSOLxx`, `DIAG`/`DIAGxx`,
   `GRSCNF`/`GRSCNFxx`,
-  `IOS`/`IECIOSxx`, `SMS`/`IGDSMSxx` (**naming collision to watch**: this
+  `SMS`/`IGDSMSxx` (**naming collision to watch**: this
   project already has an unrelated `sms` tag/`SmsStorageGroup` table for
   the *live* `D SMS,STORGRP` console command -- this new one needs its own
   distinct tag, e.g. `igdsms_snapshot`, and its own table name, not
-  `sms_*`), `SMF`/`SMFxx`, and `PROG`/`PROGxx`
+  `sms_*`), and `PROG`/`PROGxx`
   (**the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
   all distinct sub-statement types inside one PROGxx member; treat as its
   own careful pass, not a drive-by addition alongside the simpler ones)

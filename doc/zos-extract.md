@@ -413,6 +413,8 @@ list of what it looks for in the directory you point it at:
 | Active SCHEDxx member snapshot (PPT/Program Properties Table entries, named by IEASYSxx's own SCH=) | `sched_snapshot` (default filename `sched_snapshot.txt`, override via `zos_extract_sched_snapshot_outfile`) | ansible-only, `sched_snapshot.yml` -- not yet production-validated |
 | Active COUPLExx member snapshot (XCF/sysplex couple dataset definitions, named by IEASYSxx's own COUPLE=) | `couple_snapshot` (default filename `couple_snapshot.txt`, override via `zos_extract_couple_snapshot_outfile`) | ansible-only, `couple_snapshot.yml` -- not yet production-validated |
 | Active GRSRNLxx member snapshot (global resource serialization resource name lists, named by IEASYSxx's own GRSRNL=) | `grsrnl_snapshot` (default filename `grsrnl_snapshot.txt`, override via `zos_extract_grsrnl_snapshot_outfile`) | ansible-only, `grsrnl_snapshot.yml` -- not yet production-validated |
+| Active SMFPRMxx member snapshot (SMF recording configuration, named by IEASYSxx's own SMF=) | `smf_snapshot` (default filename `smf_snapshot.txt`, override via `zos_extract_smf_snapshot_outfile`) | ansible-only, `smf_snapshot.yml` -- not yet production-validated |
+| Active IECIOSxx member snapshot (I/O related parameters, named by IEASYSxx's own IOS=) | `ios_snapshot` (default filename `ios_snapshot.txt`, override via `zos_extract_ios_snapshot_outfile`) | ansible-only, `ios_snapshot.yml` -- not yet production-validated |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

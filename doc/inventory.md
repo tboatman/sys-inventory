@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Twenty more files —
+   file naming and how to produce each file. Twenty-two more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -139,15 +139,20 @@ just renaming them into that shape for a quick demo.)
    PPT/Program Properties Table entries, named by IEASYSxx's own `SCH=`
    keyword), `couple_snapshot.txt` (the active COUPLExx member(s) —
    XCF/sysplex couple dataset definitions, named by IEASYSxx's own
-   `COUPLE=` keyword), and `grsrnl_snapshot.txt` (the active GRSRNLxx
+   `COUPLE=` keyword), `grsrnl_snapshot.txt` (the active GRSRNLxx
    member(s) — global resource serialization resource name lists, named
-   by IEASYSxx's own `GRSRNL=` keyword)
+   by IEASYSxx's own `GRSRNL=` keyword), `smf_snapshot.txt` (the active
+   SMFPRMxx member(s) — SMF recording configuration, named by
+   IEASYSxx's own `SMF=` keyword), and `ios_snapshot.txt` (the active
+   IECIOSxx member(s) — I/O related parameters, named by IEASYSxx's own
+   `IOS=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
-   `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`
+   `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
+   `ios_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -159,8 +164,9 @@ just renaming them into that shape for a quick demo.)
    and especially `wlm_zosmf.txt` carry the strongest versions of that
    caveat, alongside `bpxprm_snapshot.txt`/`devsup_snapshot.txt`/
    `opt_snapshot.txt`/`clock_snapshot.txt`/`autor_snapshot.txt`/
-   `sched_snapshot.txt`/`couple_snapshot.txt`/`grsrnl_snapshot.txt` (all
-   built from documented statement syntax only, no real sample yet);
+   `sched_snapshot.txt`/`couple_snapshot.txt`/`grsrnl_snapshot.txt`/
+   `smf_snapshot.txt`/`ios_snapshot.txt` (all built from documented
+   statement syntax only, no real sample yet);
    `cics_deepening.txt`'s own CSD-report portion is right behind
    them — see their own sections below. `parmlib_snapshot.txt` reuses the
    already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
@@ -526,6 +532,49 @@ RNLDEF RNL(INCL) TYPE(GENERIC) QNAME(SYSDSN)  [GRSRNL00]
 
 **Built from IBM's documented GRS resource name list syntax — not yet
 checked against a real GRSRNLxx member**, same caveat `inventory couple`
+carries.
+
+### `inventory smf` (not yet production-validated)
+
+SMF (System Management Facilities) recording configuration — every
+statement in the active SMFPRMxx member(s) — if you ingested a
+`smf_snapshot.txt`. Named by IEASYSxx's own `SMF=` keyword — note the
+real member name is `SMFPRMxx` (e.g. `SMFPRM00`), not `SMFxx`. Fifth of
+the Category C domains from `doc/TODO.md` "9.2":
+
+```
+$ inventory smf
+ACTIVE   [SMFPRM00]
+DSNAME (SYS1.MAN1,SYS1.MAN2)  [SMFPRM00]
+NOPROMPT   [SMFPRM00]
+SUBSYS (STC,NOTYPE(17))  [SMFPRM00]
+SYS (NOTYPE(14:19,62:69,99))  [SMFPRM00]
+```
+
+**Only a partial statement vocabulary is captured** (`ACTIVE`, `DSNAME`,
+`PROMPT`, `NOPROMPT`, `SYS`, `SUBSYS`) — SMFPRMxx's full documented
+keyword surface is materially larger; an unrecognized statement keyword
+folds into the preceding statement's operands instead of starting its
+own. **Not yet checked against a real SMFPRMxx member**, same caveat
+`inventory grsrnl` carries.
+
+### `inventory ios` (not yet production-validated)
+
+I/O related parameters — every `MIH`/`HOTIO`/`TERMINAL`/`FICON`/
+`STORAGE`/`CAPTUCB`/`EKM`/`RECOVERY`/`CTRACE`/`MIDAW`/`HYPERPAV`/
+`HYPERWRITE`/`ZHPF` statement in the active IECIOSxx member(s) — if you
+ingested an `ios_snapshot.txt`. Named by IEASYSxx's own `IOS=` keyword.
+Sixth of the Category C domains from `doc/TODO.md` "9.2":
+
+```
+$ inventory ios
+HOTIO DEV=(0100-01FF),TIME=1000  [IECIOS00]
+MIH TIME=00:15:00,DEV=(0100-01FF)  [IECIOS00]
+ZHPF YES  [IECIOS00]
+```
+
+**Built from IBM's z/OS MVS Initialization and Tuning Reference — not
+yet checked against a real IECIOSxx member**, same caveat `inventory smf`
 carries.
 
 ### `inventory active`

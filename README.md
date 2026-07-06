@@ -17,7 +17,7 @@ configuration/definition data — a live snapshot of what's actually
 running right now (active jobs/tasks and USS processes).
 
 Beyond that core chain, it also covers: the active PARMLIB concatenation
-and IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx member content actually in effect (not just where
+and IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx member content actually in effect (not just where
 PARMLIB search order looks); SMP/E zones/FMIDs across multiple CSIs, plus
 SMP/E's own authoritative per-CSI zone census; mounted USS filesystems;
 JES2's own initialization statements; the network stack (VTAM major
@@ -66,7 +66,7 @@ your laptop, a CI runner, wherever.
    [`doc/zos-extract.md`](doc/zos-extract.md) for exactly what to
    run and in what order; it's written assuming no prior familiarity with
    any of this. **`ansible/`** covers everything since — the active
-   PARMLIB/IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx snapshots, multi-CSI SMP/E zone discovery, USS
+   PARMLIB/IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx snapshots, multi-CSI SMP/E zone discovery, USS
    mounts, JES2 init, VTAM/TCP-IP, SMS, WLM, DB2 catalog, and CICS deepening
    — as well as re-running the original ten across many LPARs at once; see
    [`doc/ansible.md`](doc/ansible.md). Either path writes what it finds as
@@ -162,7 +162,9 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_autor_snapshot.txt   /tmp/demo/autor_snapshot.txt && \
   cp tests/fixtures/sample_sched_snapshot.txt   /tmp/demo/sched_snapshot.txt && \
   cp tests/fixtures/sample_couple_snapshot.txt  /tmp/demo/couple_snapshot.txt && \
-  cp tests/fixtures/sample_grsrnl_snapshot.txt  /tmp/demo/grsrnl_snapshot.txt
+  cp tests/fixtures/sample_grsrnl_snapshot.txt  /tmp/demo/grsrnl_snapshot.txt && \
+  cp tests/fixtures/sample_smf_snapshot.txt     /tmp/demo/smf_snapshot.txt && \
+  cp tests/fixtures/sample_ios_snapshot.txt     /tmp/demo/ios_snapshot.txt
 inventory --db /tmp/demo/demo.db ingest /tmp/demo
 inventory --db /tmp/demo/demo.db lineage MYPROC
 inventory --db /tmp/demo/demo.db subsystems
@@ -190,7 +192,7 @@ inventory --db /tmp/demo/demo.db ieasys
 See [`doc/inventory.md`](doc/inventory.md) for the rest of the commands
 (`vtam-options`, `vtam-topology`, `tcpip-profile`, `wlm-zosmf`, `db2-plans`,
 `cics-sit`, `cics-csd`, `bpxprm`, `devsup`, `opt`, `clock`, `autor`, `sched`,
-`couple`, `grsrnl`,
+`couple`, `grsrnl`, `smf`, `ios`,
 `zone-index`, `zones`, `fmids`,
 `zone-gaps`, `racf-connections`,
 `racf-dataset-profiles`, `racf-dataset-access`, `racf-resource-profiles`,
@@ -236,7 +238,7 @@ every target zone), and multiple SMP/E CSIs, without code changes — see
 "Scaling" in `doc/inventory.md`.
 
 Since that core slice, the pipeline has grown a lot more: the active
-PARMLIB/IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx snapshots, SMP/E's own authoritative per-CSI
+PARMLIB/IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx snapshots, SMP/E's own authoritative per-CSI
 zone census, USS mounts, JES2 init statements, VTAM (major nodes, start
 options, APPN topology), TCP/IP (home addresses, `PROFILE.TCPIP`), SMS
 storage groups, the active WLM policy, installed DB2 packages/plans, and
