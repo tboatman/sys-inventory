@@ -761,16 +761,16 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   "missing." That comparison belongs with 8f's standalone `zones` table
   below, not bolted onto `zone_index` early.
 
-### 8e. Capture `LMOD=` for module resolution
+### 8e. Capture `LMOD=` for module resolution -- IMPLEMENTED
 
-- `smpe_parser.py`'s `LIST MOD` section currently keys `module_fmid` by
-  the *element* name (from the `LASTUPD` line) and ignores the
-  `LIBRARIES`/`LMOD` lines entirely. Real load-module names can differ
-  from element names (one SYSMOD can package an element under a different
-  load-module name). Add an `lmod_fmid: dict[str, str]` to `Zone` (or
-  repoint `module_fmid`'s key), and have `resolver._fmid_for_module()`
-  look up by the actual `PGM=` name against LMOD, falling back to the
-  element name for backward compatibility with the existing fixture.
+- `smpe_parser.py`'s `LIST MOD` section previously keyed `module_fmid`
+  only by the *element* name (from the `LASTUPD` line) and ignored the
+  `LMOD=` line entirely. `Zone` now has a separate `lmod_fmid: dict[str,
+  str]`, keyed by the real load-module name from `LIST MOD`'s own `LMOD=`
+  line (which can differ from the element name), and
+  `resolver._fmid_for_module()` checks `lmod_fmid` first, falling back to
+  `module_fmid` (by element name) for zones ingested before this existed
+  or an element with no `LMOD=` line at all.
 
 ### 8f. Standalone `zones`/`fmids` tables + CLI -- IMPLEMENTED
 
