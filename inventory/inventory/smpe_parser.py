@@ -57,9 +57,13 @@ _DDDEF_ENTRY = re.compile(
 #             RMID            = JGD3219
 #             LMOD            = ADMAET0A
 # -- the element name and its FMID are on separate lines, so track the
-# pending element name from the LASTUPD line until the FMID line arrives.
+# pending element name from the LASTUPD line until the FMID line arrives,
+# and keep that FMID pending afterward too so a later LMOD= line in the
+# same block (the real load-module name, which can differ from the
+# element name -- see doc/TODO.md "8e") can also be tied to it.
 _FILE_MODULE = re.compile(r"^\s*([A-Za-z0-9$#@]+)\s+LASTUPD\b", re.IGNORECASE)
 _FILE_FMID = re.compile(r"^\s*FMID\s*=\s*([A-Za-z0-9$#@]+)", re.IGNORECASE)
+_FILE_LMOD = re.compile(r"^\s*LMOD\s*=\s*([A-Za-z0-9$#@]+)", re.IGNORECASE)
 # LIST SYSMOD prints one entry per SYSMOD as a multi-line block. Two shapes
 # seen in real output:
 #   WA64497   TYPE            = SUPERSEDED       <- TYPE line IS the status
@@ -81,6 +85,7 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
     current_zone: Zone | None = None
     section = None  # one of None, "DDDEF", "FILE", "SYSMOD"
     pending_modname: str | None = None
+    pending_fmid: str | None = None
     pending_sysmod: str | None = None
     csi_name: str | None = None
 
@@ -100,6 +105,7 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
             section = _SECTION_BY_TYPE[rtype.upper()]
             current_zone = zones.setdefault(zname, Zone(name=zname))
             pending_modname = None
+            pending_fmid = None
             pending_sysmod = None
             continue
 
@@ -109,6 +115,7 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
         if _SECTION_FILE.search(line):
             section = "FILE"
             pending_modname = None
+            pending_fmid = None
             continue
         if _SECTION_SYSMOD.search(line):
             section = "SYSMOD"
@@ -134,11 +141,16 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
             mod_match = _FILE_MODULE.match(line)
             if mod_match:
                 pending_modname = mod_match.group(1)
+                pending_fmid = None
                 continue
             fmid_match = _FILE_FMID.match(line)
             if fmid_match and pending_modname:
                 current_zone.module_fmid[pending_modname] = fmid_match.group(1)
-                pending_modname = None
+                pending_fmid = fmid_match.group(1)
+                continue
+            lmod_match = _FILE_LMOD.match(line)
+            if lmod_match and pending_fmid:
+                current_zone.lmod_fmid[lmod_match.group(1)] = pending_fmid
 
         elif section == "SYSMOD":
             hdr_match = _SYSMOD_HDR.match(line)
@@ -196,6 +208,7 @@ def merge_zones(*zone_maps: dict[str, Zone]) -> dict[str, Zone]:
             target.csi = zone.csi or target.csi
             target.dddefs.update(zone.dddefs)
             target.module_fmid.update(zone.module_fmid)
+            target.lmod_fmid.update(zone.lmod_fmid)
             target.fmid_status.update(zone.fmid_status)
     return merged
 

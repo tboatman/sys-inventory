@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from inventory import jcl_parser, smpe_parser
-from inventory.models import JclStep, ProcMember
+from inventory.models import JclStep, ProcMember, Zone
 from inventory.resolver import resolve_all
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -114,3 +114,44 @@ def test_duplicate_member_name_resolves_to_lowest_numbered_library():
 
     assert list(lineage.keys()) == ["MYPROC"]
     assert lineage["MYPROC"][0].pgm == "FIRSTPGM"
+
+
+def test_pgm_resolves_via_lmod_fmid_when_it_differs_from_element_name():
+    """Per doc/TODO.md's '8e', a JCL PGM= names the real load-module name,
+    which can differ from the SMP/E element name module_fmid is keyed by
+    -- lmod_fmid must be checked first."""
+    zone = Zone(
+        name="TZONE1",
+        dddefs={"STEPLIB": "MY.LOADLIB"},
+        module_fmid={"SAMPMOD": "USER001"},   # keyed by element name
+        lmod_fmid={"SAMPMD1": "USER001"},      # keyed by real load-module name
+    )
+    member = ProcMember(
+        name="LMODPROC",
+        library="00_proclib",
+        steps=[JclStep(step_name="STEP1", pgm="SAMPMD1", steplib="MY.LOADLIB")],
+    )
+
+    lineage = resolve_all([member], zones={"TZONE1": zone}, lnklst=[])
+
+    assert lineage["LMODPROC"][0].fmid == "USER001"
+
+
+def test_pgm_falls_back_to_module_fmid_when_no_lmod_entry():
+    """Zones ingested before LMOD= was captured (or an element with no
+    LMOD= line at all) still resolve via the element-name-keyed
+    module_fmid, unchanged."""
+    zone = Zone(
+        name="TZONE1",
+        dddefs={"STEPLIB": "MY.LOADLIB"},
+        module_fmid={"SAMPMOD": "USER001"},
+    )
+    member = ProcMember(
+        name="LMODPROC",
+        library="00_proclib",
+        steps=[JclStep(step_name="STEP1", pgm="SAMPMOD", steplib="MY.LOADLIB")],
+    )
+
+    lineage = resolve_all([member], zones={"TZONE1": zone}, lnklst=[])
+
+    assert lineage["LMODPROC"][0].fmid == "USER001"

@@ -27,6 +27,18 @@ def test_module_fmid_parsed_per_zone():
     assert zones["TZONE2"].module_fmid == {"SAMPMOD": "USER001"}
 
 
+def test_lmod_fmid_parsed_when_real_load_module_name_differs_from_element():
+    zones = load_zones()
+    # SAMPMOD's real load-module name (LMOD=) is SAMPMD1, distinct from the
+    # element name -- module_fmid stays keyed by element name, lmod_fmid is
+    # the new lookup keyed by the real load-module name JCL PGM= actually
+    # names (see doc/TODO.md "8e").
+    assert zones["TZONE2"].lmod_fmid == {"SAMPMD1": "USER001"}
+    # TZONE1's entries have no LMOD= line at all -- lmod_fmid stays empty,
+    # not populated with a guessed element-name fallback.
+    assert zones["TZONE1"].lmod_fmid == {}
+
+
 def test_fmid_status_parsed():
     zones = load_zones()
     assert zones["TZONE1"].fmid_status == {"HLA2280": "APPLIED", "HBB7790": "APPLIED"}

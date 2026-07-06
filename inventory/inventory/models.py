@@ -55,8 +55,16 @@ class Zone:
                      # line in the *smplist*.txt file (see smpe_parser.py);
                      # "" if the file predates that sentinel or omits it.
     dddefs: dict[str, str] = field(default_factory=dict)   # ddname -> DSN
-    # module name -> owning FMID, derived from LIST FILE / LIST SYSMOD
+    # element name -> owning FMID, derived from LIST MOD's LASTUPD/FMID lines
     module_fmid: dict[str, str] = field(default_factory=dict)
+    # real load-module name -> owning FMID, derived from LIST MOD's own
+    # LMOD= line. A SYSMOD can package an element under a load-module name
+    # that differs from the element name in module_fmid above, and it's the
+    # load-module name a JCL PGM= actually names -- see doc/TODO.md ("8e")
+    # and resolver._fmid_for_module(), which checks this first and falls
+    # back to module_fmid for compatibility with data captured before this
+    # existed.
+    lmod_fmid: dict[str, str] = field(default_factory=dict)
     # FMID -> status (e.g. APPLIED, ACCEPTED), derived from LIST SYSMOD
     fmid_status: dict[str, str] = field(default_factory=dict)
 

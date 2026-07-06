@@ -30,12 +30,17 @@ def dataset_zone(dsn: str, zones: dict[str, Zone]) -> str | None:
 
 
 def _fmid_for_module(pgm: str, zone_name: str | None, zones: dict[str, Zone]) -> str | None:
+    """Resolve PGM= against the zone's real load-module names (LIST MOD's
+    own LMOD= line) first, since that's the name JCL actually invokes and
+    it can differ from the element name -- falling back to module_fmid
+    (keyed by element name) for zones ingested before LMOD= was captured
+    (see doc/TODO.md "8e")."""
     if zone_name is None:
         return None
     zone = zones.get(zone_name)
     if zone is None:
         return None
-    return zone.module_fmid.get(pgm)
+    return zone.lmod_fmid.get(pgm) or zone.module_fmid.get(pgm)
 
 
 def resolve_member(

@@ -25,6 +25,8 @@ TZONE2    MOD ENTRIES
 SAMPMOD   LASTUPD         = USER001   TYPE=ADD
           LIBRARIES       = DISTLIB=AUSRLINK
           FMID            = USER001
+          RMID            = USER001
+          LMOD            = SAMPMD1
 
 TZONE1    SYSMOD ENTRIES
 
