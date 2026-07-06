@@ -27,19 +27,17 @@ AUTORxx/COUPLExx already have, so this module just calls
 parmlib_engines.statement_engine() with SMFPRMxx's own top-level
 keyword vocabulary instead of hand-writing another copy of that logic.
 
-PARTIAL statement vocabulary: only ACTIVE, DSNAME, PROMPT, NOPROMPT,
-SYS, and SUBSYS were confidently confirmed against IBM's SMFPRMxx
-documentation this round -- SMFPRMxx's full documented keyword surface
-is materially larger (e.g. JWT, MAXDORM, STATUS, SID, LISTDSN and
-others). An unrecognized top-level keyword gets folded into the
-preceding statement's operands instead of starting its own, the same
+Statement vocabulary CONFIRMED against a real SMFPRMxx member: ACTIVE,
+DSNAME, PROMPT, NOPROMPT, SYS, SUBSYS, plus REC, MAXDORM, STATUS, JWT,
+SID, LISTDSN, INTVAL, SYNCVAL, AUTHSETSMF added after the real member
+exercised them (previously folded into the preceding statement's
+operands since they weren't yet in the vocabulary -- see doc/TODO.md
+"9.2"). SMFPRMxx's full documented keyword surface may still be larger
+than this list; an unrecognized top-level keyword still gets folded
+into the preceding statement instead of starting its own, the same
 documented limitation every other statement_engine() consumer here
-carries -- broaden _SMF_STATEMENT_KEYWORDS once more of the real
-keyword set is confirmed.
-
-NOT YET VALIDATED against a real SMFPRMxx member -- same caveat
-couple_parser.py/grsrnl_parser.py carry for their own unconfirmed
-parsing surfaces, plus the extra "partial vocabulary" caveat above.
+carries -- broaden _SMF_STATEMENT_KEYWORDS further if a future real
+member exercises one not yet in this set.
 """
 from __future__ import annotations
 
@@ -56,6 +54,15 @@ _SMF_STATEMENT_KEYWORDS = {
     "NOPROMPT",
     "SYS",
     "SUBSYS",
+    "REC",
+    "MAXDORM",
+    "STATUS",
+    "JWT",
+    "SID",
+    "LISTDSN",
+    "INTVAL",
+    "SYNCVAL",
+    "AUTHSETSMF",
 }
 
 

@@ -553,7 +553,7 @@ RNLDEF RNL(INCL) TYPE(GENERIC) QNAME(SYSDSN)  [GRSRNL00]
 checked against a real GRSRNLxx member**, same caveat `inventory couple`
 carries.
 
-### `inventory smf` (not yet production-validated)
+### `inventory smf`
 
 SMF (System Management Facilities) recording configuration — every
 statement in the active SMFPRMxx member(s) — if you ingested a
@@ -568,14 +568,26 @@ DSNAME (SYS1.MAN1,SYS1.MAN2)  [SMFPRM00]
 NOPROMPT   [SMFPRM00]
 SUBSYS (STC,NOTYPE(17))  [SMFPRM00]
 SYS (NOTYPE(14:19,62:69,99))  [SMFPRM00]
+REC (PERM)  [SMFPRM01]
+MAXDORM (3000)  [SMFPRM01]
+STATUS (010000)  [SMFPRM01]
+JWT (0400)  [SMFPRM01]
+SID (&SYSNAME(1:4))  [SMFPRM01]
+LISTDSN   [SMFPRM01]
+INTVAL (05)  [SMFPRM01]
+SYNCVAL (05)  [SMFPRM01]
+AUTHSETSMF   [SMFPRM01]
 ```
 
-**Only a partial statement vocabulary is captured** (`ACTIVE`, `DSNAME`,
-`PROMPT`, `NOPROMPT`, `SYS`, `SUBSYS`) — SMFPRMxx's full documented
-keyword surface is materially larger; an unrecognized statement keyword
-folds into the preceding statement's operands instead of starting its
-own. **Not yet checked against a real SMFPRMxx member**, same caveat
-`inventory grsrnl` carries.
+CONFIRMED against a real SMFPRMxx member (the `SMFPRM01` rows above) --
+its statement vocabulary grew from a **partial** `ACTIVE`/`DSNAME`/
+`PROMPT`/`NOPROMPT`/`SYS`/`SUBSYS` to also include `REC`/`MAXDORM`/
+`STATUS`/`JWT`/`SID`/`LISTDSN`/`INTVAL`/`SYNCVAL`/`AUTHSETSMF`, all of
+which the real member exercised and which would otherwise have been
+silently folded into the preceding statement's operands. SMFPRMxx's
+full documented keyword surface may still be larger than this list; an
+unrecognized statement keyword still folds into the preceding
+statement's operands instead of starting its own.
 
 ### `inventory ios` (not yet production-validated)
 
@@ -593,8 +605,7 @@ ZHPF YES  [IECIOS00]
 ```
 
 **Built from IBM's z/OS MVS Initialization and Tuning Reference — not
-yet checked against a real IECIOSxx member**, same caveat `inventory smf`
-carries.
+yet checked against a real IECIOSxx member.**
 
 ### `inventory active`
 

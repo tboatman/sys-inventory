@@ -219,14 +219,18 @@ recording configuration, I/O related parameters) -- note the real
 member name for `SMF=` is `SMFPRMxx` (e.g. `SMFPRM00`), not `SMFxx`,
 another naming correction like `COUPLE=`'s. Fetched the same way and
 written to `smf_snapshot.txt`/`ios_snapshot.txt` -- ingested via
-`inventory smf`/`inventory ios`, **not yet validated against a real
-member**. SMFPRMxx's statement vocabulary captured here (`ACTIVE`,
-`DSNAME`, `PROMPT`, `NOPROMPT`, `SYS`, `SUBSYS`) is only **partial** --
-its full documented keyword surface is materially larger; IECIOSxx's
-full statement vocabulary (`MIH`, `HOTIO`, `TERMINAL`, `FICON`,
-`STORAGE`, `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`, `MIDAW`, `HYPERPAV`,
-`HYPERWRITE`, `ZHPF`) is confirmed against IBM's z/OS MVS
-Initialization and Tuning Reference.
+`inventory smf`/`inventory ios`. `smf_parser.py` is now CONFIRMED
+against a real SMFPRMxx member: its statement vocabulary grew from a
+**partial** `ACTIVE`/`DSNAME`/`PROMPT`/`NOPROMPT`/`SYS`/`SUBSYS` to also
+include `REC`/`MAXDORM`/`STATUS`/`JWT`/`SID`/`LISTDSN`/`INTVAL`/
+`SYNCVAL`/`AUTHSETSMF`, all of which the real member exercised and which
+would otherwise have been silently folded into the preceding
+statement's operands -- its full documented keyword surface may still
+be larger. `ios_snapshot`/`IECIOSxx` remains **not yet validated against
+a real member**; its full statement vocabulary (`MIH`, `HOTIO`,
+`TERMINAL`, `FICON`, `STORAGE`, `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`,
+`MIDAW`, `HYPERPAV`, `HYPERWRITE`, `ZHPF`) is confirmed against IBM's
+z/OS MVS Initialization and Tuning Reference.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -988,8 +992,8 @@ roles/zos_extract/
                              # member(s) -- SMF recording configuration,
                              # named by IEASYSxx's own SMF= keyword; tag
                              # smf_snapshot; writes smf_snapshot.txt,
-                             # ingested via inventory smf -- not yet
-                             # production-validated
+                             # ingested via inventory smf -- CONFIRMED
+                             # against a real member
     ios_snapshot.yml         # explicit capture of the active IECIOSxx
                              # member(s) -- I/O related parameters,
                              # named by IEASYSxx's own IOS= keyword; tag

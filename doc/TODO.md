@@ -1137,15 +1137,20 @@ domain):**
   `{"RNLDEF"}`), `grsrnl_statements` table, `inventory grsrnl` command,
   `grsrnl_snapshot.yml`. NOT YET VALIDATED against a real GRSRNLxx
   member.
-- `SMF`/`SMFPRMxx` -- IMPLEMENTED: `SmfStatement`/`smf_parser.py`
-  (**partial** statement vocabulary: `ACTIVE`, `DSNAME`, `PROMPT`,
-  `NOPROMPT`, `SYS`, `SUBSYS` -- SMFPRMxx's full documented keyword
-  surface is materially larger; broaden once more is confirmed),
-  `smf_statements` table, `inventory smf` command, `smf_snapshot.yml`.
-  **Real member name is `SMFPRMxx` (e.g. `SMFPRM00`), not `SMFxx`** as
-  this table originally had it -- another naming error like `COUPLE=`'s,
-  corrected after checking a real IBM source. NOT YET VALIDATED against
-  a real SMFPRMxx member.
+- `SMF`/`SMFPRMxx` -- IMPLEMENTED and CONFIRMED against a real SMFPRMxx
+  member: `SmfStatement`/`smf_parser.py`, `smf_statements` table,
+  `inventory smf` command, `smf_snapshot.yml`. Statement vocabulary is
+  now `ACTIVE`, `DSNAME`, `PROMPT`, `NOPROMPT`, `SYS`, `SUBSYS`, plus
+  `REC`, `MAXDORM`, `STATUS`, `JWT`, `SID`, `LISTDSN`, `INTVAL`,
+  `SYNCVAL`, `AUTHSETSMF` -- the last nine were missing from the
+  original **partial** vocabulary and got silently folded into
+  `NOPROMPT`'s operands until the real member exercised them; broaden
+  `_SMF_STATEMENT_KEYWORDS` further if a future real member exercises
+  one not yet in this set (SMFPRMxx's full documented keyword surface
+  may still be larger). **Real member name is `SMFPRMxx` (e.g.
+  `SMFPRM00`), not `SMFxx`** as this table originally had it -- another
+  naming error like `COUPLE=`'s, corrected after checking a real IBM
+  source.
 - `IOS`/`IECIOSxx` -- IMPLEMENTED: `IosStatement`/`ios_parser.py`
   (statement vocabulary `MIH`, `HOTIO`, `TERMINAL`, `FICON`, `STORAGE`,
   `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`, `MIDAW`, `HYPERPAV`,

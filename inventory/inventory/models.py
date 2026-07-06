@@ -451,17 +451,16 @@ class SmfStatement:
     smf_snapshot.yml and parsed by smf_parser.py. Fifth of the Category
     C (statement-oriented) active-PARMLIB-member domains from
     doc/TODO.md "9.2" -- reuses parmlib_engines.statement_engine() with
-    a PARTIAL statement vocabulary (ACTIVE, DSNAME, PROMPT, NOPROMPT,
-    SYS, SUBSYS) -- SMFPRMxx's full documented keyword surface is larger
-    than what could be confidently confirmed this round; an unrecognized
-    top-level statement keyword gets folded into the preceding
-    statement's operands instead of starting its own, the same
+    a statement vocabulary CONFIRMED against a real SMFPRMxx member
+    (ACTIVE, DSNAME, PROMPT, NOPROMPT, SYS, SUBSYS, REC, MAXDORM,
+    STATUS, JWT, SID, LISTDSN, INTVAL, SYNCVAL, AUTHSETSMF) -- the last
+    nine were added after the real member exercised them (previously
+    folded into the preceding statement's operands). SMFPRMxx's full
+    documented keyword surface may still be larger than this list; an
+    unrecognized top-level statement keyword still gets folded into the
+    preceding statement's operands instead of starting its own, the same
     documented limitation every other statement_engine() consumer here
-    carries.
-
-    NOT YET VALIDATED against a real SMFPRMxx member -- same caveat
-    couple_parser.py/grsrnl_parser.py carry for their own unconfirmed
-    parsing surfaces, plus the extra "partial vocabulary" caveat above."""
+    carries."""
 
     stmt: str
     operands: str
