@@ -93,6 +93,8 @@ def test_ingest_populates_every_domain(full_input_dir, tmp_path):
         assert any(row["apf_authorized"] is not None for row in dfhrpl)
         assert len(store.all_cics_sit_overrides(conn)) > 0
         assert len(store.all_cics_csd_definitions(conn)) > 0
+        assert len(store.all_zones(conn)) > 0
+        assert len(store.all_fmids(conn)) > 0
     finally:
         conn.close()
 
@@ -185,7 +187,7 @@ NO_ARG_SUBCOMMANDS = [
     "uss-mounts", "jes2parm", "vtam-majnodes", "vtam-options",
     "vtam-topology", "tcpip-home", "tcpip-profile", "sms-storgrps", "wlm",
     "db2-packages", "db2-plans", "wlm-zosmf", "cics-dfhrpl", "cics-sit",
-    "cics-csd", "zone-index", "report",
+    "cics-csd", "zone-index", "zones", "fmids", "zone-gaps", "report",
 ]
 
 

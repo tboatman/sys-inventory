@@ -17,6 +17,7 @@ from .models import (
     DatasetProfile,
     Db2Package,
     Db2Plan,
+    Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
     IeasysStatement,
@@ -42,6 +43,7 @@ from .models import (
     VtamTopologySummary,
     WlmPolicy,
     WlmZosmfEntry,
+    Zone,
     ZoneIndexEntry,
 )
 
@@ -357,6 +359,21 @@ CREATE TABLE IF NOT EXISTS zone_index (
     source_csi  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_zone_index_zone_name ON zone_index(zone_name);
+
+CREATE TABLE IF NOT EXISTS zones (
+    name         TEXT NOT NULL,
+    csi          TEXT,
+    dddefs_json  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_zones_name ON zones(name);
+
+CREATE TABLE IF NOT EXISTS fmids (
+    fmid    TEXT NOT NULL,
+    zone    TEXT NOT NULL,
+    status  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_fmids_fmid ON fmids(fmid);
+CREATE INDEX IF NOT EXISTS idx_fmids_zone ON fmids(zone);
 """
 
 
@@ -956,4 +973,30 @@ def save_zone_index(conn: sqlite3.Connection, entries: list[ZoneIndexEntry]) -> 
 def all_zone_index(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM zone_index ORDER BY source_csi, zone_name")
+    return cur.fetchall()
+
+
+def save_zones(conn: sqlite3.Connection, zones: list[Zone]) -> None:
+    conn.execute("DELETE FROM zones")
+    rows = [(z.name, z.csi or None, json.dumps(z.dddefs)) for z in zones]
+    conn.executemany("INSERT INTO zones (name, csi, dddefs_json) VALUES (?, ?, ?)", rows)
+    conn.commit()
+
+
+def all_zones(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM zones ORDER BY name")
+    return cur.fetchall()
+
+
+def save_fmids(conn: sqlite3.Connection, fmids: list[Fmid]) -> None:
+    conn.execute("DELETE FROM fmids")
+    rows = [(f.fmid, f.zone, f.status or None) for f in fmids]
+    conn.executemany("INSERT INTO fmids (fmid, zone, status) VALUES (?, ?, ?)", rows)
+    conn.commit()
+
+
+def all_fmids(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM fmids ORDER BY fmid, zone")
     return cur.fetchall()

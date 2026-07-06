@@ -20,6 +20,7 @@ from inventory.models import (
     DatasetProfile,
     Db2Package,
     Db2Plan,
+    Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
     IeasysStatement,
@@ -45,6 +46,7 @@ from inventory.models import (
     VtamTopologySummary,
     WlmPolicy,
     WlmZosmfEntry,
+    Zone,
     ZoneIndexEntry,
 )
 
@@ -60,7 +62,7 @@ EXPECTED_TABLES = {
     "tcpip_profile_statements", "sms_storage_groups", "wlm_policy",
     "db2_packages", "db2_plans", "wlm_zosmf_entries",
     "cics_dfhrpl_entries", "cics_sit_overrides", "cics_csd_definitions",
-    "zone_index",
+    "zone_index", "zones", "fmids",
 }
 
 
@@ -342,6 +344,16 @@ ROUND_TRIP_CASES = [
         store.save_zone_index, store.all_zone_index,
         lambda n: [ZoneIndexEntry(zone_name=f"ZONE{i}", zone_type="TARGET", csi="CSI1") for i in range(n)],
         id="zone_index",
+    ),
+    pytest.param(
+        store.save_zones, store.all_zones,
+        lambda n: [Zone(name=f"ZONE{i}", csi="CSI1") for i in range(n)],
+        id="zones",
+    ),
+    pytest.param(
+        store.save_fmids, store.all_fmids,
+        lambda n: [Fmid(fmid=f"FMID{i}", zone="ZONE1") for i in range(n)],
+        id="fmids",
     ),
 ]
 

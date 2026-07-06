@@ -12,7 +12,8 @@
 `inventory sms-storgrps`,
 `inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
 `inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
-`inventory cics-csd`, `inventory zone-index`, `inventory parmlib`,
+`inventory cics-csd`, `inventory zone-index`, `inventory zones`,
+`inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`."""
 from __future__ import annotations
 
@@ -46,7 +47,7 @@ from . import (
     wlm_parser,
     wlm_zosmf_parser,
 )
-from .models import RacfSnapshot
+from .models import Fmid, RacfSnapshot
 from .resolver import dataset_zone, resolve_all
 
 DEFAULT_DB = Path("inventory.db")
@@ -86,6 +87,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     zone_index_entries = [e for p in sorted(input_dir.glob("*smpzones*.txt"))
                            for e in smpe_parser.parse_globalzone(p)]
+
+    fmids = [
+        Fmid(fmid=fmid, zone=zone.name, status=status)
+        for zone in zones.values()
+        for fmid, status in zone.fmid_status.items()
+    ]
 
     lnklst = _read_lnklst(input_dir)
     apf = _read_apf(input_dir)
@@ -223,6 +230,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_cics_sit_overrides(conn, cics_sit_overrides)
     store.save_cics_csd_definitions(conn, cics_csd_definitions)
     store.save_zone_index(conn, zone_index_entries)
+    store.save_zones(conn, list(zones.values()))
+    store.save_fmids(conn, fmids)
     conn.close()
 
     total_steps = sum(len(v) for v in lineage.values())
@@ -250,7 +259,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(cics_dfhrpl_entries)} CICS DFHRPL entries, "
           f"{len(cics_sit_overrides)} CICS SIT overrides, "
           f"{len(cics_csd_definitions)} CICS CSD definitions, "
-          f"{len(zone_index_entries)} SMP/E zone index entries -> {args.db}")
+          f"{len(zone_index_entries)} SMP/E zone index entries, "
+          f"{len(fmids)} FMIDs -> {args.db}")
     return 0
 
 
@@ -785,10 +795,9 @@ def cmd_cics_csd(args: argparse.Namespace) -> int:
 
 def cmd_zone_index(args: argparse.Namespace) -> int:
     """SMP/E's own authoritative zone census per CSI (LIST GLOBALZONE's
-    ZONEINDEX), if any *smpzones*.txt files were ingested -- independent
-    of, and not cross-referenced against, the zones actually captured via
-    *smplist*.txt's LIST DDDEF/MOD/SYSMOD (see doc/TODO.md "8f" for the
-    planned zones/fmids tables that a real gap comparison needs)."""
+    ZONEINDEX), if any *smpzones*.txt files were ingested -- see
+    `inventory zone-gaps` for the cross-reference against the zones
+    actually captured via *smplist*.txt's LIST DDDEF/MOD/SYSMOD."""
     conn = store.connect(Path(args.db))
     rows = store.all_zone_index(conn)
     conn.close()
@@ -796,6 +805,53 @@ def cmd_zone_index(args: argparse.Namespace) -> int:
     for row in rows:
         csi_note = "" if row["csi"] == row["source_csi"] else f"  (cross-referenced from {row['source_csi']})"
         print(f"{row['zone_name']}  TYPE={row['zone_type']} CSI={row['csi']}{csi_note}")
+    return 0
+
+
+def cmd_zones(args: argparse.Namespace) -> int:
+    """Every SMP/E zone actually captured via *smplist*.txt (LIST DDDEF/MOD/
+    SYSMOD), independent of lineage -- a full SMP/E zone inventory, not just
+    the zones a PROCLIB step happens to resolve into."""
+    conn = store.connect(Path(args.db))
+    rows = store.all_zones(conn)
+    conn.close()
+
+    for row in rows:
+        dddefs = json.loads(row["dddefs_json"])
+        csi_note = f" CSI={row['csi']}" if row["csi"] else ""
+        print(f"{row['name']}{csi_note}  {len(dddefs)} DDDEFs")
+    return 0
+
+
+def cmd_fmids(args: argparse.Namespace) -> int:
+    """Every FMID captured across all ingested SMP/E zones."""
+    conn = store.connect(Path(args.db))
+    rows = store.all_fmids(conn)
+    conn.close()
+
+    for row in rows:
+        status = f" ({row['status']})" if row["status"] else ""
+        print(f"{row['fmid']}  zone={row['zone']}{status}")
+    return 0
+
+
+def cmd_zone_gaps(args: argparse.Namespace) -> int:
+    """Cross-reference zone_index (SMP/E's own LIST GLOBALZONE census, if
+    *smpzones*.txt was ingested) against the zones actually captured via
+    *smplist*.txt, per doc/TODO.md's '8f' plan -- flags a zone SMP/E itself
+    says exists that was never captured, rather than requiring a one-off
+    by-hand comparison."""
+    conn = store.connect(Path(args.db))
+    zone_index_rows = store.all_zone_index(conn)
+    captured_names = {row["name"] for row in store.all_zones(conn)}
+    conn.close()
+
+    gaps = [row for row in zone_index_rows if row["zone_name"] not in captured_names]
+    if not gaps:
+        print("inventory: no zone gaps found (every LIST GLOBALZONE zone was also captured via *smplist*.txt)")
+        return 0
+    for row in gaps:
+        print(f"MISSING: {row['zone_name']}  TYPE={row['zone_type']} CSI={row['csi']} (from {row['source_csi']})")
     return 0
 
 
@@ -921,6 +977,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_zone_index = sub.add_parser("zone-index", help="list SMP/E's own authoritative zone census per CSI (LIST GLOBALZONE), if ingested -- not yet production-validated")
     p_zone_index.set_defaults(func=cmd_zone_index)
+
+    p_zones = sub.add_parser("zones", help="list every SMP/E zone actually captured via *smplist*.txt")
+    p_zones.set_defaults(func=cmd_zones)
+
+    p_fmids = sub.add_parser("fmids", help="list every FMID captured across all ingested SMP/E zones")
+    p_fmids.set_defaults(func=cmd_fmids)
+
+    p_zone_gaps = sub.add_parser("zone-gaps", help="cross-reference LIST GLOBALZONE's zone census against zones actually captured via *smplist*.txt")
+    p_zone_gaps.set_defaults(func=cmd_zone_gaps)
 
     return parser
 
