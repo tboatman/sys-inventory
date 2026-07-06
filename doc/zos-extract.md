@@ -394,7 +394,7 @@ list of what it looks for in the directory you point it at:
 
 | What | Filename must contain | Produced by |
 |---|---|---|
-| PROCLIB/PARMLIB dumps | `proclib` or `parmlib` (except exactly `parmlib_snapshot.txt`, see below) | `extrproc.py` (step 1) |
+| PROCLIB/PARMLIB dumps | `proclib` or `parmlib` (except anything matching `parmlib_snapshot`, see below) | `extrproc.py` (step 1) |
 | Subsystem dumps | `ssn` | `extrproc.py` with `--members 'IEFSSN*'` (step 2) |
 | Started-task dumps | `commnd` | `extrproc.py` with `--members 'COMMND*'` (step 2) |
 | Product enablement dumps | `ifaprd` | `extrproc.py` with `--members 'IFAPRD*'` (step 3) |
@@ -403,9 +403,9 @@ list of what it looks for in the directory you point it at:
 | System identity | `sysinfo` | `extrsys.py` (step 6) |
 | SMP/E LIST report | `smplist` | `smplist.py` (step 7), one file per CSI/zone pair |
 | SMP/E zone index (LIST GLOBALZONE) | `smpzones` | ansible-only, `discover_smpe_zones.yml`, one file per CSI |
-| PARMLIB concatenation snapshot (D PARMLIB) | exactly `parmlib_snapshot.txt` | ansible-only, `parmlib_snapshot.yml` -- deliberately excluded from the `parmlib` rule above so it isn't mistaken for a PARMLIB member dump |
-| Active IEASYSxx member snapshot (the actual system parameters) | exactly `ieasys_snapshot.txt` | ansible-only, `ieasys_snapshot.yml` |
-| Active BPXPRMxx member snapshot (z/OS UNIX/OMVS config, named by IEASYSxx's own OMVS=) | exactly `bpxprm_snapshot.txt` | ansible-only, `bpxprm_snapshot.yml` -- not yet production-validated |
+| PARMLIB concatenation snapshot (D PARMLIB) | `parmlib_snapshot` (default filename `parmlib_snapshot.txt`, override via `zos_extract_parmlib_snapshot_outfile`) | ansible-only, `parmlib_snapshot.yml` -- deliberately excluded from the `parmlib` rule above so it isn't mistaken for a PARMLIB member dump |
+| Active IEASYSxx member snapshot (the actual system parameters) | `ieasys_snapshot` (default filename `ieasys_snapshot.txt`, override via `zos_extract_ieasys_snapshot_outfile`) | ansible-only, `ieasys_snapshot.yml` |
+| Active BPXPRMxx member snapshot (z/OS UNIX/OMVS config, named by IEASYSxx's own OMVS=) | `bpxprm_snapshot` (default filename `bpxprm_snapshot.txt`, override via `zos_extract_bpxprm_snapshot_outfile`) | ansible-only, `bpxprm_snapshot.yml` -- not yet production-validated |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

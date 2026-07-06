@@ -73,10 +73,11 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         return 1
 
     members = []
-    # parmlib_snapshot.txt is a 'D PARMLIB' console reply, not a member
+    # *parmlib_snapshot*.txt is a 'D PARMLIB' console reply, not a member
     # dump -- excluded here the same way '*wlm*.txt' excludes
-    # 'wlm_zosmf.txt' below, since it'd otherwise also match '*parmlib*.txt'.
-    parmlib_member_dumps = [p for p in input_dir.glob("*parmlib*.txt") if p.name != "parmlib_snapshot.txt"]
+    # '*wlm_zosmf*.txt' below, since it'd otherwise also match '*parmlib*.txt'.
+    parmlib_snapshot_files = set(input_dir.glob("*parmlib_snapshot*.txt"))
+    parmlib_member_dumps = [p for p in input_dir.glob("*parmlib*.txt") if p not in parmlib_snapshot_files]
     for path in sorted(input_dir.glob("*proclib*.txt")) + sorted(parmlib_member_dumps):
         members.extend(jcl_parser.parse_dump(path))
 
@@ -103,17 +104,14 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     products = [prod for path in sorted(input_dir.glob("*ifaprd*.txt"))
                 for prod in ifaprd_parser.parse_products(path)]
 
-    parmlib_snapshot_file = input_dir / "parmlib_snapshot.txt"
-    parmlib_datasets = (parmlib_parser.parse_parmlib_snapshot(parmlib_snapshot_file)
-                        if parmlib_snapshot_file.exists() else [])
+    parmlib_datasets = [d for p in sorted(parmlib_snapshot_files)
+                        for d in parmlib_parser.parse_parmlib_snapshot(p)]
 
-    ieasys_snapshot_file = input_dir / "ieasys_snapshot.txt"
-    ieasys_statements = (ieasys_parser.parse_ieasys_snapshot(ieasys_snapshot_file)
-                        if ieasys_snapshot_file.exists() else [])
+    ieasys_statements = [s for p in sorted(input_dir.glob("*ieasys_snapshot*.txt"))
+                         for s in ieasys_parser.parse_ieasys_snapshot(p)]
 
-    bpxprm_snapshot_file = input_dir / "bpxprm_snapshot.txt"
-    bpxprm_statements = (bpxprm_parser.parse_bpxprm_snapshot(bpxprm_snapshot_file)
-                        if bpxprm_snapshot_file.exists() else [])
+    bpxprm_statements = [s for p in sorted(input_dir.glob("*bpxprm_snapshot*.txt"))
+                         for s in bpxprm_parser.parse_bpxprm_snapshot(p)]
 
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []

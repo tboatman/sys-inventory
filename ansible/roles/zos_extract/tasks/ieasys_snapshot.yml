@@ -19,7 +19,7 @@
 
 - name: Write ieasys_snapshot.txt (active IEASYSxx member content)
   ansible.builtin.copy:
-    dest: "{{ zos_extract_local_output_dir }}/ieasys_snapshot.txt"
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_ieasys_snapshot_outfile }}"
     mode: "0644"
     content: "{{ (zos_extract_ieasys_member_blocks | default([]) | join('\n')) ~ '\n' }}"
   delegate_to: localhost

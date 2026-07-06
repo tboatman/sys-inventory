@@ -12,7 +12,7 @@
 
 - name: Write bpxprm_snapshot.txt (active BPXPRMxx member content)
   ansible.builtin.copy:
-    dest: "{{ zos_extract_local_output_dir }}/bpxprm_snapshot.txt"
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_bpxprm_snapshot_outfile }}"
     mode: "0644"
     content: "{{ (zos_extract_bpxprm_member_blocks | default([]) | join('\n')) ~ '\n' }}"
   delegate_to: localhost
