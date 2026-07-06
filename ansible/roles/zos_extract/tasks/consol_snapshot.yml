@@ -1,0 +1,21 @@
+---
+# Explicit, always-saved capture of the active CONSOLxx member(s)' full
+# content -- MCS/EMCS console definitions (INIT/DEFAULT/CONSOLE/HARDCOPY
+# statements), named by IEASYSxx's own CON= keyword the same way
+# SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/
+# COUPLE=/GRSRNL=/SMF=/IOS= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/
+# MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
+# SMFPRMxx/IECIOSxx. Seventh Category C (statement-oriented)
+# active-PARMLIB-member domain from doc/TODO.md "9.2" -- built on the
+# generalized _fetch_active_parmlib_member.yml worker (see doc/TODO.md
+# "9.1").
+#
+# CONFIRMED against a real CONSOLxx member -- see consol_parser.py's
+# module docstring for the confirmed (partial) statement vocabulary.
+
+- name: Write consol_snapshot.txt (active CONSOLxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_consol_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_consol_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

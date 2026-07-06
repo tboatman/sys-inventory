@@ -16,10 +16,10 @@ zos_extract_jes2parm_outfile: "jes2parm.txt"
 # snapshots (parmlib_snapshot.yml/ieasys_snapshot.yml/bpxprm_snapshot.yml/
 # devsup_snapshot.yml/opt_snapshot.yml/clock_snapshot.yml/
 # autor_snapshot.yml/sched_snapshot.yml/couple_snapshot.yml/
-# grsrnl_snapshot.yml/smf_snapshot.yml/ios_snapshot.yml). Parameterized
-# the same way every other domain's *_outfile default is, so `inventory
-# ingest` (which globs on these, not an exact filename -- see cli.py)
-# still finds them if you change one.
+# grsrnl_snapshot.yml/smf_snapshot.yml/ios_snapshot.yml/
+# consol_snapshot.yml). Parameterized the same way every other domain's
+# *_outfile default is, so `inventory ingest` (which globs on these, not
+# an exact filename -- see cli.py) still finds them if you change one.
 zos_extract_parmlib_snapshot_outfile: "parmlib_snapshot.txt"
 zos_extract_ieasys_snapshot_outfile: "ieasys_snapshot.txt"
 zos_extract_bpxprm_snapshot_outfile: "bpxprm_snapshot.txt"
@@ -32,6 +32,7 @@ zos_extract_couple_snapshot_outfile: "couple_snapshot.txt"
 zos_extract_grsrnl_snapshot_outfile: "grsrnl_snapshot.txt"
 zos_extract_smf_snapshot_outfile: "smf_snapshot.txt"
 zos_extract_ios_snapshot_outfile: "ios_snapshot.txt"
+zos_extract_consol_snapshot_outfile: "consol_snapshot.txt"
 
 zos_extract_ssn_member_filter: "IEFSSN*"
 zos_extract_commnd_member_filter: "COMMND*"

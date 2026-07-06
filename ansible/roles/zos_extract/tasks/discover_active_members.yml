@@ -151,6 +151,12 @@
     zos_extract_active_ios_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^IOS@@@') | map('regex_replace', '^IOS@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # CON=xx names the active CONSOLxx member(s) -- same parenthesized-list
+    # shape as above, consumed by consol_snapshot.yml. Seventh Category C
+    # domain from doc/TODO.md "9.2".
+    zos_extract_active_con_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^CON@@@') | map('regex_replace', '^CON@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -251,3 +257,13 @@
   vars:
     zos_extract_active_member_prefix: IECIOS
     zos_extract_active_member_blocks_var: zos_extract_ios_member_blocks
+
+- name: Fetch each active CONSOLxx member's content, in order (for consol_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_con_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "CONSOL{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: CONSOL
+    zos_extract_active_member_blocks_var: zos_extract_consol_member_blocks
