@@ -735,13 +735,22 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   to): `LIST ZONES` isn't a real GIMSMP command at all -- the actual way
   to enumerate every zone tied to a CSI is `SET BDY(GLOBAL). LIST
   GLOBALZONE .`, whose report includes a `ZONEINDEX` attribute (zone
-  name / zone type / owning CSI dataset, one per line). Confirmed against
-  a real third-party ZOAU/Ansible SMP/E role built against real system
-  output (`github.com/LuiggiTorricelli/zos_smpe_list`'s
-  `filter_plugins/parse_gimsmp.py`), not yet against this site's own
-  system -- same tier of confidence as most of this pipeline's
-  console-command domains before their own real-reply confirmation
-  round.
+  name / zone type / owning CSI dataset, one per line). CONFIRMED against
+  a real LIST GLOBALZONE report from this site (`MVS.GLOBAL.CSI`,
+  `smpe_zone_discovery` tag run against zdt3) -- found and fixed a real
+  bug in the process: `_ZONEINDEX_FIRST` required the ZONEINDEX line to
+  carry its entry's name-token prefix (as in the third-party reference
+  this was first built against), but that prefix is only present when
+  ZONEINDEX happens to be the *first* attribute printed for that entry.
+  Real output had UPGLEVEL first instead, so ZONEINDEX appeared bare with
+  no name token and silently parsed to zero entries. Fixed by making that
+  leading token optional; regression test
+  `test_parse_globalzone_handles_unprefixed_zoneindex_line` covers it.
+  Also surfaced a real, legitimate SMP/E pattern worth noting: this
+  GLOBAL zone's ZONEINDEX cross-references a target/dlib zone pair
+  (`CSQ920T`/`CSQ920D`) that live in a completely different product's CSI
+  (`CSQ920.CSQ920*.CSI`) than the GLOBAL zone itself -- `Zone.csi` vs.
+  `ZoneIndexEntry.source_csi` already distinguished exactly this case.
 - New `discover_smpe_zones.yml` (tag `smpe_zone_discovery`) +
   `_smplist_globalzone.yml` worker, one GIMSMP call per configured CSI,
   writing `<csi-slug>.smpzones.txt` (with the same `##CSI` sentinel).

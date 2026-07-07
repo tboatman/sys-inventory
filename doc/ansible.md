@@ -432,9 +432,14 @@ This runs GIMSMP's `LIST GLOBALZONE` against every CSI already listed in
 heuristic: a CSI's own global zone genuinely knows every zone tied to it,
 via its `ZONEINDEX` attribute. Writes one `*.smpzones.txt` per CSI, which
 `inventory ingest` picks up and `inventory zone-index` shows (see
-`inventory/README.md`) -- not yet confirmed against a real reply from this
-site, only against a third-party reference implementation, so tune
-`smpe_parser.parse_globalzone()`'s regexes if it comes back empty.
+`inventory/README.md`). CONFIRMED against a real `LIST GLOBALZONE` report
+(`MVS.GLOBAL.CSI` on zdt3) -- exposed a real parser bug, since fixed: the
+entry-name token that prefixes the `ZONEINDEX =` line is only present
+when `ZONEINDEX` happens to be the first attribute GIMSMP prints for that
+entry, which wasn't true here (`UPGLEVEL` was first), so the line came
+back bare and previously parsed to zero entries. See
+`smpe_parser.parse_globalzone()`'s docstring and `doc/TODO.md` ("8d") for
+the detail.
 
 ### zos_job_query is unusable here -- activity/CICS/DB2 all route around it
 

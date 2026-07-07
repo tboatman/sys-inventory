@@ -172,17 +172,19 @@ just renaming them into that shape for a quick demo.)
    implementation-only, same caveat as RACF below — not yet validated
    against a real system's actual command/API output. `db2_catalog.txt`
    and especially `wlm_zosmf.txt` carry the strongest versions of that
-   caveat, alongside `bpxprm_snapshot.txt`/`autor_snapshot.txt`/
-   `sched_snapshot.txt`/`couple_snapshot.txt`/`grsrnl_snapshot.txt`/
-   `smf_snapshot.txt`/`ios_snapshot.txt` (all built from documented
-   statement syntax only, no real sample yet -- `devsup_snapshot.txt`/
-   `opt_snapshot.txt`/`clock_snapshot.txt` have since been confirmed
-   against real members, see their own sections below);
-   `cics_deepening.txt`'s own CSD-report portion is right behind
-   them — see their own sections below. `parmlib_snapshot.txt` reuses the
-   already-confirmed LNKLST/APF 4-column reply shape, so it doesn't carry
-   that caveat; `*.smpzones.txt` is confirmed against a real third-party
-   reference implementation but not yet against this site's own system;
+   caveat, alongside `ios_snapshot.txt` (built from documented statement
+   syntax only, no real sample yet -- `bpxprm_snapshot.txt`/
+   `devsup_snapshot.txt`/`opt_snapshot.txt`/`clock_snapshot.txt`/
+   `autor_snapshot.txt`/`sched_snapshot.txt`/`couple_snapshot.txt`/
+   `grsrnl_snapshot.txt`/`smf_snapshot.txt`/`consol_snapshot.txt`/
+   `igdsms_snapshot.txt`/`izuprm_snapshot.txt`/`diag_snapshot.txt` have
+   since been confirmed against real members, see their own sections
+   below); `cics_deepening.txt`'s own CSD-report portion is right behind
+   `ios_snapshot.txt` — see their own sections below. `parmlib_snapshot.txt`
+   reuses the already-confirmed LNKLST/APF 4-column reply shape, so it
+   doesn't carry that caveat; `*.smpzones.txt` is CONFIRMED against a real
+   `LIST GLOBALZONE` report from this site (found and fixed a real parser
+   bug in the process — see `ansible.md`'s SMP/E CSI/zone section);
    `ieasys_snapshot.txt`'s underlying `KEYWORD=value`/comma-continuation
    shape is confirmed against a real IEASYSxx sample (the same content
    `discover_active_members.yml` already extracts internally, just
@@ -1147,7 +1149,7 @@ exactly what it recognizes and what it silently skips, and treat any
 count from this dimension as a floor, not a real total, until it's
 checked against a real DFHCSDUP LIST report.
 
-### `inventory zone-index` (opt-in, not yet production-validated)
+### `inventory zone-index` (opt-in)
 
 SMP/E's own authoritative zone census per CSI — every zone (target/dlib)
 tied to it, per its global zone's `ZONEINDEX` attribute — if you ingested
@@ -1172,12 +1174,11 @@ GLOBAL zone's `ZONEINDEX` (this project's own `smpe_csi_candidates.txt`
 shows exactly this shape for a couple of products: separate `.GLOBAL.CSI`/
 `.TARGET.CSI`/`.DLIB.CSI` datasets).
 
-`smpe_parser.parse_globalzone()`'s report-shape parsing is confirmed
-against a real third-party ZOAU/Ansible SMP/E role built against real
-system output (not a guess from documentation alone), but **not yet
-against a real reply from this site** — same caveat `racf_parser.py`'s
-byte offsets carry. Tune its regexes against your real `*.smpzones.txt`
-if `zone-index` comes back empty.
+`smpe_parser.parse_globalzone()`'s report-shape parsing is CONFIRMED
+against a real `LIST GLOBALZONE` report from this site
+(`MVS.GLOBAL.CSI`) — that real report exposed and fixed a genuine parser
+bug (the `ZONEINDEX` line's entry-name prefix isn't always present; see
+the parser's own docstring and `doc/TODO.md` "8d" for the detail).
 
 ### `inventory zones` / `inventory fmids` / `inventory zone-gaps`
 
