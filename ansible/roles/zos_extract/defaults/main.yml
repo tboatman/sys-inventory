@@ -126,10 +126,17 @@ zos_extract_zosmf_password: ""
 # validate_certs defaults to false: many internal z/OSMF instances present
 # a self-signed/internal-CA cert. Set true if yours is trusted normally.
 zos_extract_zosmf_validate_certs: false
-# Best guess only -- NOT confirmed against IBM's z/OSMF REST API
-# reference or a real response; see wlm_zosmf.yml's own header comment
-# and wlm_zosmf_parser.py's module docstring before trusting this.
-zos_extract_wlm_zosmf_path: "/zosmf/wlm/policies"
+# Original guess "/zosmf/wlm/policies" got a clean 404 against a real
+# z/OSMF instance (this site's zdt3, WorkloadManagement plugin confirmed
+# ACTIVE via /zosmf/info) -- IBM's own docs weren't reachable to confirm
+# the real path (blocked), and it isn't one of the well-indexed/
+# documented REST namespaces the way restjobs/restfiles are. The user
+# found the real base path via the z/OSMF web UI's own browser DevTools
+# Network tab (the Workload Management task's actual REST call) --
+# "/zosmf/zwlm/rest", not "/zosmf/wlm/...". Still needs confirming
+# end-to-end against a real response; see wlm_zosmf.yml's own header
+# comment and wlm_zosmf_parser.py's module docstring.
+zos_extract_wlm_zosmf_path: "/zosmf/zwlm/rest"
 zos_extract_wlm_zosmf_outfile: "wlm_zosmf.txt"
 
 zos_extract_racf_database_dsn: ""
