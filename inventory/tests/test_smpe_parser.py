@@ -99,6 +99,28 @@ def test_merge_zones_no_collision_when_csi_unknown():
     assert merged["TZONE1"].csi == "EDUC.B.CSI"
 
 
+def test_mod_section_title_says_module_not_mod():
+    # Regression test for a real LIST MOD report (MVST target zone,
+    # MVS.GLOBAL.CSI): the SMPCNTL command is "LIST MOD .", but GIMSMP
+    # prints the section title as "<zone>    MODULE   ENTRIES" -- not
+    # "MOD ENTRIES". _SECTION_HDR originally only recognized the literal
+    # "MOD" alternative, so this title line never matched at all, leaving
+    # current_zone/section unset (module_fmid/lmod_fmid entirely empty)
+    # unless a preceding LIST DDDEF section in the same file happened to
+    # have already set current_zone.
+    zones = smpe_parser.parse_smplist(FIXTURES / "sample_smpe_mod_real.txt")
+    assert zones["MVST"].module_fmid == {
+        "ACBFUTO2": "HDZ3310",
+        "ACBFUTO3": "HDZ3310",
+        "ACBFUTO4": "HDZ3310",
+    }
+    assert zones["MVST"].lmod_fmid == {
+        "ACBFUTO2": "HDZ3310",
+        "ACBFUTO3": "HDZ3310",
+        "ACBFUTO4": "HDZ3310",
+    }
+
+
 def test_mod_entry_survives_page_break_between_lastupd_and_fmid():
     # Regression test for a real ~15M-line LIST DDDEF/MOD/SYSMOD report
     # (MVST target zone, MVS.GLOBAL.CSI): SMP/E reprints the

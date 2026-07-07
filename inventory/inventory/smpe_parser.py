@@ -45,9 +45,21 @@ printer wraps at a fixed column with no regard for token boundaries), so
 if any of those are ever added to `Zone`, that wrapping will need
 reassembly logic; it doesn't affect the fields already extracted here.
 
-`LIST MOD` itself is still only confirmed against the synthetic fixture
-below -- diff it against a real report's element blocks too (LASTUPD/
-FMID/LMOD) before fully trusting it.
+`LIST MOD` is also now CONFIRMED against a real report (three ACBFUTOx
+elements, same MVST zone) -- and that real report exposed one more genuine
+bug: the SMPCNTL command is "LIST MOD .", but GIMSMP's own section title
+prints as "<zone>    MODULE   ENTRIES", not "MOD ENTRIES". `_SECTION_HDR`
+only recognized the literal "MOD" alternative, so this title line never
+matched at all -- in a single-zone-per-file capture (this pipeline's own
+shape, LIST DDDEF always run first in the same SMPCNTL) `current_zone` had
+already been set by the preceding DDDEF section title, so element data
+still landed in the right zone by accident, but nothing about MOD sections
+would work standalone, and the "MODULE" title text does the same
+every-page reprint DDDEF/SYSMOD do (again silently unable to trigger the
+page-break pending-state fix above, since it never matched to begin with).
+Fixed by adding "MODULE" to `_SECTION_HDR`'s alternation and
+`_SECTION_BY_TYPE`. Every LIST DDDEF/MOD/SYSMOD section is now confirmed
+against real output from this site.
 """
 from __future__ import annotations
 
@@ -58,11 +70,15 @@ from .models import Zone, ZoneIndexEntry
 
 _CSI_HDR = re.compile(r"^\s*##CSI\s+(\S+)", re.IGNORECASE)
 _ZONE_HDR = re.compile(r"\bZONE\s+([A-Za-z0-9$#@]+)\b")
-# Each LIST report opens with a "<zone>  <TYPE> ENTRIES" title (confirmed for
-# DDDEF against real output) that doubles as both the section marker and the
-# zone name -- there's no separate command echo to key off of.
+# Each LIST report opens with a "<zone>  <TYPE> ENTRIES" title (confirmed
+# against real output for DDDEF/MODULE/SYSMOD) that doubles as both the
+# section marker and the zone name -- there's no separate command echo to
+# key off of. LIST MOD's own title says "MODULE", not "MOD" (confirmed
+# against a real report -- the SMPCNTL command is "LIST MOD ." but GIMSMP
+# prints the section title as "<zone>    MODULE   ENTRIES"), even though
+# the command-echo line _SECTION_FILE matches below really does say "MOD".
 _SECTION_HDR = re.compile(
-    r"^\s*([A-Za-z0-9$#@]+)\s+(DDDEF|MOD|SYSMOD)\s+ENTRIES\b", re.IGNORECASE
+    r"^\s*([A-Za-z0-9$#@]+)\s+(DDDEF|MODULE|MOD|SYSMOD)\s+ENTRIES\b", re.IGNORECASE
 )
 _SECTION_DDDEF = re.compile(r"\bLIST\s+DDDEF\b", re.IGNORECASE)
 _SECTION_FILE = re.compile(r"\bLIST\s+MOD\b", re.IGNORECASE)
@@ -113,7 +129,7 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
     pending_sysmod: str | None = None
     csi_name: str | None = None
 
-    _SECTION_BY_TYPE = {"DDDEF": "DDDEF", "MOD": "FILE", "SYSMOD": "SYSMOD"}
+    _SECTION_BY_TYPE = {"DDDEF": "DDDEF", "MOD": "FILE", "MODULE": "FILE", "SYSMOD": "SYSMOD"}
 
     for raw_line in path.read_text(errors="replace").splitlines():
         line = raw_line.rstrip()

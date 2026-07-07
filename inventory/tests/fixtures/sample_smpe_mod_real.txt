@@ -1,0 +1,28 @@
+##CSI MVS.GLOBAL.CSI
+PAGE 0100  - NOW SET TO TARGET ZONE MVST     DATE 07/07/26  TIME 11:12:00  SMP/E 37.27   SMPLIST  OUTPUT
+
+MVST    MODULE   ENTRIES
+
+
+  NAME
+
+ACBFUTO2  LASTUPD         = HDZ3310  TYPE=ADD
+          LIBRARIES       = DISTLIB=ADGTLLIB
+          FMID            = HDZ3310
+          RMID            = HDZ3310
+          CSECT           = ACBFUTO2
+          LMOD            = ACBFUTO2
+
+ACBFUTO3  LASTUPD         = HDZ3310  TYPE=ADD
+          LIBRARIES       = DISTLIB=ADGTLLIB
+          FMID            = HDZ3310
+          RMID            = HDZ3310
+          CSECT           = ACBFUTO3
+          LMOD            = ACBFUTO3
+
+ACBFUTO4  LASTUPD         = HDZ3310  TYPE=ADD
+          LIBRARIES       = DISTLIB=ADGTLLIB
+          FMID            = HDZ3310
+          RMID            = HDZ3310
+          CSECT           = ACBFUTO4
+          LMOD            = ACBFUTO4
