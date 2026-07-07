@@ -17,7 +17,7 @@
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
 `inventory grsrnl`, `inventory smf`, `inventory ios`, `inventory consol`,
-`inventory igdsms`."""
+`inventory igdsms`, `inventory izuprm`."""
 from __future__ import annotations
 
 import argparse
@@ -43,6 +43,7 @@ from . import (
     ifaprd_parser,
     igdsms_parser,
     ios_parser,
+    izuprm_parser,
     jcl_parser,
     jes2parm_parser,
     opt_parser,
@@ -167,6 +168,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     igdsms_statements = [s for p in sorted(input_dir.glob("*igdsms_snapshot*.txt"))
                          for s in igdsms_parser.parse_igdsms_snapshot(p)]
 
+    izuprm_statements = [s for p in sorted(input_dir.glob("*izuprm_snapshot*.txt"))
+                         for s in izuprm_parser.parse_izuprm_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -274,6 +278,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_ios_statements(conn, ios_statements)
     store.save_consol_statements(conn, consol_statements)
     store.save_igdsms_statements(conn, igdsms_statements)
+    store.save_izuprm_statements(conn, izuprm_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -317,6 +322,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(ios_statements)} active IECIOSxx statements, "
           f"{len(consol_statements)} active CONSOLxx statements, "
           f"{len(igdsms_statements)} active IGDSMSxx statements, "
+          f"{len(izuprm_statements)} active IZUPRMxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -630,6 +636,16 @@ def cmd_consol(args: argparse.Namespace) -> int:
 def cmd_igdsms(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_igdsms_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_izuprm(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_izuprm_statements(conn)
     conn.close()
 
     for row in rows:
@@ -1118,6 +1134,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_igdsms = sub.add_parser("igdsms", help="list active IGDSMSxx SMS statements -- SMS base configuration (distinct from sms-storgrps, the live D SMS,STORGRP snapshot)")
     p_igdsms.set_defaults(func=cmd_igdsms)
+
+    p_izuprm = sub.add_parser("izuprm", help="list active IZUPRMxx statements -- z/OSMF configuration")
+    p_izuprm.set_defaults(func=cmd_izuprm)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

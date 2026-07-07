@@ -552,6 +552,39 @@ class IgdsmsStatement:
 
 
 @dataclass
+class IzuprmStatement:
+    """One statement from an active IZUPRMxx PARMLIB member -- z/OSMF
+    (z/OS Management Facility) configuration (HOSTNAME/JAVA_HOME/
+    KEYRING_NAME/SEC_GROUPS/WLM_CLASSES/PLUGINS/... statements), named by
+    IEASYSxx's own IZU= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+    MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+    CON=/SMS= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/
+    DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
+    SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx. Dumped by
+    ansible/roles/zos_extract/tasks/izuprm_snapshot.yml and parsed by
+    izuprm_parser.py. Ninth of the Category C (statement-oriented)
+    active-PARMLIB-member domains from doc/TODO.md "9.2" -- reuses
+    parmlib_engines.statement_engine() with a statement vocabulary
+    CONFIRMED against a real IZUPRM00 member (HOSTNAME, HTTP_SSL_PORT,
+    INCIDENT_LOG, JAVA_HOME, KEYRING_NAME, LOGGING, RESTAPI_FILE,
+    COMMON_TSO, SAF_PREFIX, CLOUD_SAF_PREFIX, CLOUD_SEC_ADMIN,
+    SEC_GROUPS, SESSION_EXPIRE, TEMP_DIR, CSRF_SWITCH, SERVER_PROC,
+    ANGEL_PROC, AUTOSTART, AUTOSTART_GROUP, USER_DIR, UNAUTH_USER,
+    WLM_CLASSES, PLUGINS), capturing every sub-parameter generically as
+    raw operand text rather than hand-modeling each one individually.
+    IZUPRMxx's full documented statement surface is likely larger (this
+    is one shop's real member, not IBM's full reference) -- an
+    unrecognized top-level statement keyword still gets folded into the
+    preceding statement's operands instead of starting its own, the
+    same documented limitation every other statement_engine() consumer
+    here carries."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

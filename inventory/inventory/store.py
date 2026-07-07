@@ -29,6 +29,7 @@ from .models import (
     IeasysStatement,
     IgdsmsStatement,
     IosStatement,
+    IzuprmStatement,
     Jes2InitStatement,
     LineageStep,
     OptStatement,
@@ -211,6 +212,13 @@ CREATE TABLE IF NOT EXISTS igdsms_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_igdsms_statements_stmt ON igdsms_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS izuprm_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_izuprm_statements_stmt ON izuprm_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -796,6 +804,22 @@ def save_igdsms_statements(conn: sqlite3.Connection, statements: list[IgdsmsStat
 def all_igdsms_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM igdsms_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_izuprm_statements(conn: sqlite3.Connection, statements: list[IzuprmStatement]) -> None:
+    conn.execute("DELETE FROM izuprm_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO izuprm_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_izuprm_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM izuprm_statements ORDER BY stmt")
     return cur.fetchall()
 
 

@@ -1,0 +1,90 @@
+##MEMBER IZUPRM00
+/* ================================================================ */
+/*                                                                  */
+/* NAME = IZUPRM00                                                  */
+/*                                                                  */
+/* DESCRIPTIVE NAME = z/OSMF Sample Parmlib Member                  */
+/*                                                                  */
+/* PROPRIETARY STATEMENT =                                          */
+/*                                                                  */
+/*   LICENSED MATERIALS - PROPERTY OF IBM                           */
+/*                                                                  */
+/*   5650-ZOS                                                       */
+/*                                                                  */
+/*   COPYRIGHT IBM CORP. 2015, 2017                                 */
+/*                                                                  */
+/*   STATUS = HSMA230                                               */
+/*                                                                  */
+/* EXTERNAL CLASSIFICATION: OTHER                                   */
+/* END OF EXTERNAL CLASSIFICATION:                                  */
+/*                                                                  */
+/* FUNCTION = IZUPRM00 is used to define the default z/OSMF         */
+/*            PROCESSING OPTIONS.                                   */
+/*                                                                  */
+/* CHANGE ACTIVITY =                                                */
+/*                                                                  */
+/*   $L0=FP1651,HSMA220,150519,KDKJ: Initial creation               */
+/*                                                                  */
+/* ================================================================ */
+/*                                                                  */
+
+HOSTNAME('s0w1.dal-ebis.ihost.com')
+
+HTTP_SSL_PORT(10443)
+
+INCIDENT_LOG UNIT('SYSALLDA')
+
+JAVA_HOME('/usr/lpp/java/J11.0_64')
+
+KEYRING_NAME('IZUKeyring.IZUDFLT')
+
+LOGGING('*=warning:com.ibm.zoszmf.*=info:com.ibm.zoszmf.environment.ui=
+finer')
+
+RESTAPI_FILE ACCT(IZUACCT) REGION(65536) PROC(IZUFPROC)
+
+COMMON_TSO ACCT(IZUACCT) REGION(50000) PROC(IZUFPROC)
+
+SAF_PREFIX('IZUDFLT')
+
+CLOUD_SAF_PREFIX('IYU')
+
+CLOUD_SEC_ADMIN(IBMUSER)
+
+SEC_GROUPS USER(IZUUSER),ADMIN(IZUADMIN),SECADMIN(IZUSECAD)
+
+SESSION_EXPIRE(495)
+
+TEMP_DIR('/tmp')
+
+CSRF_SWITCH(ON)
+
+SERVER_PROC('IZUSVR1')
+
+ANGEL_PROC('IZUANG1')
+
+AUTOSTART('LOCAL')
+
+/* AUTOSTART_GROUP('IZUDFLT') */
+
+/* AUTOSTART_GROUP('NONE')    */
+
+USER_DIR('/global/zosmf')
+
+UNAUTH_USER(IZUGUEST)
+
+WLM_CLASSES DEFAULT(IZUGHTTP)
+            LONG_WORK(IZUGWORK)
+
+CSRF_SWITCH(OFF)
+
+ /* Uncomment the following statement and any plugins that
+    are desired */
+    PLUGINS( INCIDENT_LOG,
+             COMMSERVER_CFG,
+             WORKLOAD_MGMT
+             RESOURCE_MON,
+             CAPACITY_PROV,
+             SOFTWARE_MGMT,
+             SYSPLEX_MGMT,
+             ISPF)
