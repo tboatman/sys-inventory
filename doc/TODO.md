@@ -843,10 +843,12 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
     folds into one real single-line command; confirmed via
     `yaml.safe_load` that the rendered command is now one line with the
     redirect attached to the `{ ...; }` group.
-  - Still open: an actual real `*.smplist.txt` from this site hasn't been
-    diffed against `smpe_parser.parse_smplist()`'s regexes yet -- that's
-    the next step now that the `smplist` tag run against `MVST` completes
-    successfully and produces real, non-empty output.
+  - Confirmed fixed: rerunning the `smplist` tag against `MVST` after the
+    indentation fix produces a real, non-empty `mvs_global_csi.mvst.smplist.txt`.
+  - Still open: that real `LIST DDDEF` report (a base z/OS target zone,
+    so `LIST MOD`/`LIST SYSMOD` for the same zone are presumably just as
+    large) hasn't been diffed against `smpe_parser.parse_smplist()`'s
+    regexes yet -- that's the actual remaining goal of this section.
 
 ---
 
