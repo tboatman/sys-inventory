@@ -19,11 +19,17 @@
 # zos_mvs_raw runs IKJEFT01 (TSO batch, the standard way to invoke
 # DSNTEP2) the same way racf.yml runs IRRDBU00 and catalog.yml runs
 # IDCAMS -- dd_input for SYSTSIN (the DSN/RUN command) and SYSIN (the
-# SELECT itself), dd_output for SYSPRINT (DSNTEP2's report), same
-# per-DD-list-built-in-Jinja idiom _smplist_zone.yml uses for its
-# optional STEPLIB. Two separate invocations (one per catalog table)
-# rather than one job with two SELECT statements, so each result can be
-# captured under its own unambiguous ##BLOCKNAME sentinel -- both queries
+# SELECT itself), dd_output for SYSPRINT (DSNTEP2's report) and for
+# SYSTSPRT (originally dd_dummy, but a real run against this site's DBDG
+# subsystem failed with rc=12/empty SYSPRINT and nothing to diagnose why
+# -- SYSTSPRT is where the DSN/RUN TSO command processor itself prints
+# diagnostics like connection failures, plan-not-found, or RACF
+# authorization errors, and dummying it out threw that information away;
+# captured as text now, same as SYSPRINT), same per-DD-list-built-in-Jinja
+# idiom _smplist_zone.yml uses for its optional STEPLIB. Two separate
+# invocations (one per catalog table) rather than one job with two SELECT
+# statements, so each result can be captured under its own unambiguous
+# ##BLOCKNAME sentinel -- both queries
 # share the same NAME/CREATOR/BINDTIME column shape, so nothing in
 # DSNTEP2's own report output could otherwise tell the two blocks apart
 # the way vtam.yml's two different D-commands read differently. A
@@ -47,7 +53,7 @@
                                                             'RUN PROGRAM(DSNTEP2) PLAN(' ~ zos_extract_db2_plan ~ ')',
                                                             'END']}},
           {'dd_output': {'dd_name': 'SYSPRINT', 'return_content': {'type': 'text'}}},
-          {'dd_dummy': {'dd_name': 'SYSTSPRT'}}
+          {'dd_output': {'dd_name': 'SYSTSPRT', 'return_content': {'type': 'text'}}}
         ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_db2_steplib, 'disposition': 'shr'}}] if zos_extract_db2_steplib | length > 0 else [])
       }}
 
