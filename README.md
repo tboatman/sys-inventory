@@ -27,9 +27,9 @@ service-class/goal definitions via z/OSMF); installed DB2 packages/plans
 (opt-in); and a deepened CICS view — DFHRPL load-library lineage, SIT
 overrides, and CSD resource definitions via DFHCSDUP (opt-in). Most of
 these have been confirmed against real command/API output from an actual
-z/OS system; a handful (DB2 catalog access, WLM z/OSMF, RACF, DFHCSDUP's
-own report format) remain implementation-only until checked against a
-real one — see [`doc/inventory.md`](doc/inventory.md) for the full,
+z/OS system; a handful (WLM z/OSMF, RACF, DFHCSDUP's own report format)
+remain implementation-only until checked against a real one — see
+[`doc/inventory.md`](doc/inventory.md) for the full,
 per-command breakdown and current confirmation status of each, and
 [`doc/TODO.md`](doc/TODO.md) for what's still planned.
 

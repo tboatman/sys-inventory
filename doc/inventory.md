@@ -1087,13 +1087,20 @@ stored in `hosts.yml`).
 Captured maximally generically (`WlmZosmfEntry` in `models.py`: a
 best-guess `name` plus the entire raw JSON object for that entry,
 preserved verbatim) since **neither the z/OSMF WLM REST API's endpoint
-path nor its response JSON schema is confirmed** against IBM's own
-current REST API reference or a real response — there's no other
-REST/JSON precedent anywhere else in this codebase to lean on either
-(every other domain parses console text). See
-`wlm_zosmf_parser.py`'s module docstring for exactly how loosely the
-response is interpreted, and what to check/rewrite first once you have a
-real response to compare against.
+path nor its response JSON schema is confirmed** against a real
+response — there's no other REST/JSON precedent anywhere else in this
+codebase to lean on either (every other domain parses console text).
+
+A real attempt against this site's own z/OSMF instance got connectivity,
+port, and auth all sorted out, and found the real endpoint base path
+(`/zosmf/zwlm/rest`, via the z/OSMF web UI's own browser DevTools Network
+tab — the original guess, `/zosmf/wlm/policies`, was wrong) — but that
+path turned out to be mostly action/write-oriented rather than exposing
+a general `GET` for reading full policy definitions, so this domain was
+dropped for this round rather than pursued further. See
+`ansible/roles/zos_extract/tasks/wlm_zosmf.yml`'s header comment for the
+full finding, and `wlm_zosmf_parser.py`'s module docstring for exactly
+how loosely the response is interpreted if this does get picked back up.
 
 ```
 $ inventory wlm-zosmf

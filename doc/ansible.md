@@ -887,17 +887,31 @@ program run over the existing SSH-based connection.
   dimension's ingest-glob convention, same as `active_jobs.txt` already
   being JSON Lines despite its own `.txt` name).
 
-**THIS IS THE SINGLE MOST SPECULATIVE PIECE IN THE ENTIRE PIPELINE.**
-Every other domain here at least reuses a well-documented, stable console
-command or MVS program; this one instead guesses at both the z/OSMF WLM
-REST API's endpoint path (`zos_extract_wlm_zosmf_path`, defaulted to
-`/zosmf/wlm/policies`) and its response JSON schema, with **no other
-REST/JSON precedent anywhere else in this codebase** to lean on. Check
-IBM's current z/OSMF REST API reference ("Workload Management services")
-for your z/OS release before trusting the default path, and see
-`inventory/inventory/wlm_zosmf_parser.py`'s module docstring for exactly
-how loosely the response JSON is interpreted (and how to fix it once you
-know the real shape).
+**THIS IS THE SINGLE MOST SPECULATIVE PIECE IN THE ENTIRE PIPELINE**, and
+a real attempt against this site's own z/OSMF instance (`zdt3`) confirmed
+why. Connectivity, port (`10443`, not the default `443`), and
+authentication were all straightforward to sort out -- but the endpoint
+path itself needed real investigation: the original guess
+(`/zosmf/wlm/policies`) got a clean `404`; `/zosmf/info` (a real, stable,
+unauthenticated endpoint) confirmed the `WorkloadManagement` plugin is
+genuinely `ACTIVE` there, so a real API does exist; and the real base
+path (`/zosmf/zwlm/rest`, found via the z/OSMF web UI's own browser
+DevTools Network tab, since IBM's own docs weren't reachable to confirm
+it directly -- consistent `403`s on direct fetches) is now the default.
+**But that still wasn't the end of it**: `/zosmf/zwlm` turned out to be
+mostly action/write-oriented (starting/stopping resources, activating
+policies), not a general `GET` for reading the active policy's full
+service-class/goal/resource-group definitions -- the actual thing this
+domain wants. Dropped for this round once that became clear, not because
+of an unsolved technical blocker but because the underlying data may not
+be reachable via a simple REST `GET` at all. See `wlm_zosmf.yml`'s own
+header comment for the full finding if picking this back up -- next step
+would be checking for a narrower real `GET` under `/zosmf/zwlm`, or
+accepting this data needs a non-REST transport entirely. There's still
+**no other REST/JSON precedent anywhere else in this codebase** to lean
+on; see `inventory/inventory/wlm_zosmf_parser.py`'s module docstring for
+exactly how loosely a response JSON is interpreted if this does get
+picked back up.
 
 ### Deepened CICS resource view (opt-in, DFHRPL lineage + DFHCSDUP CSD definitions)
 

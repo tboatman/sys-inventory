@@ -1182,6 +1182,47 @@ blocking the run:**
    speculative domain in the pipeline; CICS `DFHCSDUP` and WLM z/OSMF
    deepening remain the genuinely unconfirmed ones now.
 
+**A real attempt at WLM z/OSMF deepening followed, against a real z/OSMF
+instance (this site's `zdt3`, port `10443`):**
+- `wlm_zosmf.yml` (the standalone playbook) previously only targeted
+  hosts already in `inventory/hosts.yml`'s `zos` group -- but every real
+  system this session has gone through `interactive.yml`'s one-off
+  registration instead (no real `hosts.yml` here, only `.example`), so
+  it couldn't reach `zdt3` at all. Fixed by merging `interactive.yml`'s
+  own connection-detail `vars_prompt`/`add_host` tasks in alongside the
+  z/OSMF credential prompts it already had.
+- First real error: `Connection refused` -- `zos_extract_zosmf_port`
+  defaults to `443`, this site's real z/OSMF port is `10443`. Not a code
+  bug, just a real per-site value the user supplied via `-e`.
+- Second real error: a clean `404` on the guessed
+  `zos_extract_wlm_zosmf_path` (`/zosmf/wlm/policies`). Tried to confirm
+  the real path against IBM's own z/OSMF REST API documentation first
+  (not guess again blindly) -- IBM's doc pages consistently returned
+  `403 Forbidden` to direct fetches, and web search results never
+  surfaced the literal endpoint path either. Had the user check
+  `/zosmf/info` (a real, stable, unauthenticated z/OSMF endpoint) first,
+  which confirmed the `WorkloadManagement` plugin is genuinely `ACTIVE`
+  on this system -- so a real REST API does exist, the path was just
+  wrong. The user then found the real base path themselves via the
+  z/OSMF web UI's own browser DevTools Network tab (the Workload
+  Management task's actual REST call): `/zosmf/zwlm/rest`, not
+  `/zosmf/wlm/...`. Updated `zos_extract_wlm_zosmf_path`'s default
+  accordingly.
+- **Dropped for this round, not because of a technical blocker**:
+  connectivity, port, auth, and now the real base path are all solved,
+  but the user found `/zosmf/zwlm` looks mostly action/write-oriented
+  (starting/stopping resources, activating policies) rather than
+  exposing a general `GET` for reading the active policy's full
+  service-class/goal/resource-group definitions -- the actual thing this
+  domain wants. Simply having the right base path may not be enough;
+  the underlying data may not be reachable via a simple REST `GET` the
+  way the original plan assumed. Documented in `wlm_zosmf.yml`'s own
+  header comment and `zos_extract_wlm_zosmf_path`'s default-value
+  comment for whoever picks this back up -- next step would be checking
+  for a narrower real `GET` endpoint under `/zosmf/zwlm`, or accepting
+  this data may need a non-REST transport entirely (e.g. WLM's own ISPF
+  administrative application).
+
 ---
 
 ## 9. Broader active-PARMLIB-member capture (26 more IEASYSxx-named members)
