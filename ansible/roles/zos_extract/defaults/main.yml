@@ -172,6 +172,17 @@ zos_extract_db2_plan: "DSNTEP2"
 # slot count kept proving too narrow, so this is a real list. Leave empty
 # if your site's DB2 program is already reachable via LNKLST.
 zos_extract_db2_steplib: []
+# Only used to name the two real (non-output-capturing-via-dd_output)
+# SYSPRINT data sets DSNTEP2 itself needs, one per catalog query (see
+# db2_catalog.yml) -- same idiom as zos_extract_smpe_workhlq/
+# zos_extract_cics_workhlq. DSNTEP2 requires SYSPRINT to have LRECL=133
+# or it abends U4038 reason code 1 (confirmed against IBM's own docs), and
+# zos_mvs_raw's dd_output has no way to set record_format/record_length
+# at all -- so SYSPRINT has to be a real allocated data set here, unlike
+# most other DD captures in this pipeline.
+zos_extract_db2_workhlq: "{{ ansible_user | upper }}.DB2CAT"
+zos_extract_db2_sysprint_primary: 10
+zos_extract_db2_sysprint_secondary: 10
 zos_extract_db2_catalog_outfile: "db2_catalog.txt"
 
 # Opt-in deepened CICS resource view: DFHRPL lineage + DFHCSDUP CSD
