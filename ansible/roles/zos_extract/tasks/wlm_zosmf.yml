@@ -31,16 +31,33 @@
 # THE SINGLE MOST SPECULATIVE PIECE IN THIS ENTIRE PIPELINE: unlike every
 # other domain here (which at least reuses a well-documented, stable
 # console command or MVS program), the exact z/OSMF WLM REST API path
-# (zos_extract_wlm_zosmf_path, defaulted to a best guess) and its
-# response JSON schema are NOT confirmed against real z/OSMF
+# and its response JSON schema were never confirmed against real z/OSMF
 # documentation or a real response -- there's no other REST/JSON
 # precedent anywhere else in this codebase to lean on either (every other
-# domain parses console text). wlm_zosmf_parser.py's module docstring
-# carries the full caveat, including how it copes if the real schema
-# doesn't match what's guessed here. Check IBM's current z/OSMF REST API
-# reference ("Workload Management services") for your z/OS release
-# before trusting zos_extract_wlm_zosmf_path's default, and override it
-# here if it's wrong.
+# domain parses console text).
+#
+# Real findings against a real z/OSMF instance (this site's zdt3):
+# /zosmf/info (a real, stable, unauthenticated z/OSMF endpoint) confirmed
+# the WorkloadManagement plugin is genuinely ACTIVE here, so a real REST
+# API does exist -- the original guessed path
+# (zos_extract_wlm_zosmf_path's old default, "/zosmf/wlm/policies") got a
+# clean 404, and the real base path (found via the z/OSMF web UI's own
+# browser DevTools Network tab, since IBM's docs weren't reachable to
+# confirm it directly) turned out to be "/zosmf/zwlm/rest", not
+# "/zosmf/wlm/...". But the user then found that path is mostly
+# action/write-oriented (starting/stopping resources, activating
+# policies) rather than exposing a general GET for reading the active
+# policy's full service-class/goal/resource-group definitions the way
+# this domain originally wanted -- so simply fixing the path may not be
+# enough to get the intended data at all. DROPPED for this round per the
+# user's own call once this became clear, not because of an
+# authorization/connectivity problem (both of those are solved) but
+# because the underlying data this domain wants may not be reachable via
+# a simple REST GET the way the original plan assumed. If revisiting:
+# check whether any narrower GET does exist under /zosmf/zwlm (even a
+# thin one), or whether z/OSMF's WLM REST API is fundamentally
+# write-only and this data needs a different transport entirely (e.g.
+# WLM's own ISPF administrative application, not REST).
 
 - name: Query the z/OSMF WLM REST API
   ansible.builtin.uri:
