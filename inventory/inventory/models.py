@@ -815,9 +815,10 @@ class Db2Package:
     db2_catalog_parser.py. Complements the live-activity address-space
     heuristic in db2.yml with real DB2 catalog content.
 
-    THE MOST SPECULATIVE DOMAIN IN THE PIPELINE -- NOT YET VALIDATED
-    against a real DB2 subsystem; see db2_catalog_parser.py's module
-    docstring for the full caveat."""
+    CONFIRMED against a real DB2 subsystem (this site's DBDG) -- DSNTEP2's
+    real report shape turned out to transpose wide result sets into one
+    column-per-section rather than one row per line; see
+    db2_catalog_parser.py's module docstring for the full detail."""
 
     name: str
     creator: str | None = None
