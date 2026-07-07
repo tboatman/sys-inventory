@@ -166,6 +166,13 @@
     zos_extract_active_igdsms_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^SMS@@@') | map('regex_replace', '^SMS@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # IZU=xx names the active IZUPRMxx member(s) -- z/OSMF configuration
+    # (HOSTNAME/JAVA_HOME/KEYRING_NAME/PLUGINS/... statements). Same
+    # parenthesized-list shape as above, consumed by izuprm_snapshot.yml.
+    # Ninth Category C domain from doc/TODO.md "9.2".
+    zos_extract_active_izuprm_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^IZU@@@') | map('regex_replace', '^IZU@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -286,3 +293,13 @@
   vars:
     zos_extract_active_member_prefix: IGDSMS
     zos_extract_active_member_blocks_var: zos_extract_igdsms_member_blocks
+
+- name: Fetch each active IZUPRMxx member's content, in order (for izuprm_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_izuprm_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "IZUPRM{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IZUPRM
+    zos_extract_active_member_blocks_var: zos_extract_izuprm_member_blocks

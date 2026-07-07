@@ -1,0 +1,22 @@
+---
+# Explicit, always-saved capture of the active IZUPRMxx member(s)' full
+# content -- z/OSMF (z/OS Management Facility) configuration
+# (HOSTNAME/JAVA_HOME/KEYRING_NAME/SEC_GROUPS/WLM_CLASSES/PLUGINS/...
+# statements), named by IEASYSxx's own IZU= keyword the same way
+# SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/
+# COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+# BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/
+# COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx. Ninth Category C
+# (statement-oriented) active-PARMLIB-member domain from doc/TODO.md
+# "9.2" -- built on the generalized _fetch_active_parmlib_member.yml
+# worker (see doc/TODO.md "9.1").
+#
+# CONFIRMED against a real IZUPRM00 member -- see izuprm_parser.py's
+# module docstring for the confirmed statement vocabulary.
+
+- name: Write izuprm_snapshot.txt (active IZUPRMxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_izuprm_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_izuprm_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
