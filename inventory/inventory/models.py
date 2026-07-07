@@ -1061,6 +1061,43 @@ class CicsCsdDefinition:
 
 
 @dataclass
+class CmciResource:
+    """One CICS resource, fetched via CMCI (CICS Management Client
+    Interface)'s REST API using ibm.ibm_zos_cics's cmci_get module (see
+    ansible/roles/zos_extract/tasks/cics_cmci.yml) and parsed by
+    cmci_parser.py -- an alternative to the DFHCSDUP-based
+    CicsCsdDefinition above for whichever of this site's CICS regions
+    actually have CMCI enabled (not all do; see zos_extract_cics_cmci_targets).
+
+    Unlike DFHCSDUP's own LIST report (a raw print-format report this
+    pipeline has to guess at the column layout of), cmci_get already
+    parses CMCI's XML wire format into clean per-record dicts itself --
+    there's no report-format uncertainty here the way there is for
+    db2_catalog_parser.py/wlm_zosmf_parser.py/cics_csdup_parser.py.
+    `resource_type` is one of the CMCI external resource names queried
+    (cicsdefinitionprogram/cicsdefinitiontransaction/cicsdefinitionfile
+    for CSD-sourced definitions, CICSProgram/CICSTransaction/
+    CICSLocalFile for the currently-installed/active equivalents -- see
+    cics_cmci.yml's own header comment for why both categories are
+    queried). `context` is the CMCI context the query ran against -- in
+    this project's SMSS (standalone-region) usage, that's the CICS
+    region's own APPLID, not a CICSplex name.
+
+    Captured with the full raw attribute dict preserved (`attributes`),
+    same "don't lose data even if a specific field extraction guesses
+    wrong" rationale as WlmZosmfEntry.raw -- `name` is a best-guess
+    extraction of whichever attribute is that resource type's own primary
+    identifier (see cmci_parser.py's module docstring for the exact
+    candidate keys and which are confirmed against cmci_get's own
+    documented examples vs. still a guess)."""
+
+    resource_type: str
+    context: str
+    name: str
+    attributes: dict = field(default_factory=dict)
+
+
+@dataclass
 class RacfSnapshot:
     """Everything parsed from one extrracf.py dump, bundled together
     rather than returned as a 7-tuple (error-prone to unpack)."""
