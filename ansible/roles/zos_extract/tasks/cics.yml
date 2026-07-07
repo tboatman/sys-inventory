@@ -27,15 +27,25 @@
       }}
   when: zos_extract_cics_job_patterns | length > 0
 
-- name: Write cics.txt
-  ansible.builtin.copy:
-    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_outfile }}"
-    mode: "0644"
-    content: |-
+- name: Build the matched CICS address-space lines
+  ansible.builtin.set_fact:
+    zos_extract_cics_as_text: |-
       {% for entry in zos_extract_active_as_entries | default([]) %}
       {% if entry[2] == 'CICS' or (entry[0] is match(zos_extract_cics_job_regex)) %}
       {{ entry[0] }} {{ entry[1] }} {{ entry[2] }} {{ entry[3] }} {{ entry[4] }}
       {% endif %}
       {% endfor %}
+  when: zos_extract_cics_job_patterns | length > 0
+
+- name: Write cics.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_outfile }}"
+    mode: "0644"
+    # ansible.builtin.copy treats an empty content: string as "not
+    # provided" (fails with "src (or content) is required") rather than
+    # writing an empty file -- see db2.yml's identical fix (this task
+    # shares the same for-loop-in-content pattern, confirmed broken by a
+    # real run of db2.yml on a site with zero matching address spaces).
+    content: "{{ (zos_extract_cics_as_text | default('', true)) ~ '\n' }}"
   delegate_to: localhost
   when: zos_extract_cics_job_patterns | length > 0

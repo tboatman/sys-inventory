@@ -7,12 +7,18 @@
 # (see that file for why 'D A,L' is used instead of zos_job_query).
 #
 # An address space counts as DB2 if either its PROCSTEP is literally
-# "DB2PROC" (true for every DB2 address space across all 4 subsystems
-# in a real reply from this site) or its job name matches one of
-# zos_extract_db2_job_patterns (this site's convention: every DB2
-# address space name starts with DB2, e.g. DB2GMSTR/DB2SIRLM/
-# DB2ADBM1/DB2BDIST) -- OR'd together as a fallback in case some
-# address space uses a PROCSTEP other than "DB2PROC".
+# "DB2PROC", or its job name matches one of zos_extract_db2_job_patterns
+# -- OR'd together as a fallback in case some address space uses a
+# PROCSTEP other than "DB2PROC". PROCSTEP="DB2PROC" was originally
+# assumed to hold universally; a real 'D A,L' reply from this site's
+# DBDG subsystem disproved that (its MSTR/DBM1/DIST address spaces show
+# PROCSTEP=IEFPROC, IRLM shows none at all) and also that this site's
+# real job-name convention is the *subsystem ID* itself as the prefix
+# (DBDGMSTR/DBDGDBM1/DBDGIRLM/DBDGDIST/DBDGADMT), not a literal "DB2"
+# prefix -- there's no one universal convention, so
+# zos_extract_db2_job_patterns needs to be set per-site (same as
+# zos_extract_cics_job_patterns already is), e.g. ["DBDG*"] for this
+# site's DBDG subsystem.
 #
 # Opt-in: skipped entirely unless zos_extract_db2_job_patterns is
 # configured (same convention as zos_extract_catalog_patterns/racf).
@@ -29,15 +35,27 @@
       }}
   when: zos_extract_db2_job_patterns | length > 0
 
-- name: Write db2.txt
-  ansible.builtin.copy:
-    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_db2_outfile }}"
-    mode: "0644"
-    content: |-
+- name: Build the matched DB2 address-space lines
+  ansible.builtin.set_fact:
+    zos_extract_db2_as_text: |-
       {% for entry in zos_extract_active_as_entries | default([]) %}
       {% if entry[2] == 'DB2PROC' or (entry[0] is match(zos_extract_db2_job_regex)) %}
       {{ entry[0] }} {{ entry[1] }} {{ entry[2] }} {{ entry[3] }} {{ entry[4] }}
       {% endif %}
       {% endfor %}
+  when: zos_extract_db2_job_patterns | length > 0
+
+- name: Write db2.txt
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_db2_outfile }}"
+    mode: "0644"
+    # ansible.builtin.copy treats an empty content: string as "not
+    # provided" (fails with "src (or content) is required") rather than
+    # writing an empty file -- confirmed against a real run where zero
+    # address spaces matched. zos_extract_db2_as_text itself can even
+    # render as Jinja `None` (not just "") when the for-loop produces no
+    # output at all, so `default('', true)` (the `true` catches None,
+    # not just undefined) is needed, not just `default('')`.
+    content: "{{ (zos_extract_db2_as_text | default('', true)) ~ '\n' }}"
   delegate_to: localhost
   when: zos_extract_db2_job_patterns | length > 0
