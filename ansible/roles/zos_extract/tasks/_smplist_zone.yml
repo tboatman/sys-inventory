@@ -46,7 +46,7 @@
                             'disposition': 'new', 'type': 'seq', 'record_format': zos_extract_smpe_smplist_record_format,
                             'record_length': zos_extract_smpe_smplist_lrecl, 'space_primary': zos_extract_smpe_smplist_primary,
                             'space_secondary': zos_extract_smpe_smplist_secondary, 'space_type': 'm', 'replace': true,
-                            'disposition_normal': 'catlg', 'disposition_abnormal': 'delete'}}
+                            'disposition_normal': 'catalog', 'disposition_abnormal': 'delete'}}
         ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_smpe_steplib, 'disposition': 'shr'}}] if zos_extract_smpe_steplib else [])
       }}
 
