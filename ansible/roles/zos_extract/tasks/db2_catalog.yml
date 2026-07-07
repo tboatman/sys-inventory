@@ -8,20 +8,42 @@
 #
 # Opt-in: skipped entirely unless zos_extract_db2_ssid is configured
 # (same convention as zos_extract_catalog_patterns/racf_database_dsn).
-# Requires a plan already bound at the target site for DSNTEP2
-# (zos_extract_db2_plan, default "DSNTEP2" -- IBM's own sample plan name,
-# but sites commonly rebind/rename it) and, if DSNTEP2 isn't already on
-# the default STEPLIB concatenation, zos_extract_db2_steplib/
-# zos_extract_db2_steplib2 naming the DB2 load library(-ies) it needs.
-# Originally a single-DSN convention like zos_extract_smpe_steplib, but a
-# real run against this site's DBDG subsystem failed with
-# "IKJ56500I COMMAND DSN NOT FOUND" using only one STEPLIB DSN -- DB2's
-# own load modules are conventionally split across two libraries
-# (SDSNLOAD plus SDSNLOD2, an IBM DB2-for-z/OS installation convention,
-# not a site quirk), so a second optional STEPLIB DSN is supported now,
-# combined via dd_concat -- confirmed (reading ibm_zos_core's own module
-# docs) that zos_mvs_raw needs dd_concat for a real concatenation, not
-# just two separate dd_data_set entries sharing one dd_name.
+# Requires a real SELECT-capable dynamic-SQL program already bound at the
+# target site (zos_extract_db2_program/zos_extract_db2_plan, both default
+# "DSNTEP2" -- IBM's own sample program/plan name, but sites commonly
+# rebind/rename or recompile their own copy under a different name). A
+# real run against this site's DBDG subsystem got DSNE139E "NOT ABLE TO
+# LOCATE DSNTEP2 IN THE STANDARD SEARCH ORDER" -- the default isn't
+# installed here under that name. zos_extract_db2_program was originally
+# hardcoded to the literal "DSNTEP2" in the RUN command with no way to
+# override it at all; fixed here since a site's real bound copy can have
+# a different program name than its plan name, or vice versa. NOTE:
+# DSNTIAD, IBM's other sample dynamic-SQL program, is NOT a substitute
+# here despite the superficially similar shape -- confirmed via IBM's own
+# docs that DSNTIAD cannot run SELECT statements at all (UPDATE/INSERT/
+# DELETE/CREATE/GRANT/LABEL ON only), and every query this task runs is a
+# SELECT.
+#
+# Also requires, if the program isn't already reachable via the default
+# STEPLIB concatenation, zos_extract_db2_steplib naming the DB2 load
+# library(-ies) it needs -- a LIST, not a single DSN. Went through two
+# real revisions against this site's DBDG subsystem before landing here:
+# first a single DSN (like zos_extract_smpe_steplib's own precedent),
+# which failed with "IKJ56500I COMMAND DSN NOT FOUND" (DB2's own load
+# modules are conventionally split across SDSNLOAD plus SDSNLOD2, an IBM
+# DB2-for-z/OS installation convention, not a site quirk); then two fixed
+# DSN slots, which still wasn't enough once a real run needed a THIRD
+# STEPLIB DSN (this site's own DSND10.DBDG.RUNLIB.LOAD, where its real
+# bound copy actually lives) -- a fixed slot count kept proving too
+# narrow, so this is a real list now, combined via zos_mvs_raw's
+# dd_concat (confirmed against ibm_zos_core's own module docs that a real
+# concatenation needs dd_concat, not just multiple dd_data_set entries
+# sharing one dd_name). The dd_data_set entries themselves are built via
+# a task-level `loop:` (not a Jinja list comprehension/map-to-dict chain
+# -- this ansible-core's native templating doesn't support comprehensions
+# at all, confirmed by testing one directly; a loop-based set_fact
+# accumulating "{{ (x | default([])) + [item] }}" per iteration is the
+# supported way to build a list of dicts from a list of scalars here).
 #
 # zos_mvs_raw runs IKJEFT01 (TSO batch, the standard way to invoke
 # DSNTEP2) the same way racf.yml runs IRRDBU00 and catalog.yml runs
@@ -37,12 +59,12 @@
 # invocations (one per catalog table) rather than one job with two SELECT
 # statements, so each result can be captured under its own unambiguous
 # ##BLOCKNAME sentinel -- both queries share the same NAME/CREATOR/
-# BINDTIME column shape, so nothing in
-# DSNTEP2's own report output could otherwise tell the two blocks apart
-# the way vtam.yml's two different D-commands read differently. A
-# ";;SSID=" marker line (not part of DSNTEP2's own report, same idiom
-# tcpip.yml's ";;SOURCE_DSN=" marker uses) tags each block with which
-# subsystem it ran against, for db2_catalog_parser.py to pick up.
+# BINDTIME column shape, so nothing in DSNTEP2's own report output could
+# otherwise tell the two blocks apart the way vtam.yml's two different
+# D-commands read differently. A ";;SSID=" marker line (not part of
+# DSNTEP2's own report, same idiom tcpip.yml's ";;SOURCE_DSN=" marker
+# uses) tags each block with which subsystem it ran against, for
+# db2_catalog_parser.py to pick up.
 #
 # THIS IS THE MOST SPECULATIVE DOMAIN IN THE PIPELINE: DSNTEP2's exact
 # authorization/PLAN/STEPLIB requirements vary by site DB2 setup, and
@@ -51,21 +73,23 @@
 # module's docstring for the full caveat. Validate before relying on
 # this more than any other dimension in this pipeline.
 
+- name: Build the STEPLIB dd_data_set entries
+  ansible.builtin.set_fact:
+    zos_extract_db2_steplib_dds: "{{ (zos_extract_db2_steplib_dds | default([])) + [{'dd_data_set': {'data_set_name': item, 'disposition': 'shr'}}] }}"
+  loop: "{{ zos_extract_db2_steplib }}"
+
 - name: Build the shared DSNTEP2 DD list (STEPLIB optional, SYSIN set per query below)
   ansible.builtin.set_fact:
     zos_extract_db2_base_dds: >-
       {{
         [
           {'dd_input': {'dd_name': 'SYSTSIN', 'content': ['DSN SYSTEM(' ~ zos_extract_db2_ssid ~ ')',
-                                                            'RUN PROGRAM(DSNTEP2) PLAN(' ~ zos_extract_db2_plan ~ ')',
+                                                            'RUN PROGRAM(' ~ zos_extract_db2_program ~ ') PLAN(' ~ zos_extract_db2_plan ~ ')',
                                                             'END']}},
           {'dd_output': {'dd_name': 'SYSPRINT', 'return_content': {'type': 'text'}}},
           {'dd_output': {'dd_name': 'SYSTSPRT', 'return_content': {'type': 'text'}}}
         ]
-        + ([{'dd_concat': {'dd_name': 'STEPLIB', 'dds':
-              ([{'dd_data_set': {'data_set_name': zos_extract_db2_steplib, 'disposition': 'shr'}}] if zos_extract_db2_steplib | length > 0 else [])
-              + ([{'dd_data_set': {'data_set_name': zos_extract_db2_steplib2, 'disposition': 'shr'}}] if zos_extract_db2_steplib2 | length > 0 else [])
-            }}] if (zos_extract_db2_steplib | length > 0 or zos_extract_db2_steplib2 | length > 0) else [])
+        + ([{'dd_concat': {'dd_name': 'STEPLIB', 'dds': zos_extract_db2_steplib_dds | default([])}}] if (zos_extract_db2_steplib_dds | default([]) | length > 0) else [])
       }}
 
 - name: Run DSNTEP2 against SYSIBM.SYSPACKAGE

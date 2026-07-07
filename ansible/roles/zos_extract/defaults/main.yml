@@ -147,20 +147,31 @@ zos_extract_db2_job_patterns: ["DB2*"]
 zos_extract_db2_outfile: "db2.txt"
 
 # Opt-in deepened DB2 catalog view (installed packages/plans via a
-# read-only DSNTEP2 batch SQL query) -- see db2_catalog.yml. Distinct
-# from the live address-space heuristic above: requires a real DB2
-# subsystem ID and a plan already bound there for DSNTEP2.
+# read-only SELECT-capable dynamic-SQL batch program) -- see
+# db2_catalog.yml. Distinct from the live address-space heuristic above:
+# requires a real DB2 subsystem ID and a program+plan already bound
+# there. Both default to "DSNTEP2" (IBM's own sample program/plan name),
+# but a real run against this site's DBDG subsystem got DSNE139E "NOT
+# ABLE TO LOCATE DSNTEP2 IN THE STANDARD SEARCH ORDER" -- not every site
+# installs DSNTEP2 under that name (or at all); set both independently if
+# your site's real bound copy uses a different program name than its
+# plan name, or vice versa. DSNTIAD, IBM's other sample dynamic-SQL
+# program, is NOT usable here even if it happens to be installed --
+# confirmed via IBM's own docs that it can't run SELECT statements at
+# all, and every query this domain runs is a SELECT.
 zos_extract_db2_ssid: ""
+zos_extract_db2_program: "DSNTEP2"
 zos_extract_db2_plan: "DSNTEP2"
-# DB2's own load modules are conventionally split across two libraries
-# (SDSNLOAD plus SDSNLOD2, an IBM DB2-for-z/OS installation convention,
-# not a site-specific quirk -- SDSNLOD2 holds modules that didn't fit in
-# SDSNLOAD) -- confirmed against a real site (zdt3's DBDG subsystem),
-# whose DSN command wasn't found (IKJ56500I) with only SDSNLOAD on
-# STEPLIB. zos_extract_db2_steplib2 is optional -- leave blank if your
-# site's DB2 load modules all fit in one library.
-zos_extract_db2_steplib: ""
-zos_extract_db2_steplib2: ""
+# A LIST, not a single DSN -- went through two real revisions against
+# this site's DBDG subsystem before landing here. DB2's own load modules
+# are conventionally split across two libraries (SDSNLOAD plus SDSNLOD2,
+# an IBM DB2-for-z/OS installation convention, not a site quirk), so one
+# DSN alone wasn't enough (DSN command not found, IKJ56500I); a real run
+# then needed a THIRD STEPLIB DSN too (this site's own RUNLIB load
+# library, where its real bound DSNTEP2 copy actually lives) -- a fixed
+# slot count kept proving too narrow, so this is a real list. Leave empty
+# if your site's DB2 program is already reachable via LNKLST.
+zos_extract_db2_steplib: []
 zos_extract_db2_catalog_outfile: "db2_catalog.txt"
 
 # Opt-in deepened CICS resource view: DFHRPL lineage + DFHCSDUP CSD
