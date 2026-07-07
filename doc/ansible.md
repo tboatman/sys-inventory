@@ -794,14 +794,31 @@ dependency).
   `IDCAMS`. `SYSTSPRT` is captured as text too (originally `dd_dummy`,
   but that real run's `rc=12`/empty `SYSPRINT` gave no way to diagnose
   the STEPLIB problem above -- `SYSTSPRT` is where the `DSN`/`RUN` TSO
-  command processor prints its own diagnostics). Two separate invocations
-  (one per catalog table) rather than one job with two `SELECT`s, so each
-  result lands under its own unambiguous `##SYSPACKAGE`/`##SYSPLAN`
-  sentinel -- both queries return the same `NAME`/`CREATOR`/`BINDTIME`
-  column shape, so nothing in DSNTEP2's own report text could otherwise
-  tell the two blocks apart. A `;;SSID=` marker line (not part of
-  DSNTEP2's own report, same idiom `tcpip.yml`'s `;;SOURCE_DSN=` marker
-  uses) tags each block with which subsystem it ran against.
+  command processor prints its own diagnostics). **`SYSPRINT` is a real
+  `dd_data_set`** (`record_format=fba`, `record_length=133`, one per
+  query under `zos_extract_db2_workhlq`, default
+  `zos_extract_db2_sysprint_primary`/`_secondary` 10/10 tracks), not
+  `dd_output`/`return_content` -- a real run abended `U4038` reason code
+  1 (a PL/I `IBM0201S ONCODE=81` file-attribute mismatch, confirmed
+  against IBM's own docs: DSNTEP2 requires `SYSPRINT` to have
+  `LRECL=133`), and `dd_output`'s own schema has no `record_format`/
+  `record_length` suboptions at all -- structurally impossible to satisfy
+  that requirement through `dd_output`. Fetched back via `zos_fetch` into
+  a scratch dir and read with `lookup('file', ...)` once cleaned up --
+  unlike `_smplist_zone.yml`'s `SMPLIST` (confirmed near 15M lines,
+  needing the scratch-dir/local-`cat` streaming approach to avoid loading
+  it all into Ansible's own memory), a DB2 package/plan catalog listing
+  isn't expected to be at that scale, so the simpler `lookup('file', ...)`
+  idiom is used here instead. Two separate invocations (one per catalog
+  table, each with its own `SYSPRINT` data set name since two runs can't
+  both write `disposition=new` to the same name) rather than one job with
+  two `SELECT`s, so each result lands under its own unambiguous
+  `##SYSPACKAGE`/`##SYSPLAN` sentinel -- both queries return the same
+  `NAME`/`CREATOR`/`BINDTIME` column shape, so nothing in DSNTEP2's own
+  report text could otherwise tell the two blocks apart. A `;;SSID=`
+  marker line (not part of DSNTEP2's own report, same idiom `tcpip.yml`'s
+  `;;SOURCE_DSN=` marker uses) tags each block with which subsystem it
+  ran against.
 
 **THIS IS THE MOST SPECULATIVE *CONSOLE/MVS-PROGRAM* DOMAIN IN THE
 PIPELINE** (the WLM z/OSMF deepening below is more speculative still,

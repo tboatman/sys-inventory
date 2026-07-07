@@ -1115,6 +1115,31 @@ blocking the run:**
    DSNs via standalone test playbooks. DSNTEP2 itself is still
    unconfirmed against a real run with all of the above in place --
    that's the next step.
+5. With `DSN`/`RUN` and STEPLIB both correct (real program/plan
+   `DSNTEP2`/`DSNTEP13`), the run got past TSO/DB2-connection entirely
+   and DSNTEP2 itself started -- then abended `USER ABEND CODE 4038
+   REASON CODE 00000001`, with `SYSPRINT` still 0 bytes. Researched this
+   against IBM's own documentation (not guessed) and found the exact
+   documented cause: DSNTEP2 requires its `SYSPRINT` DD to have
+   `LRECL=133`, or it abends exactly `U4038` reason code 1 (a PL/I
+   `IBM0201S ONCODE=81` file-attribute-mismatch exception). Checked
+   `zos_mvs_raw`'s own `dd_output` schema (`ibm_zos_core`'s module
+   source) and confirmed it has no `record_format`/`record_length`
+   suboptions whatsoever -- structurally impossible to set `LRECL=133`
+   through `dd_output`, so `SYSPRINT` had to become a real `dd_data_set`
+   instead (`record_format=fba`/`record_length=133`, new configurable
+   `zos_extract_db2_sysprint_primary`/`_secondary`, default 10/10
+   tracks), one per query since two `zos_mvs_raw` invocations can't both
+   `disposition=new` the same data set name, fetched back via
+   `zos_fetch` into a scratch dir (new `zos_extract_db2_workhlq`, same
+   idiom as `zos_extract_smpe_workhlq`) and read with `lookup('file',
+   ...)` once cleaned up -- simpler than `_smplist_zone.yml`'s
+   scratch-dir/local-`cat` streaming approach since a DB2 catalog listing
+   isn't expected to be anywhere near SMPLIST's confirmed ~15M-line
+   scale. Verified the rendered DD list (including the real
+   `TOMMY.DB2CAT.SYSPACKAGE` dataset shape) via a standalone test
+   playbook. DSNTEP2 itself is still unconfirmed against a real run with
+   this fix in place -- that's the next step.
 
 ---
 
