@@ -35,15 +35,15 @@
 
 - name: Auto-discover the PARMLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_parmlib.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot]
 
 - name: Determine the active IEASYSxx/IEASYMxx suffixes
   ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot]
 
-- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, and the full IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx content, for ieasys_snapshot.yml/bpxprm_snapshot.yml/devsup_snapshot.yml/opt_snapshot.yml/clock_snapshot.yml/autor_snapshot.yml/sched_snapshot.yml/couple_snapshot.yml/grsrnl_snapshot.yml/smf_snapshot.yml/ios_snapshot.yml/consol_snapshot.yml/igdsms_snapshot.yml/izuprm_snapshot.yml)
+- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, and the full IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/DIAGxx content, for ieasys_snapshot.yml/bpxprm_snapshot.yml/devsup_snapshot.yml/opt_snapshot.yml/clock_snapshot.yml/autor_snapshot.yml/sched_snapshot.yml/couple_snapshot.yml/grsrnl_snapshot.yml/smf_snapshot.yml/ios_snapshot.yml/consol_snapshot.yml/igdsms_snapshot.yml/izuprm_snapshot.yml/diag_snapshot.yml)
   ansible.builtin.import_tasks: discover_active_members.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot]
 
 - name: Auto-discover proclib datasets concatenated onto MSTRJCL's IEFPDSI DD, invisible to '$D PROCLIB'
   ansible.builtin.import_tasks: discover_mstrjcl_proclibs.yml
@@ -120,6 +120,10 @@
 - name: Explicit active IZUPRMxx member snapshot -- z/OSMF configuration, named by IEASYSxx's own IZU= keyword (step 34, see izuprm_snapshot.yml)
   ansible.builtin.import_tasks: izuprm_snapshot.yml
   tags: [izuprm_snapshot]
+
+- name: Explicit active DIAGxx member snapshot -- diagnostic function defaults, named by IEASYSxx's own DIAG= keyword (step 35, see diag_snapshot.yml)
+  ansible.builtin.import_tasks: diag_snapshot.yml
+  tags: [diag_snapshot]
 
 - name: LNKLST dataset list (step 4)
   ansible.builtin.import_tasks: lnklst.yml

@@ -173,6 +173,13 @@
     zos_extract_active_izuprm_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^IZU@@@') | map('regex_replace', '^IZU@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # DIAG=xx names the active DIAGxx member(s) -- diagnostic function
+    # defaults (common storage tracking, GETMAIN/FREEMAIN/storage trace).
+    # Same parenthesized-list shape as above, consumed by
+    # diag_snapshot.yml. Tenth Category C domain from doc/TODO.md "9.2".
+    zos_extract_active_diag_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^DIAG@@@') | map('regex_replace', '^DIAG@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -303,3 +310,13 @@
   vars:
     zos_extract_active_member_prefix: IZUPRM
     zos_extract_active_member_blocks_var: zos_extract_izuprm_member_blocks
+
+- name: Fetch each active DIAGxx member's content, in order (for diag_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_diag_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "DIAG{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: DIAG
+    zos_extract_active_member_blocks_var: zos_extract_diag_member_blocks

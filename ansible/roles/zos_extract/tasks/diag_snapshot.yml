@@ -1,0 +1,24 @@
+---
+# Explicit, always-saved capture of the active DIAGxx member(s)' full
+# content -- diagnostic function defaults (common storage tracking,
+# GETMAIN/FREEMAIN/storage trace), named by IEASYSxx's own DIAG=
+# keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/
+# CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU= name
+# IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/
+# CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/
+# CONSOLxx/IGDSMSxx/IZUPRMxx. Tenth Category C (statement-oriented)
+# active-PARMLIB-member domain from doc/TODO.md "9.2" -- built on the
+# generalized _fetch_active_parmlib_member.yml worker (see doc/TODO.md
+# "9.1").
+#
+# CONFIRMED against a real DIAG00 member -- see diag_parser.py's module
+# docstring for the confirmed statement vocabulary and its sequence-number
+# stripping quirk (real DIAGxx members carry traditional PARMLIB sequence
+# numbers in columns 73-80 of every physical line).
+
+- name: Write diag_snapshot.txt (active DIAGxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_diag_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_diag_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

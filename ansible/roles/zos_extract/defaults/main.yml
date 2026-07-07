@@ -41,6 +41,7 @@ zos_extract_consol_snapshot_outfile: "consol_snapshot.txt"
 # rationale (doc/TODO.md "9.2").
 zos_extract_igdsms_snapshot_outfile: "igdsms_snapshot.txt"
 zos_extract_izuprm_snapshot_outfile: "izuprm_snapshot.txt"
+zos_extract_diag_snapshot_outfile: "diag_snapshot.txt"
 
 zos_extract_ssn_member_filter: "IEFSSN*"
 zos_extract_commnd_member_filter: "COMMND*"
