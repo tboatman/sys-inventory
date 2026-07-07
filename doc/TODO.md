@@ -800,13 +800,38 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   the gaps" capability this whole round started from, made permanent
   instead of a one-time by-hand analysis.
 
-### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt`
+### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt` -- IN PROGRESS
 
 - Every other console/text parser in this pipeline has been confirmed
   against real output this round except this one -- get a real
-  `LIST DDDEF`/`MOD`/`SYSMOD` (and, once 8d lands, `LIST ZONES`) report
-  from this site and diff it against the regex assumptions here, the same
-  process already used for VTAM/TCPIP/JES2/WLM/SMS above.
+  `LIST DDDEF`/`MOD`/`SYSMOD` report from this site and diff it against
+  the regex assumptions here, the same process already used for
+  VTAM/TCPIP/JES2/WLM/SMS above. `LIST ZONES`/`LIST GLOBALZONE` (8d) is
+  already confirmed separately, above.
+- Discovered a real infrastructure blocker before a single real
+  `*.smplist.txt` was even in hand: this site's base z/OS target zone
+  (`MVST` in `MVS.GLOBAL.CSI`, found via `MVS.*.CSI` CSI discovery once
+  `EDUC.**.CSI` came back empty on zdt3) produces a `LIST DDDEF`/`MOD`/
+  `SYSMOD` report near **15 million lines**. Two fixes landed for this
+  before a real capture could even be attempted:
+  - `SMPWRK6`'s original fixed 5MB-primary/no-secondary allocation
+    B37-04'd (out of space) against a zone this size -- both now
+    configurable (`zos_extract_smpe_smpwrk6_primary`/`_secondary`,
+    default 50MB/50MB).
+  - `SMPLIST` itself was captured via `zos_mvs_raw`'s
+    `dd_output`/`return_content`, which buffers the *entire* report
+    inline in the ansible module's own JSON result -- that architecture
+    can't scale to millions of lines at all, independent of space sizing.
+    `_smplist_zone.yml` now allocates `SMPLIST` as a real persistent data
+    set (`zos_extract_smpe_smplist_primary`/`_secondary`, default
+    2000MB/2000MB) and retrieves it via `zos_fetch` (a real SFTP-style
+    transfer, not JSON-embedded content), finalizing the `##CSI`-prefixed
+    output file with a local `cat` rather than loading it into Ansible's
+    own memory/Jinja engine.
+  - Still open: an actual real `*.smplist.txt` from this site hasn't been
+    captured/diffed against `smpe_parser.parse_smplist()`'s regexes yet
+    -- that's the next step once the `smplist` tag run against `MVST`
+    completes successfully.
 
 ---
 
