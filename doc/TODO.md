@@ -1419,8 +1419,16 @@ domain):**
   (statement vocabulary `MIH`, `HOTIO`, `TERMINAL`, `FICON`, `STORAGE`,
   `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`, `MIDAW`, `HYPERPAV`,
   `HYPERWRITE`, `ZHPF`), `ios_statements` table, `inventory ios`
-  command, `ios_snapshot.yml`. NOT YET VALIDATED against a real
-  IECIOSxx member.
+  command, `ios_snapshot.yml`. Checked against this site's real system:
+  IEASYSxx's own `IOS=` keyword is genuinely not set here (no active
+  IECIOSxx member at all -- not a bug, this site just doesn't configure
+  one), so `ios_snapshot.yml` correctly produces empty output. That
+  confirms the "no member found" path, but the actual statement-parsing
+  regexes (`MIH`/`HOTIO`/etc.) still have no real IECIOSxx content to
+  check against at this site -- still NOT YET VALIDATED for the
+  statement content itself; would need a different site/system that
+  does configure `IOS=` to confirm that part. Skipped for this round
+  per the user's own call.
 - `CON`/`CONSOLxx` -- IMPLEMENTED and CONFIRMED against a real CONSOLxx
   member: `ConsolStatement`/`consol_parser.py`, `consol_statements`
   table, `inventory consol` command, `consol_snapshot.yml`. Statement

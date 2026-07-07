@@ -625,8 +625,13 @@ MIH TIME=00:15:00,DEV=(0100-01FF)  [IECIOS00]
 ZHPF YES  [IECIOS00]
 ```
 
-**Built from IBM's z/OS MVS Initialization and Tuning Reference — not
-yet checked against a real IECIOSxx member.**
+**Built from IBM's z/OS MVS Initialization and Tuning Reference — still
+not checked against real IECIOSxx member content.** This site's own
+`IOS=` keyword genuinely isn't set (no active IECIOSxx member at all,
+confirmed against a real system, not a bug), so `ios_snapshot.yml`
+correctly produces empty output here — but that means there's no real
+member content at this site to validate the statement vocabulary above
+against. Would need a different site/system that does configure `IOS=`.
 
 ### `inventory consol`
 

@@ -232,11 +232,15 @@ include `REC`/`MAXDORM`/`STATUS`/`JWT`/`SID`/`LISTDSN`/`INTVAL`/
 `SYNCVAL`/`AUTHSETSMF`, all of which the real member exercised and which
 would otherwise have been silently folded into the preceding
 statement's operands -- its full documented keyword surface may still
-be larger. `ios_snapshot`/`IECIOSxx` remains **not yet validated against
-a real member**; its full statement vocabulary (`MIH`, `HOTIO`,
-`TERMINAL`, `FICON`, `STORAGE`, `CAPTUCB`, `EKM`, `RECOVERY`, `CTRACE`,
-`MIDAW`, `HYPERPAV`, `HYPERWRITE`, `ZHPF`) is confirmed against IBM's
-z/OS MVS Initialization and Tuning Reference.
+be larger. `ios_snapshot`/`IECIOSxx`: checked against this site's real
+system and confirmed `IEASYSxx`'s `IOS=` keyword genuinely isn't set here
+(no active IECIOSxx member at all, not a bug), so `ios_snapshot.yml`
+correctly produces empty output -- but that means the actual statement
+vocabulary (`MIH`, `HOTIO`, `TERMINAL`, `FICON`, `STORAGE`, `CAPTUCB`,
+`EKM`, `RECOVERY`, `CTRACE`, `MIDAW`, `HYPERPAV`, `HYPERWRITE`, `ZHPF`,
+confirmed against IBM's z/OS MVS Initialization and Tuning Reference)
+still has no real member content to validate against at this site --
+**remains not yet validated for the statement content itself**.
 
 `consol_snapshot` is the seventh Category C domain: IEASYSxx's own
 `CON=` keyword names the active CONSOLxx member(s) (MCS/EMCS console
