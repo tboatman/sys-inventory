@@ -858,15 +858,24 @@ program run over the existing SSH-based connection.
 
 - **Not part of `site.yml`/`interactive.yml`**: run it via the dedicated
   `playbooks/wlm_zosmf.yml` entry point instead --
-  `ansible-playbook playbooks/wlm_zosmf.yml --tags wlm_zosmf` (add
-  `--limit lpar1` to scope to one host). That playbook prompts for your
-  z/OSMF username/password at runtime (same `vars_prompt` pattern
-  `playbooks/interactive.yml` already uses for SSH credentials) rather
-  than storing them in `hosts.yml` -- credentials are registered onto
-  each targeted host via `add_host` and never written to disk.
+  `ansible-playbook playbooks/wlm_zosmf.yml --tags wlm_zosmf`. That
+  playbook prompts for BOTH the target system's connection details (same
+  `vars_prompt`/`add_host` idiom `playbooks/interactive.yml` uses for a
+  one-off system not yet in `inventory/hosts.yml`) AND your z/OSMF
+  username/password -- credentials are registered onto the host via
+  `add_host` and never written to disk. Originally this playbook only
+  targeted hosts already in `inventory/hosts.yml`'s `zos` group (no
+  connection-detail prompts of its own), which meant it couldn't reach a
+  system tested via `interactive.yml`'s one-off pattern at all -- merged
+  in `interactive.yml`'s own connection prompts so it's self-contained.
+  The z/OSMF task itself never actually opens an SSH connection to the
+  target system (pure `ansible.builtin.uri`, `delegate_to: localhost`),
+  but the play still needs a registered `zos` group host to run against,
+  and this role's own "Ensure local output directory exists" step runs
+  unconditionally (`tags: always`) regardless of which tag was requested.
 - `zos_extract_zosmf_host` defaults to that host's own `ansible_host`
   (z/OSMF commonly runs reachable at the same address as the LPAR
-  itself); override it in `hosts.yml` if your site has one shared z/OSMF
+  itself); override it via `-e` if your site has one shared z/OSMF
   instance on its own hostname/port instead.
 - `zos_extract_zosmf_validate_certs` defaults to `false` -- many internal
   z/OSMF instances present a self-signed/internal-CA certificate. Set it
