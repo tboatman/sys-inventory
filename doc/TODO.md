@@ -1080,6 +1080,41 @@ blocking the run:**
    still unconfirmed -- next real run should reveal whether `DSN`/`RUN`
    now succeed, or surface report-format specifics for
    `db2_catalog_parser.py` to check.
+3. With STEPLIB fixed, `DSN`/`RUN` themselves parsed correctly this
+   time (`rc=8`, not a TSO/JCL-level failure), but DB2 itself reported
+   `DSNE139E NOT ABLE TO LOCATE DSNTEP2 IN THE STANDARD SEARCH ORDER` --
+   this site never installed/bound `DSNTEP2` under that name.
+   `zos_extract_db2_program` had been hardcoded to the literal
+   `"DSNTEP2"` in the `RUN PROGRAM(...)` command all along, with no way
+   to override it independently of `zos_extract_db2_plan` -- fixed by
+   adding it as a real variable (defaulting to `"DSNTEP2"`, preserving
+   prior behavior). Considered switching to `DSNTIAD` (IBM's other
+   sample dynamic-SQL batch program) as an alternative first, but
+   researched it against IBM's own documentation before implementing
+   anything and found it **cannot run `SELECT` statements at all**
+   (`UPDATE`/`INSERT`/`DELETE`/`CREATE`/`GRANT`/`LABEL ON` only) -- since
+   every query this domain runs is a `SELECT`, DSNTIAD would have just
+   traded one failure for a different, predictable one. Dropped that
+   path; documented the finding in both the task file and
+   `defaults/main.yml` so it isn't tried again.
+4. The user supplied this site's real, separately-bound program/plan
+   name (`DSNTEP13`) to test with, then immediately after asked to go
+   back to real `DSNTEP2` with one more real STEPLIB DSN
+   (`DSND10.DBDG.RUNLIB.LOAD`, this site's own RUNLIB, where its real
+   bound `DSNTEP2` copy actually lives) -- a **third** STEPLIB DSN,
+   proving the just-added two-fixed-slot design (`zos_extract_db2_steplib`/
+   `zos_extract_db2_steplib2`) was already too narrow. Rather than add a
+   third slot (and risk needing a fourth later), converted
+   `zos_extract_db2_steplib` to a real list and rebuilt the `dd_concat`
+   `dds` entries via a task-level `loop:`-based `set_fact` (confirmed
+   ansible-core's native Jinja templating here doesn't support list
+   comprehensions at all -- tested one directly, got "expected token
+   ',', got 'for'" -- so a `loop:` task, not a Jinja `map`/comprehension
+   chain, is the supported way to build a list of dicts from a list of
+   scalars). Verified the rendered DD list for zero/one/three STEPLIB
+   DSNs via standalone test playbooks. DSNTEP2 itself is still
+   unconfirmed against a real run with all of the above in place --
+   that's the next step.
 
 ---
 

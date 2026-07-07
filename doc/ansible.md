@@ -757,21 +757,38 @@ genuinely reachable without a new product (no CMCI/CICSplex SM
 dependency).
 
 - Opt-in: skipped entirely unless `zos_extract_db2_ssid` is set. Also
-  needs a plan already bound at the target site for DSNTEP2
-  (`zos_extract_db2_plan`, defaults to `DSNTEP2`, IBM's own sample plan
-  name -- sites commonly rebind/rename it) and, if DSNTEP2 isn't already
+  needs a real SELECT-capable dynamic-SQL program+plan already bound at
+  the target site (`zos_extract_db2_program`/`zos_extract_db2_plan`, both
+  default `DSNTEP2` -- IBM's own sample program/plan name, but sites
+  commonly rebind/rename or recompile their own copy under a different
+  name). `zos_extract_db2_program` was originally hardcoded to the
+  literal `DSNTEP2` in the `RUN` command with no way to override it --
+  fixed after a real run (this site's `DBDG` subsystem) got `DSNE139E
+  NOT ABLE TO LOCATE DSNTEP2 IN THE STANDARD SEARCH ORDER`, since a
+  site's real bound copy can use a different program name than its plan
+  name (or vice versa). **`DSNTIAD`, IBM's other sample dynamic-SQL
+  program, is not a substitute here** even if it happens to be installed
+  -- confirmed via IBM's own docs that it can't run `SELECT` at all
+  (`UPDATE`/`INSERT`/`DELETE`/`CREATE`/`GRANT`/`LABEL ON` only), and every
+  query this domain runs is a `SELECT`. And, if the program isn't already
   reachable via the default STEPLIB concatenation, the DB2 load
-  library(-ies) it needs (`zos_extract_db2_steplib`/
-  `zos_extract_db2_steplib2`). Originally a single-DSN convention like
-  `_smplist_zone.yml`'s own optional STEPLIB, but a real run (this site's
-  `DBDG` subsystem) failed with `IKJ56500I COMMAND DSN NOT FOUND` using
-  only one STEPLIB DSN -- DB2's own load modules are conventionally split
-  across two libraries (`SDSNLOAD` plus `SDSNLOD2`, an IBM DB2-for-z/OS
-  installation convention, not a site quirk), so a second optional
-  STEPLIB DSN is supported now, combined via `zos_mvs_raw`'s `dd_concat`
-  (confirmed against `ibm_zos_core`'s own module docs that a real
-  concatenation needs `dd_concat`, not just two `dd_data_set` entries
-  sharing one `dd_name`).
+  library(-ies) it needs (`zos_extract_db2_steplib`, a **list**, not a
+  single DSN). Went through two real revisions against this site's `DBDG`
+  subsystem before landing here: first a single DSN (like
+  `_smplist_zone.yml`'s own optional STEPLIB precedent), which failed
+  with `IKJ56500I COMMAND DSN NOT FOUND` (DB2's own load modules are
+  conventionally split across `SDSNLOAD` plus `SDSNLOD2`, an IBM
+  DB2-for-z/OS installation convention, not a site quirk); then two fixed
+  DSN slots, which still wasn't enough once a real run needed a *third*
+  STEPLIB DSN (this site's own `RUNLIB` load library, where its real
+  bound copy actually lives) -- a fixed slot count kept proving too
+  narrow, so this is a real list now, combined via `zos_mvs_raw`'s
+  `dd_concat` (confirmed against `ibm_zos_core`'s own module docs that a
+  real concatenation needs `dd_concat`, not just multiple `dd_data_set`
+  entries sharing one `dd_name`). The `dd_data_set` entries are built via
+  a task-level `loop:`, not a Jinja list comprehension -- this
+  ansible-core's native templating doesn't support comprehensions at all
+  (confirmed by testing one directly).
 - `zos_mvs_raw` runs `IKJEFT01` (TSO batch, the standard way to invoke
   DSNTEP2) the same way `racf.yml` runs `IRRDBU00` and `catalog.yml` runs
   `IDCAMS`. `SYSTSPRT` is captured as text too (originally `dd_dummy`,
@@ -798,10 +815,11 @@ doesn't match a simple whitespace-split row.
 
 Run `ansible-playbook playbooks/site.yml --tags db2 --limit lpar1
 -e '{"zos_extract_db2_ssid": "YOUR_SSID"}'` (add
-`zos_extract_db2_plan`/`zos_extract_db2_steplib`/`zos_extract_db2_steplib2`
-if the defaults don't fit your site) against a real DB2 subsystem and
-check the resulting `db2_catalog.txt` against what
-`db2_catalog_parser.py` assumes before relying on this dimension at all.
+`zos_extract_db2_program`/`zos_extract_db2_plan`/`zos_extract_db2_steplib`
+(the last as a list, e.g. `["DSN....SDSNLOAD", "DSN....SDSNLOD2"]`) if
+the defaults don't fit your site) against a real DB2 subsystem and check
+the resulting `db2_catalog.txt` against what `db2_catalog_parser.py`
+assumes before relying on this dimension at all.
 
 ### WLM deepening via z/OSMF (opt-in, the single most speculative dimension in the entire pipeline)
 
