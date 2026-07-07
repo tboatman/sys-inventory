@@ -1153,8 +1153,34 @@ blocking the run:**
    the Jinja renders correctly" and "verified the resulting value is
    itself a valid MVS name" are two different checks -- the standalone
    test playbooks used earlier in this round confirmed the former, not
-   the latter. DSNTEP2 itself is still unconfirmed against a real run
-   with this fix in place -- that's the next step.
+   the latter.
+7. With all five real fixes above in place, DSNTEP2 finally ran
+   end-to-end and produced real `db2_catalog.txt` content -- but the
+   real report *shape* was nothing like the original guess. The parser
+   assumed one row per line (`NAME CREATOR BINDTIME` whitespace-split);
+   the real DSNTEP2 report instead **transposes** the result set into one
+   boxed column-section per column (`| NAME |`, then `| CREATOR |`, then
+   `| BINDTIME |`, each spanning as many physical print pages as it
+   needs -- SYSIBM.SYSPACKAGE's NAME column apparently prints wide enough
+   that DSNTEP2 doesn't fit all three columns side by side at all), with
+   only a shared row-number prefix (`479_|`) tying a value in one section
+   back to the same logical row in another. Rewrote
+   `db2_catalog_parser.py` from scratch around this real shape: each
+   column section accumulates into its own `{row_number: value}` dict
+   (immune to the same "section title reprints on every page" class of
+   bug `_smplist_zone.yml`'s `LIST MOD` had, since there's no separate
+   pending-state to reset here -- a page break splitting one column's
+   section across pages just keeps writing into the same dict), then
+   rows are reconstructed by `NAME`'s own row numbers once the whole
+   block is read. Verified against both a hand-built fixture (including
+   a mid-section page break, modeled on a real `"PAGE 28.1"` sub-page
+   continuation) and a literal excerpt of the real report text pasted
+   by the user. `Db2Package`/`Db2Plan` and their "most speculative
+   domain" flags are updated to CONFIRMED throughout (`models.py`,
+   `db2_catalog_parser.py`, `db2_catalog.yml`, `doc/ansible.md`,
+   `doc/inventory.md`) -- DB2 catalog deepening is no longer the most
+   speculative domain in the pipeline; CICS `DFHCSDUP` and WLM z/OSMF
+   deepening remain the genuinely unconfirmed ones now.
 
 ---
 

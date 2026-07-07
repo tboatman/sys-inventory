@@ -245,16 +245,18 @@ storage groups, the active WLM policy, installed DB2 packages/plans, and
 a deepened CICS view (DFHRPL lineage, SIT overrides, CSD definitions via
 DFHCSDUP). Most of these have been confirmed against real command/API
 output from an actual z/OS system (see `doc/TODO.md` for exactly which,
-and what changed once a real reply was checked). A handful remain
-**implementation-only, not yet production-validated**: RACF (users,
-groups, dataset and curated general-resource access — needs a real, and
-likely hard-to-get, RACF database read authorization this environment
-can't provide, and its parser's field layout was derived from a
-third-party reference rather than IBM's own documentation or a real
-unload sample), DB2 catalog access via DSNTEP2, WLM's z/OSMF REST API
-deepening (the single most speculative dimension in the pipeline), and
-DFHCSDUP's own `LIST` report print format. Treat each of those as
-implementation-only until checked against a real system — see
+and what changed once a real reply was checked) — including DB2 catalog
+access via DSNTEP2, confirmed after five real fixes and a full parser
+rewrite around DSNTEP2's actual (transposed, column-per-section) report
+shape. A handful remain **implementation-only, not yet
+production-validated**: RACF (users, groups, dataset and curated
+general-resource access — needs a real, and likely hard-to-get, RACF
+database read authorization this environment can't provide, and its
+parser's field layout was derived from a third-party reference rather
+than IBM's own documentation or a real unload sample), WLM's z/OSMF REST
+API deepening (the single most speculative dimension in the pipeline
+now), and DFHCSDUP's own `LIST` report print format. Treat each of those
+as implementation-only until checked against a real system — see
 `doc/inventory.md`'s per-command sections for specifics on each.
 
 ## Sub-project docs

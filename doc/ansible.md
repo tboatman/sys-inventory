@@ -746,7 +746,7 @@ modern z/OS releases), rather than parsing a mode keyword that doesn't
 exist. See `wlm_parser.py`'s module docstring for the full detail and the
 real sample reply.
 
-### Deepened DB2 catalog view (opt-in, the most speculative *console/MVS-program* domain in the pipeline)
+### Deepened DB2 catalog view (opt-in, CONFIRMED against a real DSNTEP2 report)
 
 `db2_catalog.yml` (tag `db2`, same tag as `db2.yml` above, but gated
 separately by `zos_extract_db2_ssid`) deepens `db2.yml`'s "is a DB2
@@ -820,23 +820,26 @@ dependency).
   `;;SOURCE_DSN=` marker uses) tags each block with which subsystem it
   ran against.
 
-**THIS IS THE MOST SPECULATIVE *CONSOLE/MVS-PROGRAM* DOMAIN IN THE
-PIPELINE** (the WLM z/OSMF deepening below is more speculative still,
-being a different transport entirely): beyond the usual "not yet
-confirmed against a real reply" caveat every implementation-only domain
-above carries, DSNTEP2's exact authorization/PLAN/STEPLIB requirements
-themselves vary by site DB2 setup, on top of report-format uncertainty.
-`inventory/inventory/db2_catalog_parser.py`'s docstring carries the full
-caveat, including what to check first if a real run's report layout
-doesn't match a simple whitespace-split row.
+**CONFIRMED against a real DSNTEP2 report** (this site's `DBDG`
+subsystem) -- getting there took five real fixes in sequence (`SYSTSPRT`
+capture, STEPLIB as a list, the program-name override, `SYSPRINT`'s
+`LRECL=133` requirement, and the `SYSPACKAGE`-qualifier-too-long dataset
+name; see `doc/TODO.md`'s DSNTEP2 progress log for the detail on each),
+and the real *report shape* itself turned out completely different from
+the original guess: DSNTEP2 transposes a wide result set into one
+column-per-section (`NAME`, then `CREATOR`, then `BINDTIME`, each its own
+boxed table keyed by a shared row number) rather than printing
+`NAME CREATOR BINDTIME` on one line per row.
+`inventory/inventory/db2_catalog_parser.py`'s docstring has the full real
+shape and how row reconstruction works.
 
 Run `ansible-playbook playbooks/site.yml --tags db2 --limit lpar1
 -e '{"zos_extract_db2_ssid": "YOUR_SSID"}'` (add
 `zos_extract_db2_program`/`zos_extract_db2_plan`/`zos_extract_db2_steplib`
 (the last as a list, e.g. `["DSN....SDSNLOAD", "DSN....SDSNLOD2"]`) if
-the defaults don't fit your site) against a real DB2 subsystem and check
-the resulting `db2_catalog.txt` against what `db2_catalog_parser.py`
-assumes before relying on this dimension at all.
+the defaults don't fit your site) against your own DB2 subsystem --
+DSNTEP2's authorization/PLAN/STEPLIB requirements still vary by site DB2
+setup even though the mechanics above are now confirmed.
 
 ### WLM deepening via z/OSMF (opt-in, the single most speculative dimension in the entire pipeline)
 
@@ -1219,8 +1222,8 @@ roles/zos_extract/
                                # output -- not authoritative, see above
     db2_catalog.yml            # opt-in zos_mvs_raw (DSNTEP2 via IKJEFT01)
                                 # deepened DB2 packages/plans view (see
-                                # above) -- the most speculative domain in
-                                # the pipeline, not yet validated
+                                # above) -- CONFIRMED against a real
+                                # DSNTEP2 report (DBDG subsystem)
     cics_deepening.yml, _cics_proc_dump.yml, _cics_csdup_dump.yml
                                 # opt-in DFHRPL lineage + DFHCSDUP CSD
                                 # definitions (see above) -- the

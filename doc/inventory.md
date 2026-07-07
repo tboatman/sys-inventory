@@ -1043,27 +1043,28 @@ MODE: GOAL
 If you didn't ingest a `wlm.txt`, this prints `no WLM policy ingested`
 and exits with a non-zero status — same as `inventory sysinfo`.
 
-### `inventory db2-packages` / `inventory db2-plans` (opt-in, the most speculative *console/MVS-program* dimension, not yet production-validated)
+### `inventory db2-packages` / `inventory db2-plans` (opt-in, CONFIRMED against a real DSNTEP2 report)
 
 Installed DB2 packages (`SYSIBM.SYSPACKAGE`) and plans (`SYSIBM.SYSPLAN`),
 if you ingested a `db2_catalog.txt` — deepens `db2.yml`'s "is a DB2
 address space up right now" live heuristic with real catalog content, via
-a read-only DSNTEP2 batch SQL query. **This is the most speculative
-console/MVS-program-based dimension in the pipeline** (`wlm-zosmf` below
-is more speculative still, being a different transport entirely): beyond
-the reply not being checked against a real system, DSNTEP2's exact
-authorization/PLAN/STEPLIB requirements themselves vary by site DB2
-setup — see `db2_catalog_parser.py`'s module docstring for the full
-caveat, including what to check first if a real run's report layout
-doesn't match the simple whitespace-split row parsing used here.
+a read-only DSNTEP2 batch SQL query. CONFIRMED against a real report
+(this site's `DBDG` subsystem) after five real ansible-side fixes (see
+`doc/TODO.md`'s DSNTEP2 progress log) — and the real report *shape*
+itself needed a parser rewrite, not just re-flagging: DSNTEP2 transposes
+a wide result set into one boxed column-section per column (`NAME`, then
+`CREATOR`, then `BINDTIME`, tied together by a shared row number) rather
+than printing `NAME CREATOR BINDTIME` on one line per row as originally
+guessed — see `db2_catalog_parser.py`'s module docstring for the full
+real shape.
 
 ```
 $ inventory db2-packages
-PKG1  CREATOR=COLLID1 BINDTIME=2024-01-15-10.30.00.000000  [DB2A]
-PKG2  CREATOR=COLLID2 BINDTIME=2024-02-20-11.15.30.000000  [DB2A]
+PKG1  CREATOR=COLLID1 BINDTIME=2024-01-15-10.30.00.000000  [DBDG]
+PKG2  CREATOR=COLLID2 BINDTIME=2024-02-20-11.15.30.000000  [DBDG]
 
 $ inventory db2-plans
-PLAN01  CREATOR=SYSADM BINDTIME=2023-11-01-09.00.00.000000  [DB2A]
+PLAN01  CREATOR=SYSADM BINDTIME=2023-11-01-09.00.00.000000  [DBDG]
 ```
 
 ### `inventory wlm-zosmf` (opt-in, the single most speculative dimension in the entire pipeline)
