@@ -213,11 +213,19 @@ def merge_zones(*zone_maps: dict[str, Zone]) -> dict[str, Zone]:
     return merged
 
 _GLOBALZONE_HDR = re.compile(r"^\s*(\S+)\s+ZONE\s+ENTRIES\b", re.IGNORECASE)
-# First ZONEINDEX row is on the same line as the "ZONEINDEX =" label,
-# prefixed by the owning (global) zone's own entry name; e.g.:
-#   GLOBAL    ZONEINDEX       = DZONE  DLIB    CICS.REL41.DZONE.CSI
+# First ZONEINDEX row is on the same line as the "ZONEINDEX =" label. The
+# entry-name prefix (e.g. "GLOBAL") is only present if ZONEINDEX happens to
+# be the *first* attribute printed for that entry -- confirmed against a
+# real LIST GLOBALZONE report where UPGLEVEL was first instead, so
+# ZONEINDEX appeared as a bare indented line with no name token at all:
+#   GLOBAL    UPGLEVEL        = SMP/E 37.03
+#             OPTIONS         = OPTSVSC
+#             ZONEINDEX       = MVSD    DLIB    MVS.MVSD.CSI
+# The third-party reference this was originally built against only showed
+# the prefixed form ("GLOBAL    ZONEINDEX       = DZONE  DLIB    ..."), so
+# the name token is optional here to cover both.
 _ZONEINDEX_FIRST = re.compile(
-    r"^\s*\S+\s+ZONEINDEX\s*=\s*([A-Za-z0-9$#@]+)\s+([A-Za-z]+)\s+(\S+)\s*$",
+    r"^\s*(?:\S+\s+)?ZONEINDEX\s*=\s*([A-Za-z0-9$#@]+)\s+([A-Za-z]+)\s+(\S+)\s*$",
     re.IGNORECASE,
 )
 # Further rows are indented continuation lines with no "KEY =" label, just
@@ -238,15 +246,16 @@ def parse_globalzone(path: Path) -> list[ZoneIndexEntry]:
     use above, just with ZONE as the type -- containing one GLOBAL-zone
     entry whose ZONEINDEX attribute lists zone name / zone type / owning
     CSI dataset, one per line, first row inline with "ZONEINDEX =" and
-    the rest on indented continuation lines with no label) confirmed
-    against a real third-party ZOAU/Ansible SMP/E role built against real
-    system output (github.com/LuiggiTorricelli/zos_smpe_list's
-    filter_plugins/parse_gimsmp.py -- its ZONEINDEX regex expects exactly
-    this NAME/TYPE/CSI triple shape), not yet against this site's own
-    system -- same "confirmed via third-party reference, not a real reply
-    from this shop yet" caveat racf_parser.py's byte offsets carry. Tune
-    the regexes above against your real *.smpzones.txt if this comes back
-    empty; see doc/TODO.md ("8d") for the full detail.
+    the rest on indented continuation lines with no label) CONFIRMED
+    against a real LIST GLOBALZONE report (MVS.GLOBAL.CSI). That real
+    report exposed a wrinkle the original third-party reference this was
+    first built against (github.com/LuiggiTorricelli/zos_smpe_list's
+    filter_plugins/parse_gimsmp.py) didn't show: the entry-name token
+    (e.g. "GLOBAL") only prefixes ZONEINDEX's line if ZONEINDEX happens to
+    be the *first* attribute printed. In real output UPGLEVEL was first
+    instead, so ZONEINDEX appeared as a bare indented line with no name
+    token at all -- _ZONEINDEX_FIRST's leading token is optional to cover
+    both shapes. See doc/TODO.md ("8d") for the full detail.
     """
     csi_name: str | None = None
     entries: list[ZoneIndexEntry] = []

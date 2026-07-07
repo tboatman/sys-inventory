@@ -117,3 +117,25 @@ def test_parse_globalzone_reads_zoneindex():
     # zone's ZONEINDEX.
     assert dzone1.csi == "EDUC.TEST.DLIB.CSI"
     assert dzone1.source_csi == "EDUC.TEST.GLOBAL.CSI"
+
+
+def test_parse_globalzone_handles_unprefixed_zoneindex_line():
+    # Regression test for a real LIST GLOBALZONE report (MVS.GLOBAL.CSI):
+    # ZONEINDEX wasn't the first attribute printed (UPGLEVEL was), so its
+    # line carried no leading entry-name token at all -- just indented
+    # "ZONEINDEX       = ..." with nothing before it. The original regex
+    # required that token and silently matched zero entries against this
+    # real shape.
+    entries = smpe_parser.parse_globalzone(FIXTURES / "sample_smpe_globalzone_real.txt")
+    assert len(entries) == 4
+
+    by_name = {e.zone_name: e for e in entries}
+    assert by_name["MVST"].zone_type == "TARGET"
+    assert by_name["MVST"].csi == "MVS.MVST.CSI"
+    assert by_name["MVSD"].zone_type == "DLIB"
+    assert by_name["MVSD"].csi == "MVS.MVSD.CSI"
+    # A zone whose entries live in a completely different product's CSI
+    # than the GLOBAL zone that cross-references it -- a real, documented
+    # SMP/E pattern, not a fixture artifact.
+    assert by_name["CSQ920T"].csi == "CSQ920.CSQ920T.CSI"
+    assert all(e.source_csi == "MVS.GLOBAL.CSI" for e in entries)
