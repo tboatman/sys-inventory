@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Twenty-two more files —
+   file naming and how to produce each file. Twenty-three more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -147,18 +147,19 @@ just renaming them into that shape for a quick demo.)
    IECIOSxx member(s) — I/O related parameters, named by IEASYSxx's own
    `IOS=` keyword), `consol_snapshot.txt` (the active CONSOLxx
    member(s) — MCS/EMCS console definitions, named by IEASYSxx's own
-   `CON=` keyword), and `igdsms_snapshot.txt` (the active IGDSMSxx
+   `CON=` keyword), `igdsms_snapshot.txt` (the active IGDSMSxx
    member(s) — SMS base configuration, named by IEASYSxx's own `SMS=`
    keyword — deliberately distinct naming from the live
    `sms`/`SmsStorageGroup` domain below, see `inventory igdsms`'s own
-   section)
+   section), and `izuprm_snapshot.txt` (the active IZUPRMxx member(s) —
+   z/OSMF configuration, named by IEASYSxx's own `IZU=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
-   `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`
+   `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -673,6 +674,33 @@ SMS ACDS(SYS1.ZDT3.ACDS) COMMDS(SYS1.ZDT3.COMMDS) INTERVAL(15) DINTERVAL(150) RE
 CONFIRMED against a real IGDSMSxx member -- one `SMS` statement
 spanning 13 continuation lines, folded correctly with no code change
 needed.
+
+### `inventory izuprm`
+
+z/OSMF (z/OS Management Facility) configuration statements
+(`HOSTNAME`/`JAVA_HOME`/`KEYRING_NAME`/`SEC_GROUPS`/`WLM_CLASSES`/
+`PLUGINS`/...) from the active IZUPRMxx member(s), if you ingested an
+`izuprm_snapshot.txt`. Named by IEASYSxx's own `IZU=` keyword. Ninth,
+and for now last, of the Category C domains from `doc/TODO.md` "9.2":
+
+```
+$ inventory izuprm
+HOSTNAME ('s0w1.dal-ebis.ihost.com')  [IZUPRM00]
+JAVA_HOME ('/usr/lpp/java/J11.0_64')  [IZUPRM00]
+KEYRING_NAME ('IZUKeyring.IZUDFLT')  [IZUPRM00]
+CSRF_SWITCH (ON)  [IZUPRM00]
+CSRF_SWITCH (OFF)  [IZUPRM00]
+WLM_CLASSES DEFAULT(IZUGHTTP) LONG_WORK(IZUGWORK)  [IZUPRM00]
+```
+
+CONFIRMED against a real IZUPRM00 member, which exercised two shapes no
+earlier Category C domain had: a quoted value spanning two physical
+lines (`LOGGING(...)`, per the member's own documented continuation
+rule) and a repeated statement keyword (`CSRF_SWITCH` appears twice
+above, both kept in order rather than collapsed to the last one) — both
+handled correctly with no code change needed. IZUPRMxx's full documented
+statement surface is likely larger than what's captured here (this
+reflects one shop's real member, not IBM's complete reference).
 
 ### `inventory active`
 

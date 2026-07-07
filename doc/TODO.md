@@ -1224,18 +1224,35 @@ handled than any of the above):**
 
 **F -- needs research before committing to *any* design, not just a
 "not yet validated" flag like everything above:**
-- `PAK`/`IEAPAKxx` -- not confident this is a real, current z/OS PARMLIB
-  member at all (no documentation found while writing this plan); verify
-  it exists before designing anything
+- `PAK`/`IEAPAKxx` -- RESOLVED, dropped from scope: user confirmed this
+  isn't a real, current z/OS PARMLIB member -- effectively an IEFBR14 (a
+  no-op), not something to design a parser for. No further work needed
+  here; this leaves 1 domain in Category F, not 3.
 - `UNI`/`CUNIMGxx` -- real member, but its exact statement syntax isn't
   confidently known here; needs the same doc research pass
   `bpxprm_parser.py` got before implementing
-- `IZU`/`IZUPRMxx` (z/OSMF configuration) -- likely real and likely more
-  elaborate/nested than a flat statement list (z/OSMF's own config
-  surface is large); expect this to need its own careful pass like
-  `PROG`/`PROGxx`, probably the single most speculative one here,
-  comparable to `wlm_zosmf.txt`'s own "most speculative in the pipeline"
-  tier
+- `IZU`/`IZUPRMxx` (z/OSMF configuration) -- IMPLEMENTED and CONFIRMED
+  against a real IZUPRM00 member, and turned out to be a much better fit
+  for Category C's `parmlib_engines.statement_engine()` than the
+  "likely more elaborate/nested" worry this entry originally carried:
+  `IzuprmStatement`/`izuprm_parser.py`, `izuprm_statements` table,
+  `inventory izuprm` command, `izuprm_snapshot.yml`. Statement vocabulary
+  (HOSTNAME, HTTP_SSL_PORT, INCIDENT_LOG, JAVA_HOME, KEYRING_NAME,
+  LOGGING, RESTAPI_FILE, COMMON_TSO, SAF_PREFIX, CLOUD_SAF_PREFIX,
+  CLOUD_SEC_ADMIN, SEC_GROUPS, SESSION_EXPIRE, TEMP_DIR, CSRF_SWITCH,
+  SERVER_PROC, ANGEL_PROC, AUTOSTART, AUTOSTART_GROUP, USER_DIR,
+  UNAUTH_USER, WLM_CLASSES, PLUGINS) is confirmed against a real member
+  but is one shop's actual content, not IBM's full documented surface --
+  broaden it if a future member exercises more. The real member
+  exercised two shapes no earlier Category C domain had: a single-quoted
+  value spanning two physical lines (`LOGGING('...=\nfiner')`, per the
+  member's own documented rule that a quoted value may continue on the
+  next physical line, closing quote and all) and a repeated top-level
+  statement keyword (`CSRF_SWITCH` appeared twice, `ON` then `OFF` --
+  both kept in order, not collapsed, same precedent COUPLExx's repeated
+  `DATA` statements already set) -- both handled correctly by
+  `statement_engine()` with no code change needed. This leaves 1 domain
+  remaining in Category F.
 
 ### 9.3. Suggested sequencing
 
@@ -1252,7 +1269,9 @@ handled than any of the above):**
 5. Category D (1 domain, SVC) -- needs the small `jes2parm_parser.py`
    extension first.
 6. `PROG`/`IGDSMS` on their own, given their complexity.
-7. Category F (3 domains) -- research first, implement last.
+7. Category F (1 domain remaining, UNI/CUNIMGxx -- PAK/IEAPAKxx dropped
+   as not a real member, IZU/IZUPRMxx implemented and confirmed) --
+   research first, implement last.
 
 Each domain still needs: model + parser + `store.py` table + `cli.py`
 command + fixture + tests + doc updates (`zos-extract.md`/`ansible.md`/
