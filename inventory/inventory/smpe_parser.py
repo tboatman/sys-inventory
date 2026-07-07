@@ -24,6 +24,17 @@ nothing here requires the sentinel to be present. See `doc/TODO.md`
 four separate real CSIs (`ansible/output/bes2/smpe_csi_candidates.txt`),
 and without this, merging zones from more than one of them loses which
 CSI each zone actually belongs to.
+
+`LIST DDDEF` is now CONFIRMED against a real report (MVST target zone,
+MVS.GLOBAL.CSI, near 15M lines) -- the section-title/entry shapes above
+matched as expected, but that same report exposed a real bug: the
+"<zone>  <TYPE> ENTRIES" title reprints at the top of EVERY page, not just
+once per section, so a `LIST MOD` element's LASTUPD/FMID/LMOD lines
+straddling a page break used to have their pending state wiped by the
+next page's repeated title line. Fixed by only resetting pending state on
+an actual section change (see `parse_smplist()`). `LIST MOD`/`LIST SYSMOD`
+themselves are still only confirmed against the synthetic fixture below --
+diff those sections against a real report too before fully trusting them.
 """
 from __future__ import annotations
 
@@ -102,11 +113,20 @@ def parse_smplist(path: Path) -> dict[str, Zone]:
         hdr_match = _SECTION_HDR.match(line)
         if hdr_match:
             zname, rtype = hdr_match.groups()
-            section = _SECTION_BY_TYPE[rtype.upper()]
+            new_section = _SECTION_BY_TYPE[rtype.upper()]
             current_zone = zones.setdefault(zname, Zone(name=zname))
-            pending_modname = None
-            pending_fmid = None
-            pending_sysmod = None
+            # This title line reprints at the top of every page (confirmed
+            # against a real ~15M-line LIST DDDEF report), not just once per
+            # section -- so only clear the pending multi-line-block state on
+            # a genuine section change. Resetting unconditionally would wipe
+            # an in-progress LIST MOD element's FMID/LMOD linkage every time
+            # a page break happens to fall between its LASTUPD/FMID/LMOD
+            # lines.
+            if new_section != section:
+                pending_modname = None
+                pending_fmid = None
+                pending_sysmod = None
+            section = new_section
             continue
 
         if _SECTION_DDDEF.search(line):

@@ -99,6 +99,19 @@ def test_merge_zones_no_collision_when_csi_unknown():
     assert merged["TZONE1"].csi == "EDUC.B.CSI"
 
 
+def test_mod_entry_survives_page_break_between_lastupd_and_fmid():
+    # Regression test for a real ~15M-line LIST DDDEF/MOD/SYSMOD report
+    # (MVST target zone, MVS.GLOBAL.CSI): SMP/E reprints the
+    # "<zone>  <TYPE> ENTRIES" section title at the top of EVERY page, not
+    # just once per section. A LIST MOD element's LASTUPD/FMID/LMOD lines
+    # can straddle a page break, and the parser used to treat every
+    # _SECTION_HDR match as a fresh section start, wiping pending_modname/
+    # pending_fmid and silently dropping that element's FMID/LMOD tie.
+    zones = smpe_parser.parse_smplist(FIXTURES / "sample_smpe_mod_page_break.txt")
+    assert zones["MVST"].module_fmid == {"ADMAET0A": "JGD3219"}
+    assert zones["MVST"].lmod_fmid == {"ADMAET0A": "JGD3219"}
+
+
 def test_parse_globalzone_reads_zoneindex():
     entries = smpe_parser.parse_globalzone(FIXTURES / "sample_smpe_globalzone.txt")
     assert len(entries) == 2
