@@ -1238,9 +1238,11 @@ handled than any of the above):**
   isn't a real, current z/OS PARMLIB member -- effectively an IEFBR14 (a
   no-op), not something to design a parser for. No further work needed
   here; this leaves 1 domain in Category F, not 3.
-- `UNI`/`CUNIMGxx` -- real member, but its exact statement syntax isn't
-  confidently known here; needs the same doc research pass
-  `bpxprm_parser.py` got before implementing
+- `UNI`/`CUNIMGxx` -- RESOLVED, dropped from scope: user confirmed
+  Unicode conversion image tables aren't a concern for this site --
+  not worth the doc research pass to pin down its statement syntax.
+  This leaves Category F empty (both PAK/IEAPAKxx and UNI/CUNIMGxx
+  dropped, IZU/IZUPRMxx implemented and confirmed below).
 - `IZU`/`IZUPRMxx` (z/OSMF configuration) -- IMPLEMENTED and CONFIRMED
   against a real IZUPRM00 member, and turned out to be a much better fit
   for Category C's `parmlib_engines.statement_engine()` than the
@@ -1261,8 +1263,8 @@ handled than any of the above):**
   statement keyword (`CSRF_SWITCH` appeared twice, `ON` then `OFF` --
   both kept in order, not collapsed, same precedent COUPLExx's repeated
   `DATA` statements already set) -- both handled correctly by
-  `statement_engine()` with no code change needed. This leaves 1 domain
-  remaining in Category F.
+  `statement_engine()` with no code change needed. This leaves Category
+  F empty -- see UNI/CUNIMGxx above.
 
 ### 9.3. Suggested sequencing
 
@@ -1278,10 +1280,11 @@ handled than any of the above):**
    statement engine exists.
 5. Category D (1 domain, SVC) -- needs the small `jes2parm_parser.py`
    extension first.
-6. `PROG`/`IGDSMS` on their own, given their complexity.
-7. Category F (1 domain remaining, UNI/CUNIMGxx -- PAK/IEAPAKxx dropped
-   as not a real member, IZU/IZUPRMxx implemented and confirmed) --
-   research first, implement last.
+6. `PROG` on its own, given its complexity (`IGDSMS` implemented and
+   confirmed).
+7. Category F -- now empty (`PAK`/`IEAPAKxx` and `UNI`/`CUNIMGxx` both
+   dropped as out of scope, `IZU`/`IZUPRMxx` implemented and
+   confirmed).
 
 Each domain still needs: model + parser + `store.py` table + `cli.py`
 command + fixture + tests + doc updates (`zos-extract.md`/`ansible.md`/
