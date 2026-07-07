@@ -1195,8 +1195,18 @@ domain):**
   new name (`IgdsmsStatement`, `igdsms_parser.py`, `igdsms_statements`,
   `inventory igdsms`, tag `igdsms_snapshot`) uses `igdsms`, not `sms`,
   throughout.
-- `CATALOG`/`IGGCATxx`, `DIAG`/`DIAGxx`,
-  `GRSCNF`/`GRSCNFxx`, and `PROG`/`PROGxx`
+- `DIAG`/`DIAGxx` -- IMPLEMENTED and CONFIRMED against a real DIAG00
+  member: `DiagStatement`/`diag_parser.py` (one-keyword vocabulary
+  `{"VSM"}`, e.g. `VSM TRACK CSA(ON) SQA(ON)`, `VSM TRACE
+  GETFREE(OFF)`), `diag_statements` table, `inventory diag` command,
+  `diag_snapshot.yml`. Tenth Category C domain from doc/TODO.md "9.2",
+  and the first one whose confirming real member carried traditional
+  PARMLIB sequence numbers in columns 73-80 of every physical line --
+  since that trailing field sits on the *same* line as real statement
+  content (not a separate comment line), `strip_comments()` alone
+  wouldn't remove it; `diag_parser.py`'s own `_strip_sequence_numbers()`
+  strips it before handing lines to `parmlib_engines.statement_engine()`.
+- `CATALOG`/`IGGCATxx`, `GRSCNF`/`GRSCNFxx`, and `PROG`/`PROGxx`
   (**the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
   all distinct sub-statement types inside one PROGxx member; treat as its
   own careful pass, not a drive-by addition alongside the simpler ones)

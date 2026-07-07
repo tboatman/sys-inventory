@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Twenty-three more files —
+   file naming and how to produce each file. Twenty-four more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -151,15 +151,18 @@ just renaming them into that shape for a quick demo.)
    member(s) — SMS base configuration, named by IEASYSxx's own `SMS=`
    keyword — deliberately distinct naming from the live
    `sms`/`SmsStorageGroup` domain below, see `inventory igdsms`'s own
-   section), and `izuprm_snapshot.txt` (the active IZUPRMxx member(s) —
-   z/OSMF configuration, named by IEASYSxx's own `IZU=` keyword)
+   section), `izuprm_snapshot.txt` (the active IZUPRMxx member(s) —
+   z/OSMF configuration, named by IEASYSxx's own `IZU=` keyword), and
+   `diag_snapshot.txt` (the active DIAGxx member(s) — diagnostic
+   function defaults, named by IEASYSxx's own `DIAG=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
-   `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`
+   `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
+   `diag_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -680,8 +683,8 @@ needed.
 z/OSMF (z/OS Management Facility) configuration statements
 (`HOSTNAME`/`JAVA_HOME`/`KEYRING_NAME`/`SEC_GROUPS`/`WLM_CLASSES`/
 `PLUGINS`/...) from the active IZUPRMxx member(s), if you ingested an
-`izuprm_snapshot.txt`. Named by IEASYSxx's own `IZU=` keyword. Ninth,
-and for now last, of the Category C domains from `doc/TODO.md` "9.2":
+`izuprm_snapshot.txt`. Named by IEASYSxx's own `IZU=` keyword. Ninth of
+the Category C domains from `doc/TODO.md` "9.2":
 
 ```
 $ inventory izuprm
@@ -701,6 +704,28 @@ above, both kept in order rather than collapsed to the last one) — both
 handled correctly with no code change needed. IZUPRMxx's full documented
 statement surface is likely larger than what's captured here (this
 reflects one shop's real member, not IBM's complete reference).
+
+### `inventory diag`
+
+Diagnostic function defaults (common storage tracking, GETMAIN/
+FREEMAIN/storage trace) from the active DIAGxx member(s), if you
+ingested a `diag_snapshot.txt`. Named by IEASYSxx's own `DIAG=` keyword.
+Tenth, and for now last, of the Category C domains from `doc/TODO.md`
+"9.2":
+
+```
+$ inventory diag
+VSM TRACK CSA(ON) SQA(ON)  [DIAG00]
+VSM TRACE GETFREE(OFF)  [DIAG00]
+```
+
+CONFIRMED against a real DIAG00 member, which exercised a wrinkle no
+earlier Category C domain's confirming member had: traditional MVS
+PARMLIB sequence numbers in columns 73-80 of every physical line, sitting
+on the *same* line as real statement content (unlike a `/* ... */`
+comment, which `strip_comments()` already handles regardless of where it
+falls). `diag_parser.py` strips that trailing field before handing lines
+to `parmlib_engines.statement_engine()`.
 
 ### `inventory active`
 

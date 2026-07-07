@@ -104,7 +104,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
-`igdsms_snapshot`, `izuprm_snapshot`,
+`igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -268,21 +268,37 @@ exclusion the live-SMS parser would have silently ingested the wrong
 file, the same class of bug `*wlm*`/`*wlm_zosmf*`'s existing exclusion
 already guards against.
 
-`izuprm_snapshot` is the ninth, and for now last, Category C domain:
-IEASYSxx's own `IZU=` keyword names the active IZUPRMxx member(s) --
-z/OSMF (z/OS Management Facility) configuration (`HOSTNAME`/`JAVA_HOME`/
-`KEYRING_NAME`/`SEC_GROUPS`/`WLM_CLASSES`/`PLUGINS`/... statements),
-fetched the same way and written to `izuprm_snapshot.txt` -- ingested
-via `inventory izuprm`. CONFIRMED against a real IZUPRM00 member, which
-exercised two shapes no earlier Category C domain had: a quoted value
-spanning two physical lines (`LOGGING('...=\nfiner')`, per the member's
-own documented rule that a quoted value may continue on the next
-physical line) and a repeated statement keyword (`CSRF_SWITCH` appeared
-twice, both occurrences kept in order rather than collapsed) -- both
-handled correctly by `parmlib_engines.statement_engine()` with no code
-change needed. IZUPRMxx's full documented statement surface is likely
-larger than this vocabulary (it reflects one shop's real member, not
-IBM's complete reference).
+`izuprm_snapshot` is the ninth Category C domain: IEASYSxx's own `IZU=`
+keyword names the active IZUPRMxx member(s) -- z/OSMF (z/OS Management
+Facility) configuration (`HOSTNAME`/`JAVA_HOME`/`KEYRING_NAME`/
+`SEC_GROUPS`/`WLM_CLASSES`/`PLUGINS`/... statements), fetched the same
+way and written to `izuprm_snapshot.txt` -- ingested via `inventory
+izuprm`. CONFIRMED against a real IZUPRM00 member, which exercised two
+shapes no earlier Category C domain had: a quoted value spanning two
+physical lines (`LOGGING('...=\nfiner')`, per the member's own
+documented rule that a quoted value may continue on the next physical
+line) and a repeated statement keyword (`CSRF_SWITCH` appeared twice,
+both occurrences kept in order rather than collapsed) -- both handled
+correctly by `parmlib_engines.statement_engine()` with no code change
+needed. IZUPRMxx's full documented statement surface is likely larger
+than this vocabulary (it reflects one shop's real member, not IBM's
+complete reference).
+
+`diag_snapshot` is the tenth, and for now last, Category C domain:
+IEASYSxx's own `DIAG=` keyword names the active DIAGxx member(s) --
+diagnostic function defaults (common storage tracking, GETMAIN/
+FREEMAIN/storage trace, a one-keyword `VSM` vocabulary), fetched the
+same way and written to `diag_snapshot.txt` -- ingested via `inventory
+diag`. CONFIRMED against a real DIAG00 member, which exercised a wrinkle
+no earlier Category C domain's confirming member had: traditional MVS
+PARMLIB sequence numbers in columns 73-80 of every physical line.
+Unlike a `/* ... */` comment, that trailing field sits on the *same*
+line as real statement content, so `strip_comments()` alone wouldn't
+remove it -- left alone, it would have been folded into the statement's
+own operand text as a bogus trailing 8-digit token.
+`diag_parser.py`'s `_strip_sequence_numbers()` strips it before handing
+lines to `parmlib_engines.statement_engine()`, the first Category C
+parser here to need that preprocessing step.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1076,13 +1092,21 @@ roles/zos_extract/
                              # izuprm_snapshot.txt, ingested via
                              # inventory izuprm -- CONFIRMED against a
                              # real member
+    diag_snapshot.yml        # explicit capture of the active DIAGxx
+                             # member(s) -- diagnostic function
+                             # defaults, named by IEASYSxx's own DIAG=
+                             # keyword; tag diag_snapshot; writes
+                             # diag_snapshot.txt, ingested via
+                             # inventory diag -- CONFIRMED against a
+                             # real member
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
                              # SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/
-                             # IZUPRMxx fetches above -- see doc/TODO.md "9.1"
+                             # IZUPRMxx/DIAGxx fetches above -- see
+                             # doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs
