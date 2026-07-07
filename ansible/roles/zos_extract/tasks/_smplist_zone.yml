@@ -20,7 +20,8 @@
           {'dd_dummy': {'dd_name': 'SMPLOGA'}},
           {'dd_data_set': {'dd_name': 'SMPWRK6', 'data_set_name': zos_extract_smpe_workhlq ~ '.SMPWRK6',
                             'disposition': 'new', 'type': 'pds', 'record_format': 'fb', 'record_length': 80,
-                            'directory_blocks': 10, 'space_primary': 5, 'space_type': 'm', 'replace': true,
+                            'directory_blocks': 10, 'space_primary': zos_extract_smpe_smpwrk6_primary,
+                            'space_secondary': zos_extract_smpe_smpwrk6_secondary, 'space_type': 'm', 'replace': true,
                             'disposition_normal': 'delete', 'disposition_abnormal': 'delete'}},
           {'dd_input': {'dd_name': 'SMPCNTL', 'content': ['SET BDY(' ~ zos_extract_csi_zone_pair[1] ~ ').', 'LIST DDDEF .', 'LIST MOD .', 'LIST SYSMOD .']}},
           {'dd_output': {'dd_name': 'SMPLIST', 'return_content': {'type': 'text'}}}
