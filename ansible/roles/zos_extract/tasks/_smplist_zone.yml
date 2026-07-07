@@ -83,7 +83,7 @@
   # header comment.
   ansible.builtin.shell: >-
     { printf '##CSI %s\n' {{ zos_extract_csi_zone_pair[0].csi | quote }};
-      cat {{ (zos_extract_smplist_scratch.path ~ '/report.txt') | quote }}; }
+    cat {{ (zos_extract_smplist_scratch.path ~ '/report.txt') | quote }}; }
     > {{ (zos_extract_local_output_dir ~ '/' ~ (zos_extract_csi_zone_pair[0].csi | lower | regex_replace('[^a-z0-9]+', '_')) ~ '.' ~ (zos_extract_csi_zone_pair[1] | lower) ~ '.smplist.txt') | quote }}
   delegate_to: localhost
 
