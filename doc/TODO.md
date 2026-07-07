@@ -845,10 +845,32 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
     redirect attached to the `{ ...; }` group.
   - Confirmed fixed: rerunning the `smplist` tag against `MVST` after the
     indentation fix produces a real, non-empty `mvs_global_csi.mvst.smplist.txt`.
-  - Still open: that real `LIST DDDEF` report (a base z/OS target zone,
-    so `LIST MOD`/`LIST SYSMOD` for the same zone are presumably just as
-    large) hasn't been diffed against `smpe_parser.parse_smplist()`'s
-    regexes yet -- that's the actual remaining goal of this section.
+  - `LIST DDDEF` CONFIRMED against a real slice of that report (`MVST`
+    target zone, MVS.GLOBAL.CSI): the `"<zone>  <TYPE> ENTRIES"` section
+    title and the two-line `NAME  DATASET = dsn` / `disposition` entry
+    shape both matched as expected.
+  - That same real report exposed a genuine parser bug, unrelated to the
+    DDDEF shape itself: the section title reprints at the top of **every
+    page** (confirmed from the raw stdout -- `"MVST    DDDEF ENTRIES"` /
+    `"  NAME"` repeat on page 2, page 3, ...), not just once per section.
+    `LIST MOD` entries are multi-line blocks (LASTUPD name, then later
+    FMID=, then LMOD=, sometimes several lines apart), and the parser
+    treated every repeated section-title match as a fresh section start,
+    unconditionally wiping `pending_modname`/`pending_fmid`. Against a
+    report this size, a page break landing between an element's LASTUPD
+    and FMID lines would silently drop that element's FMID/LMOD tie with
+    no error. Fixed in `parse_smplist()` to only reset that pending state
+    on an actual section change, not a same-section page-break repeat.
+    Regression test: `test_mod_entry_survives_page_break_between_lastupd_and_fmid`
+    (`sample_smpe_mod_page_break.txt`, modeled on the real page-break
+    shape) -- confirmed it fails without the fix (empty `module_fmid`)
+    and passes with it.
+  - Still open: `LIST MOD`/`LIST SYSMOD` themselves are still only
+    confirmed against the synthetic `sample_smpe_list.txt` fixture, not a
+    real report slice -- get real `LIST MOD`/`LIST SYSMOD` output from
+    this site's `MVST` zone (or any zone) and diff it against
+    `_FILE_MODULE`/`_FILE_FMID`/`_FILE_LMOD`/`_SYSMOD_HDR`/
+    `_SYSMOD_STATUS` the same way `LIST DDDEF` was just confirmed above.
 
 ---
 

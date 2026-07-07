@@ -1209,6 +1209,16 @@ $ inventory zone-gaps
 inventory: no zone gaps found (every LIST GLOBALZONE zone was also captured via *smplist*.txt)
 ```
 
+`smpe_parser.parse_smplist()`'s `LIST DDDEF` parsing is CONFIRMED against
+a real report from this site (`MVST` target zone, `MVS.GLOBAL.CSI`, near
+15M lines) — that report also exposed and fixed a genuine bug: its
+section-title line reprints at the top of every page, which used to wipe
+a `LIST MOD` element's in-progress FMID/LMOD linkage if a page break fell
+between its LASTUPD and FMID lines (see the parser's own docstring and
+`doc/TODO.md` "8g" for the detail). `LIST MOD`/`LIST SYSMOD` themselves
+are still only confirmed against the synthetic `sample_smpe_list.txt`
+fixture, not a real report slice.
+
 ## How resolution works
 
 See `inventory/resolver.py`. For each PROCLIB/PARMLIB member:
