@@ -828,10 +828,25 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
     transfer, not JSON-embedded content), finalizing the `##CSI`-prefixed
     output file with a local `cat` rather than loading it into Ansible's
     own memory/Jinja engine.
+  - A third bug surfaced once the pipeline actually ran end-to-end: the
+    final "Prepend the `##CSI` sentinel..." task's `ansible.builtin.shell`
+    used a `>-` (folded) block scalar with its `cat ...` continuation line
+    indented two spaces deeper than the lines above/below it. YAML's
+    folding rule preserves (rather than folds to a space) the newlines
+    around any more-indented line, so the *executed* command actually had
+    a bare newline between `cat ...report.txt; }` and `> dest.txt` --
+    which parses in `sh` as two separate statements: the `{ ...; }` group
+    (whose stdout landed in the ansible module's own captured `stdout`,
+    not the file) followed by a command-less `> dest.txt` redirect that
+    just truncated the destination to zero bytes. Fixed by re-indenting
+    all three continuation lines to the same level so the block scalar
+    folds into one real single-line command; confirmed via
+    `yaml.safe_load` that the rendered command is now one line with the
+    redirect attached to the `{ ...; }` group.
   - Still open: an actual real `*.smplist.txt` from this site hasn't been
-    captured/diffed against `smpe_parser.parse_smplist()`'s regexes yet
-    -- that's the next step once the `smplist` tag run against `MVST`
-    completes successfully.
+    diffed against `smpe_parser.parse_smplist()`'s regexes yet -- that's
+    the next step now that the `smplist` tag run against `MVST` completes
+    successfully and produces real, non-empty output.
 
 ---
 
