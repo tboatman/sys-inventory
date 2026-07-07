@@ -1030,6 +1030,28 @@ report format (CICS) -- these four aren't console
 `D`-commands runnable via a quick `opercmd` paste (they all need a
 batch JCL run instead).
 
+**Attempting DSNTEP2 validation surfaced a real, unrelated bug first**:
+`db2.yml`'s "Write db2.txt" task (tag `db2`, runs before `db2_catalog.yml`
+in the same play/tag) crashed the whole run with `"src (or content) is
+required"` against a real site (`DBDG` subsystem on `zdt3`) where zero
+address spaces matched its `PROCSTEP == 'DB2PROC'` OR job-name-pattern
+heuristic -- this site's real DB2 job names are prefixed with the
+subsystem ID itself (`DBDGMSTR`/`DBDGDBM1`/`DBDGIRLM`/`DBDGDIST`), not a
+literal `"DB2"`, and none of their real PROCSTEPs are `"DB2PROC"` either
+(`IEFPROC`, or none). Root cause: `ansible.builtin.copy` treats an empty
+(or Jinja-`None`) `content:` string as "not provided" rather than writing
+an empty file, and the task's `{% for %}...{% endfor %}` template
+rendered to nothing when no address space matched. `db2.yml`'s own
+docstring had also overclaimed `PROCSTEP == "DB2PROC"` was "true for
+every DB2 address space... in a real reply from this site" -- disproven
+by this real reply; corrected. Fixed both the crash (split into a
+`set_fact` building the matched text, then `(text | default('', true)) ~
+'\n'` guarantees non-empty content) and found/fixed the identical latent
+bug in `cics.yml` (same for-loop-in-content pattern; hadn't crashed yet
+only because this site's real CICS regions do have `PROCSTEP="CICS"`).
+Confirmed the fix against the exact real zero-match data from this run.
+DSNTEP2 itself is still unconfirmed -- this just unblocks getting there.
+
 ---
 
 ## 9. Broader active-PARMLIB-member capture (26 more IEASYSxx-named members)
