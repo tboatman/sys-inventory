@@ -760,20 +760,31 @@ dependency).
   needs a plan already bound at the target site for DSNTEP2
   (`zos_extract_db2_plan`, defaults to `DSNTEP2`, IBM's own sample plan
   name -- sites commonly rebind/rename it) and, if DSNTEP2 isn't already
-  reachable via the default STEPLIB concatenation, the one DB2 load
-  library it needs (`zos_extract_db2_steplib`, a single DSN, same
-  single-dataset convention `_smplist_zone.yml` already uses for its own
-  optional STEPLIB).
+  reachable via the default STEPLIB concatenation, the DB2 load
+  library(-ies) it needs (`zos_extract_db2_steplib`/
+  `zos_extract_db2_steplib2`). Originally a single-DSN convention like
+  `_smplist_zone.yml`'s own optional STEPLIB, but a real run (this site's
+  `DBDG` subsystem) failed with `IKJ56500I COMMAND DSN NOT FOUND` using
+  only one STEPLIB DSN -- DB2's own load modules are conventionally split
+  across two libraries (`SDSNLOAD` plus `SDSNLOD2`, an IBM DB2-for-z/OS
+  installation convention, not a site quirk), so a second optional
+  STEPLIB DSN is supported now, combined via `zos_mvs_raw`'s `dd_concat`
+  (confirmed against `ibm_zos_core`'s own module docs that a real
+  concatenation needs `dd_concat`, not just two `dd_data_set` entries
+  sharing one `dd_name`).
 - `zos_mvs_raw` runs `IKJEFT01` (TSO batch, the standard way to invoke
   DSNTEP2) the same way `racf.yml` runs `IRRDBU00` and `catalog.yml` runs
-  `IDCAMS`. Two separate invocations (one per catalog table) rather than
-  one job with two `SELECT`s, so each result lands under its own
-  unambiguous `##SYSPACKAGE`/`##SYSPLAN` sentinel -- both queries return
-  the same `NAME`/`CREATOR`/`BINDTIME` column shape, so nothing in
-  DSNTEP2's own report text could otherwise tell the two blocks apart. A
-  `;;SSID=` marker line (not part of DSNTEP2's own report, same idiom
-  `tcpip.yml`'s `;;SOURCE_DSN=` marker uses) tags each block with which
-  subsystem it ran against.
+  `IDCAMS`. `SYSTSPRT` is captured as text too (originally `dd_dummy`,
+  but that real run's `rc=12`/empty `SYSPRINT` gave no way to diagnose
+  the STEPLIB problem above -- `SYSTSPRT` is where the `DSN`/`RUN` TSO
+  command processor prints its own diagnostics). Two separate invocations
+  (one per catalog table) rather than one job with two `SELECT`s, so each
+  result lands under its own unambiguous `##SYSPACKAGE`/`##SYSPLAN`
+  sentinel -- both queries return the same `NAME`/`CREATOR`/`BINDTIME`
+  column shape, so nothing in DSNTEP2's own report text could otherwise
+  tell the two blocks apart. A `;;SSID=` marker line (not part of
+  DSNTEP2's own report, same idiom `tcpip.yml`'s `;;SOURCE_DSN=` marker
+  uses) tags each block with which subsystem it ran against.
 
 **THIS IS THE MOST SPECULATIVE *CONSOLE/MVS-PROGRAM* DOMAIN IN THE
 PIPELINE** (the WLM z/OSMF deepening below is more speculative still,
@@ -787,10 +798,10 @@ doesn't match a simple whitespace-split row.
 
 Run `ansible-playbook playbooks/site.yml --tags db2 --limit lpar1
 -e '{"zos_extract_db2_ssid": "YOUR_SSID"}'` (add
-`zos_extract_db2_plan`/`zos_extract_db2_steplib` if the defaults don't
-fit your site) against a real DB2 subsystem and check the resulting
-`db2_catalog.txt` against what `db2_catalog_parser.py` assumes before
-relying on this dimension at all.
+`zos_extract_db2_plan`/`zos_extract_db2_steplib`/`zos_extract_db2_steplib2`
+if the defaults don't fit your site) against a real DB2 subsystem and
+check the resulting `db2_catalog.txt` against what
+`db2_catalog_parser.py` assumes before relying on this dimension at all.
 
 ### WLM deepening via z/OSMF (opt-in, the single most speculative dimension in the entire pipeline)
 

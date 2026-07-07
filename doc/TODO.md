@@ -1052,6 +1052,35 @@ only because this site's real CICS regions do have `PROCSTEP="CICS"`).
 Confirmed the fix against the exact real zero-match data from this run.
 DSNTEP2 itself is still unconfirmed -- this just unblocks getting there.
 
+**Two more real DSNTEP2 failures, in sequence, once `db2.yml` stopped
+blocking the run:**
+1. `rc=12`, empty `SYSPRINT`, nothing to diagnose why -- `SYSTSPRT` (where
+   the `DSN`/`RUN` TSO command processor prints its own diagnostics:
+   connection failures, plan-not-found, RACF authorization errors) was
+   wired as `dd_dummy` in `db2_catalog.yml`, discarding exactly the
+   output needed. Fixed by capturing it as text too, same as `SYSPRINT`.
+2. With that fixed, the real diagnostic came back: `IKJ56500I COMMAND DSN
+   NOT FOUND` -- the `DSN` TSO command processor's load module wasn't
+   reachable from the batch job with only `zos_extract_db2_steplib` (one
+   DSN) on STEPLIB. Root cause: DB2's own load modules are conventionally
+   split across **two** libraries (`SDSNLOAD` plus `SDSNLOD2`, an IBM
+   DB2-for-z/OS installation convention that predates and is unrelated to
+   this site specifically -- confirmed real for this site's DB2 install,
+   `DSND10.SDSNLOAD`/`DSND10.SDSNLOD2`), but `zos_extract_db2_steplib`
+   was designed single-DSN, matching `zos_extract_smpe_steplib`'s own
+   precedent -- which turned out not to generalize here. Added
+   `zos_extract_db2_steplib2` (optional, second DSN) and switched
+   `db2_catalog.yml`'s STEPLIB DD from a single `dd_data_set` to
+   `zos_mvs_raw`'s `dd_concat` (confirmed via `ibm_zos_core`'s own module
+   docs that a real STEPLIB concatenation needs `dd_concat` -- two
+   separate `dd_data_set` entries sharing one `dd_name` is not how this
+   module represents a concatenation, unlike some other DD types).
+   Verified the rendered DD list is correct for zero/one/two STEPLIB DSNs
+   via a standalone test playbook before committing. DSNTEP2 itself is
+   still unconfirmed -- next real run should reveal whether `DSN`/`RUN`
+   now succeed, or surface report-format specifics for
+   `db2_catalog_parser.py` to check.
+
 ---
 
 ## 9. Broader active-PARMLIB-member capture (26 more IEASYSxx-named members)
