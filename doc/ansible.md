@@ -420,6 +420,16 @@ to find those is an unrestricted `LISTCAT ALL` scan of the whole catalog
 followed by a client-side filter, which is real overkill once (like here)
 there's a literal prefix to anchor on instead.
 
+`smplist.yml`'s `SMPWRK6` scratch work dataset (`zos_extract_smpe_workhlq`)
+defaults to 50MB primary / 50MB secondary
+(`zos_extract_smpe_smpwrk6_primary`/`_secondary`) -- a single-product zone
+fits easily in far less, but a real run against a base z/OS target zone
+(a site's own `MVST`-equivalent, with a much larger SYSMOD/MOD list than
+any one product) hit a genuine **B37-04** (out of space, no secondary
+extent to grow into) against the original fixed 5MB-primary-only
+allocation. Bump both further in `hosts.yml` if your own largest zone
+still abends.
+
 Once you know a CSI's name but not its zones (rather than guessing at
 `TZONE1`/`TARGET`-style conventions), run:
 
