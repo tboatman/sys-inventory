@@ -800,7 +800,7 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
   the gaps" capability this whole round started from, made permanent
   instead of a one-time by-hand analysis.
 
-### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt` -- IN PROGRESS
+### 8g. Confirm `smpe_parser.py` against a real `*.smplist.txt` -- CONFIRMED
 
 - Every other console/text parser in this pipeline has been confirmed
   against real output this round except this one -- get a real
@@ -880,12 +880,29 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
     `IWMARIDM`) -- irrelevant to the fields already extracted, but would
     need reassembly logic if any of those attributes are ever added to
     `Zone`.
-  - Still open: `LIST MOD` itself is still only confirmed against the
-    synthetic `sample_smpe_list.txt` fixture, not a real report slice --
-    get a real `LIST MOD` element block (LASTUPD/FMID/LMOD) from this
-    site's `MVST` zone (or any zone) and diff it against `_FILE_MODULE`/
-    `_FILE_FMID`/`_FILE_LMOD` the same way `LIST DDDEF`/`LIST SYSMOD` were
-    just confirmed above.
+  - `LIST MOD` CONFIRMED against a real report (three `ACBFUTOx` elements,
+    same `MVST` zone) -- and that real report exposed one more genuine
+    bug: the SMPCNTL command is `LIST MOD .`, but GIMSMP's own section
+    title prints as `"<zone>    MODULE   ENTRIES"`, not `"MOD ENTRIES"`.
+    `_SECTION_HDR` only recognized the literal `"MOD"` alternative, so
+    this title line never matched at all -- in this pipeline's own
+    single-zone-per-file shape (LIST DDDEF always run first in the same
+    SMPCNTL), `current_zone` had already been set by the preceding DDDEF
+    section title, so element data still landed in the right zone by
+    accident, but nothing about MOD sections would work standalone, and
+    (since the title never matched at all) the every-page-reprint
+    page-break fix above could never even engage for MOD sections in
+    practice. Fixed by adding `"MODULE"` to `_SECTION_HDR`'s alternation
+    and `_SECTION_BY_TYPE`. Also corrected the earlier page-break
+    regression fixture (`sample_smpe_mod_page_break.txt`), which had used
+    the wrong `"MOD ENTRIES"` title text and so wasn't actually testing
+    the real shape. Regression test: `test_mod_section_title_says_module_not_mod`
+    (`sample_smpe_mod_real.txt`) -- confirmed it fails without the fix
+    (`module_fmid`/`lmod_fmid` both completely empty, not just missing
+    LMOD, since `current_zone` never got set at all in a standalone
+    single-section fixture) and passes with it.
+  - Every `LIST DDDEF`/`MOD`/`SYSMOD` section is now confirmed against
+    real output from this site -- this section is done.
 
 ---
 

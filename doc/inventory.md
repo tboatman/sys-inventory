@@ -1218,8 +1218,12 @@ between its LASTUPD and FMID lines (see the parser's own docstring and
 `doc/TODO.md` "8g" for the detail). `LIST SYSMOD` is also CONFIRMED
 against a real entry (`HBB77E0`, same zone) — TYPE=/STATUS= resolve
 correctly and a page break mid-entry doesn't disturb an already-captured
-status. `LIST MOD` itself is still only confirmed against the synthetic
-`sample_smpe_list.txt` fixture, not a real report slice.
+status. `LIST MOD` is also CONFIRMED against a real report — and exposed
+one more genuine bug: its section title actually prints as `"MODULE"`,
+not `"MOD"` (despite the SMPCNTL command being `LIST MOD .`), which the
+parser's section-title regex didn't originally recognize at all (see the
+parser's own docstring and `doc/TODO.md` "8g"). Every `LIST DDDEF`/`MOD`/
+`SYSMOD` section is now confirmed against real output from this site.
 
 ## How resolution works
 
