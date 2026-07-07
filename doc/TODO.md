@@ -1136,10 +1136,25 @@ blocking the run:**
    ...)` once cleaned up -- simpler than `_smplist_zone.yml`'s
    scratch-dir/local-`cat` streaming approach since a DB2 catalog listing
    isn't expected to be anywhere near SMPLIST's confirmed ~15M-line
-   scale. Verified the rendered DD list (including the real
-   `TOMMY.DB2CAT.SYSPACKAGE` dataset shape) via a standalone test
-   playbook. DSNTEP2 itself is still unconfirmed against a real run with
-   this fix in place -- that's the next step.
+   scale. Verified the rendered DD list via a standalone test playbook
+   before committing -- though that verification used the dataset name
+   `TOMMY.DB2CAT.SYSPACKAGE`, which the very next real run proved invalid
+   (see item 6): the standalone test confirmed the Jinja *rendered*
+   correctly, not that the resulting dataset name was itself valid.
+6. That dataset name was rejected outright: `ValueError('Invalid argument
+   "TOMMY.DB2CAT.SYSPACKAGE" for type "data_set".')`. Root cause: MVS
+   dataset name qualifiers are capped at 8 characters, and `SYSPACKAGE`
+   is 10 -- `SYSPLAN` (7 characters) happened to fit, so only the
+   `SYSPACKAGE` query's `SYSPRINT` dataset hit this. Fixed by using
+   `SYSPKG` (6 characters) as that query's real dataset qualifier instead
+   -- the `##SYSPACKAGE` sentinel/parser-facing name and the real
+   `SELECT ... FROM SYSIBM.SYSPACKAGE` SQL are both unaffected, only the
+   temporary MVS dataset's own name changed. A reminder that "verified
+   the Jinja renders correctly" and "verified the resulting value is
+   itself a valid MVS name" are two different checks -- the standalone
+   test playbooks used earlier in this round confirmed the former, not
+   the latter. DSNTEP2 itself is still unconfirmed against a real run
+   with this fix in place -- that's the next step.
 
 ---
 
