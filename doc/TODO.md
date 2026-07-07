@@ -865,12 +865,27 @@ picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then
     (`sample_smpe_mod_page_break.txt`, modeled on the real page-break
     shape) -- confirmed it fails without the fix (empty `module_fmid`)
     and passes with it.
-  - Still open: `LIST MOD`/`LIST SYSMOD` themselves are still only
-    confirmed against the synthetic `sample_smpe_list.txt` fixture, not a
-    real report slice -- get real `LIST MOD`/`LIST SYSMOD` output from
-    this site's `MVST` zone (or any zone) and diff it against
-    `_FILE_MODULE`/`_FILE_FMID`/`_FILE_LMOD`/`_SYSMOD_HDR`/
-    `_SYSMOD_STATUS` the same way `LIST DDDEF` was just confirmed above.
+  - `LIST SYSMOD` CONFIRMED against a real entry (`HBB77E0`, same `MVST`
+    zone): `TYPE=`/`STATUS=` resolve correctly (`STATUS = REC  APP` ->
+    `REC/APP`), its `LASTUPD` line's embedded `TYPE=UPD` doesn't
+    false-positive as a new SYSMOD header, and a page break landing
+    mid-entry doesn't disturb an already-captured status. Regression
+    test: `test_sysmod_entry_parsed_from_real_report_with_page_break`
+    (`sample_smpe_sysmod_real.txt`, a trimmed real slice including a page
+    break inside the entry). Noted (not fixed, out of current scope):
+    real SYSMOD entries carry several long dependency-list attributes
+    this parser doesn't extract at all (`DLMOD=`/`CLIST=`/`DATA=`/`MAC=`/
+    `MOD=`/`HELP=`/`HFS=`/...), and those values can be split mid-token
+    across a page boundary (e.g. a real `IWMARID`/`M` split producing
+    `IWMARIDM`) -- irrelevant to the fields already extracted, but would
+    need reassembly logic if any of those attributes are ever added to
+    `Zone`.
+  - Still open: `LIST MOD` itself is still only confirmed against the
+    synthetic `sample_smpe_list.txt` fixture, not a real report slice --
+    get a real `LIST MOD` element block (LASTUPD/FMID/LMOD) from this
+    site's `MVST` zone (or any zone) and diff it against `_FILE_MODULE`/
+    `_FILE_FMID`/`_FILE_LMOD` the same way `LIST DDDEF`/`LIST SYSMOD` were
+    just confirmed above.
 
 ---
 

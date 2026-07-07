@@ -1215,9 +1215,11 @@ a real report from this site (`MVST` target zone, `MVS.GLOBAL.CSI`, near
 section-title line reprints at the top of every page, which used to wipe
 a `LIST MOD` element's in-progress FMID/LMOD linkage if a page break fell
 between its LASTUPD and FMID lines (see the parser's own docstring and
-`doc/TODO.md` "8g" for the detail). `LIST MOD`/`LIST SYSMOD` themselves
-are still only confirmed against the synthetic `sample_smpe_list.txt`
-fixture, not a real report slice.
+`doc/TODO.md` "8g" for the detail). `LIST SYSMOD` is also CONFIRMED
+against a real entry (`HBB77E0`, same zone) — TYPE=/STATUS= resolve
+correctly and a page break mid-entry doesn't disturb an already-captured
+status. `LIST MOD` itself is still only confirmed against the synthetic
+`sample_smpe_list.txt` fixture, not a real report slice.
 
 ## How resolution works
 
