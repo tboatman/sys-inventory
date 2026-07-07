@@ -9,9 +9,27 @@
 # zos_extract_csi_zone_pair is one [csi_entry, zone] pair from smplist.yml's
 # `zos_extract_smpe_csis | subelements('zones')` loop -- [0] is the
 # {csi, zones} dict, [1] is the single zone name for this include.
+#
+# SMPLIST is a real persistent data set here, not GIMSMP DD's
+# `dd_output`/`return_content` (as this used to be) -- a real base z/OS
+# target zone's LIST DDDEF/MOD/SYSMOD report can run into the millions of
+# lines (multiple GB), and `return_content` buffers the *entire* report
+# inline as part of the ansible module's own JSON result, round-tripped
+# back to the control node -- fine for a few thousand lines, but it can't
+# scale to that. `zos_fetch` (below) instead streams the real data set
+# straight to a local file via the connection plugin's own file-transfer
+# path (confirmed in ibm_zos_core's own action plugin:
+# `self._connection._file_transport_command`, real SFTP/SCP, not
+# JSON-embedded content) -- the same fetch idiom every other real
+# member/dataset capture in this role already uses (see
+# _member_dump.yml). The final `##CSI` sentinel prepend below is done via
+# a local shell `cat`, not Jinja's `lookup('file', ...)` + `copy: content:`
+# -- that would load the entire multi-GB report into Ansible's own
+# process memory and template engine just to add one line at the top.
 
 - name: Build the GIMSMP DD list for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
   ansible.builtin.set_fact:
+    zos_extract_smplist_dsn: "{{ zos_extract_smpe_workhlq }}.SMPLIST"
     zos_extract_smplist_dds: >-
       {{
         [
@@ -24,7 +42,11 @@
                             'space_secondary': zos_extract_smpe_smpwrk6_secondary, 'space_type': 'm', 'replace': true,
                             'disposition_normal': 'delete', 'disposition_abnormal': 'delete'}},
           {'dd_input': {'dd_name': 'SMPCNTL', 'content': ['SET BDY(' ~ zos_extract_csi_zone_pair[1] ~ ').', 'LIST DDDEF .', 'LIST MOD .', 'LIST SYSMOD .']}},
-          {'dd_output': {'dd_name': 'SMPLIST', 'return_content': {'type': 'text'}}}
+          {'dd_data_set': {'dd_name': 'SMPLIST', 'data_set_name': zos_extract_smpe_workhlq ~ '.SMPLIST',
+                            'disposition': 'new', 'type': 'seq', 'record_format': zos_extract_smpe_smplist_record_format,
+                            'record_length': zos_extract_smpe_smplist_lrecl, 'space_primary': zos_extract_smpe_smplist_primary,
+                            'space_secondary': zos_extract_smpe_smplist_secondary, 'space_type': 'm', 'replace': true,
+                            'disposition_normal': 'catlg', 'disposition_abnormal': 'delete'}}
         ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_smpe_steplib, 'disposition': 'shr'}}] if zos_extract_smpe_steplib else [])
       }}
 
@@ -34,15 +56,39 @@
     auth: true
     max_rc: 4
     dds: "{{ zos_extract_smplist_dds }}"
-  register: zos_extract_gimsmp_result
 
-- name: Write the SMP/E LIST report for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
-  ansible.builtin.copy:
-    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_csi_zone_pair[0].csi | lower | regex_replace('[^a-z0-9]+', '_') }}.{{ zos_extract_csi_zone_pair[1] | lower }}.smplist.txt"
-    mode: "0644"
-    # ##CSI sentinel line, read by inventory/smpe_parser.py to stamp every
-    # Zone parsed from this file with its owning CSI -- see that module's
-    # docstring and doc/TODO.md ("8a. Zone.csi field").
-    content: >-
-      {{ '##CSI ' ~ zos_extract_csi_zone_pair[0].csi ~ '\n' ~ ((zos_extract_gimsmp_result.dd_names | selectattr('dd_name', 'equalto', 'SMPLIST') | first).content | join('\n')) ~ '\n' }}
+- name: Create a scratch directory for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}'s SMPLIST fetch
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: zos_extract_smplist_
+  register: zos_extract_smplist_scratch
+  delegate_to: localhost
+
+- name: Fetch the SMPLIST report for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
+  ibm.ibm_zos_core.zos_fetch:
+    src: "{{ zos_extract_smplist_dsn }}"
+    dest: "{{ zos_extract_smplist_scratch.path }}/report.txt"
+    flat: true
+
+- name: Delete the temporary SMPLIST data set for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
+  ibm.ibm_zos_core.zos_data_set:
+    name: "{{ zos_extract_smplist_dsn }}"
+    state: absent
+
+- name: Prepend the ##CSI sentinel and write the final SMP/E LIST report for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}
+  # ##CSI sentinel line, read by inventory/smpe_parser.py to stamp every
+  # Zone parsed from this file with its owning CSI -- see that module's
+  # docstring and doc/TODO.md ("8a. Zone.csi field"). Streamed via a
+  # local `cat`, not loaded into Ansible's own memory -- see this file's
+  # header comment.
+  ansible.builtin.shell: >-
+    { printf '##CSI %s\n' {{ zos_extract_csi_zone_pair[0].csi | quote }};
+      cat {{ (zos_extract_smplist_scratch.path ~ '/report.txt') | quote }}; }
+    > {{ (zos_extract_local_output_dir ~ '/' ~ (zos_extract_csi_zone_pair[0].csi | lower | regex_replace('[^a-z0-9]+', '_')) ~ '.' ~ (zos_extract_csi_zone_pair[1] | lower) ~ '.smplist.txt') | quote }}
+  delegate_to: localhost
+
+- name: Remove scratch directory for {{ zos_extract_csi_zone_pair[0].csi }}/{{ zos_extract_csi_zone_pair[1] }}'s SMPLIST fetch
+  ansible.builtin.file:
+    path: "{{ zos_extract_smplist_scratch.path }}"
+    state: absent
   delegate_to: localhost

@@ -68,6 +68,21 @@ zos_extract_smpe_workhlq: "{{ ansible_user | upper }}.SMPLIST"
 # B37 against your own site's largest zone.
 zos_extract_smpe_smpwrk6_primary: 50
 zos_extract_smpe_smpwrk6_secondary: 50
+# The real SMPLIST report data set's own space (megabytes) -- unlike
+# SMPWRK6 (internal scratch work), this holds the actual LIST DDDEF/MOD/
+# SYSMOD report text GIMSMP prints, which for a base z/OS target zone can
+# run into the millions of lines (multiple GB) -- see _smplist_zone.yml's
+# header comment for why this is now a real persistent data set (fetched
+# via zos_fetch) rather than an in-memory return_content capture. Sized
+# generously by default for that scale; bump further for anything larger
+# still. record_format/lrecl matter here too -- GIMSMP's own LIST report
+# lines are printer-style (ASA carriage control in column 1), 133 is a
+# safe common width, but tune it if your site's real report gets
+# truncated at that column.
+zos_extract_smpe_smplist_primary: 2000
+zos_extract_smpe_smplist_secondary: 2000
+zos_extract_smpe_smplist_record_format: "fba"
+zos_extract_smpe_smplist_lrecl: 133
 # Candidate search for zos_extract_smpe_csi -- see discover_smpe_csis.yml.
 # Only runs when the smpe_csi_discovery tag is selected, so this default
 # is safe to leave in place for every run. All of this site's CSIs live
