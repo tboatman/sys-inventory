@@ -11,10 +11,17 @@
 # Requires a plan already bound at the target site for DSNTEP2
 # (zos_extract_db2_plan, default "DSNTEP2" -- IBM's own sample plan name,
 # but sites commonly rebind/rename it) and, if DSNTEP2 isn't already on
-# the default STEPLIB concatenation, zos_extract_db2_steplib naming the
-# one DB2 load library it needs (same single-DSN convention
-# _smplist_zone.yml already uses for zos_extract_smpe_steplib, not a
-# multi-dataset concatenation).
+# the default STEPLIB concatenation, zos_extract_db2_steplib/
+# zos_extract_db2_steplib2 naming the DB2 load library(-ies) it needs.
+# Originally a single-DSN convention like zos_extract_smpe_steplib, but a
+# real run against this site's DBDG subsystem failed with
+# "IKJ56500I COMMAND DSN NOT FOUND" using only one STEPLIB DSN -- DB2's
+# own load modules are conventionally split across two libraries
+# (SDSNLOAD plus SDSNLOD2, an IBM DB2-for-z/OS installation convention,
+# not a site quirk), so a second optional STEPLIB DSN is supported now,
+# combined via dd_concat -- confirmed (reading ibm_zos_core's own module
+# docs) that zos_mvs_raw needs dd_concat for a real concatenation, not
+# just two separate dd_data_set entries sharing one dd_name.
 #
 # zos_mvs_raw runs IKJEFT01 (TSO batch, the standard way to invoke
 # DSNTEP2) the same way racf.yml runs IRRDBU00 and catalog.yml runs
@@ -29,8 +36,8 @@
 # idiom _smplist_zone.yml uses for its optional STEPLIB. Two separate
 # invocations (one per catalog table) rather than one job with two SELECT
 # statements, so each result can be captured under its own unambiguous
-# ##BLOCKNAME sentinel -- both queries
-# share the same NAME/CREATOR/BINDTIME column shape, so nothing in
+# ##BLOCKNAME sentinel -- both queries share the same NAME/CREATOR/
+# BINDTIME column shape, so nothing in
 # DSNTEP2's own report output could otherwise tell the two blocks apart
 # the way vtam.yml's two different D-commands read differently. A
 # ";;SSID=" marker line (not part of DSNTEP2's own report, same idiom
@@ -54,7 +61,11 @@
                                                             'END']}},
           {'dd_output': {'dd_name': 'SYSPRINT', 'return_content': {'type': 'text'}}},
           {'dd_output': {'dd_name': 'SYSTSPRT', 'return_content': {'type': 'text'}}}
-        ] + ([{'dd_data_set': {'dd_name': 'STEPLIB', 'data_set_name': zos_extract_db2_steplib, 'disposition': 'shr'}}] if zos_extract_db2_steplib | length > 0 else [])
+        ]
+        + ([{'dd_concat': {'dd_name': 'STEPLIB', 'dds':
+              ([{'dd_data_set': {'data_set_name': zos_extract_db2_steplib, 'disposition': 'shr'}}] if zos_extract_db2_steplib | length > 0 else [])
+              + ([{'dd_data_set': {'data_set_name': zos_extract_db2_steplib2, 'disposition': 'shr'}}] if zos_extract_db2_steplib2 | length > 0 else [])
+            }}] if (zos_extract_db2_steplib | length > 0 or zos_extract_db2_steplib2 | length > 0) else [])
       }}
 
 - name: Run DSNTEP2 against SYSIBM.SYSPACKAGE

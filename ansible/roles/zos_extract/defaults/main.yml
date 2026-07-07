@@ -152,7 +152,15 @@ zos_extract_db2_outfile: "db2.txt"
 # subsystem ID and a plan already bound there for DSNTEP2.
 zos_extract_db2_ssid: ""
 zos_extract_db2_plan: "DSNTEP2"
+# DB2's own load modules are conventionally split across two libraries
+# (SDSNLOAD plus SDSNLOD2, an IBM DB2-for-z/OS installation convention,
+# not a site-specific quirk -- SDSNLOD2 holds modules that didn't fit in
+# SDSNLOAD) -- confirmed against a real site (zdt3's DBDG subsystem),
+# whose DSN command wasn't found (IKJ56500I) with only SDSNLOAD on
+# STEPLIB. zos_extract_db2_steplib2 is optional -- leave blank if your
+# site's DB2 load modules all fit in one library.
 zos_extract_db2_steplib: ""
+zos_extract_db2_steplib2: ""
 zos_extract_db2_catalog_outfile: "db2_catalog.txt"
 
 # Opt-in deepened CICS resource view: DFHRPL lineage + DFHCSDUP CSD
