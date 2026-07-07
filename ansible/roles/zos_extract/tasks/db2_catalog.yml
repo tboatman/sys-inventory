@@ -86,12 +86,14 @@
 # uses) tags each block with which subsystem it ran against, for
 # db2_catalog_parser.py to pick up.
 #
-# THIS IS THE MOST SPECULATIVE DOMAIN IN THE PIPELINE: DSNTEP2's exact
-# authorization/PLAN/STEPLIB requirements vary by site DB2 setup, and
-# neither this task's SQL/JCL shape nor db2_catalog_parser.py's report
-# parsing has been checked against a real DB2 subsystem -- see that
-# module's docstring for the full caveat. Validate before relying on
-# this more than any other dimension in this pipeline.
+# CONFIRMED against a real DB2 subsystem (this site's DBDG) -- both this
+# task's SQL/JCL shape and db2_catalog_parser.py's report parsing have
+# been checked against a real run, after five real fixes along the way
+# (see doc/TODO.md's DSNTEP2 progress log). DSNTEP2's exact
+# authorization/PLAN/STEPLIB requirements still vary by site DB2 setup,
+# so a different site may still need its own zos_extract_db2_program/
+# _plan/_steplib values, but the mechanics above are no longer
+# speculative.
 
 - name: Build the STEPLIB dd_data_set entries
   ansible.builtin.set_fact:
