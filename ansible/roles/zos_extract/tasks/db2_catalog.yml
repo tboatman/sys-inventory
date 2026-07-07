@@ -60,7 +60,12 @@
 # is used here instead. Each query gets its own SYSPRINT dataset name
 # (not shared via zos_extract_db2_base_dds the way SYSTSTPRT/STEPLIB
 # are) since two separate zos_mvs_raw invocations can't both write
-# disposition=new to the same data set name.
+# disposition=new to the same data set name. The SYSPACKAGE query's own
+# qualifier is "SYSPKG", not the more obvious "SYSPACKAGE" -- a real run
+# rejected "TOMMY.DB2CAT.SYSPACKAGE" outright ("Invalid argument ... for
+# type data_set") since MVS dataset name qualifiers are capped at 8
+# characters and SYSPACKAGE is 10; SYSPLAN (7 characters) happened to fit
+# so it wasn't caught by the same check.
 #
 # zos_mvs_raw runs IKJEFT01 (TSO batch, the standard way to invoke
 # DSNTEP2) the same way racf.yml runs IRRDBU00 and catalog.yml runs
@@ -114,7 +119,7 @@
       {{
         zos_extract_db2_base_dds +
         [
-          {'dd_data_set': {'dd_name': 'SYSPRINT', 'data_set_name': zos_extract_db2_workhlq ~ '.SYSPACKAGE',
+          {'dd_data_set': {'dd_name': 'SYSPRINT', 'data_set_name': zos_extract_db2_workhlq ~ '.SYSPKG',
                             'disposition': 'new', 'type': 'seq', 'record_format': 'fba', 'record_length': 133,
                             'space_primary': zos_extract_db2_sysprint_primary, 'space_secondary': zos_extract_db2_sysprint_secondary,
                             'space_type': 'trk', 'replace': true, 'disposition_normal': 'catalog', 'disposition_abnormal': 'delete'}},
@@ -149,7 +154,7 @@
 
 - name: Fetch the SYSPACKAGE SYSPRINT report
   ibm.ibm_zos_core.zos_fetch:
-    src: "{{ zos_extract_db2_workhlq }}.SYSPACKAGE"
+    src: "{{ zos_extract_db2_workhlq }}.SYSPKG"
     dest: "{{ zos_extract_db2_scratch.path }}/syspackage.txt"
     flat: true
 
@@ -164,7 +169,7 @@
     name: "{{ zos_extract_db2_workhlq }}.{{ item }}"
     state: absent
   loop:
-    - SYSPACKAGE
+    - SYSPKG
     - SYSPLAN
 
 - name: Write {{ zos_extract_db2_catalog_outfile }}
