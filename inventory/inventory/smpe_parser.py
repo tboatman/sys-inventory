@@ -32,9 +32,22 @@ matched as expected, but that same report exposed a real bug: the
 once per section, so a `LIST MOD` element's LASTUPD/FMID/LMOD lines
 straddling a page break used to have their pending state wiped by the
 next page's repeated title line. Fixed by only resetting pending state on
-an actual section change (see `parse_smplist()`). `LIST MOD`/`LIST SYSMOD`
-themselves are still only confirmed against the synthetic fixture below --
-diff those sections against a real report too before fully trusting them.
+an actual section change (see `parse_smplist()`).
+
+`LIST SYSMOD` is also now CONFIRMED against a real entry (HBB77E0, same
+MVST zone) -- TYPE=/STATUS= resolve correctly, its LASTUPD line's embedded
+"TYPE=UPD" doesn't false-positive as a new SYSMOD header, and a page break
+landing mid-entry doesn't disturb an already-captured STATUS. Note real
+SYSMOD entries carry several long dependency-list attributes this parser
+doesn't extract at all (DLMOD=, CLIST=, DATA=, MAC=, MOD=, HELP=, HFS=,
+...) -- their values can be split mid-token across a page boundary (the
+printer wraps at a fixed column with no regard for token boundaries), so
+if any of those are ever added to `Zone`, that wrapping will need
+reassembly logic; it doesn't affect the fields already extracted here.
+
+`LIST MOD` itself is still only confirmed against the synthetic fixture
+below -- diff it against a real report's element blocks too (LASTUPD/
+FMID/LMOD) before fully trusting it.
 """
 from __future__ import annotations
 

@@ -112,6 +112,18 @@ def test_mod_entry_survives_page_break_between_lastupd_and_fmid():
     assert zones["MVST"].lmod_fmid == {"ADMAET0A": "JGD3219"}
 
 
+def test_sysmod_entry_parsed_from_real_report_with_page_break():
+    # Confirms LIST SYSMOD against a real entry (HBB77E0, MVST target zone,
+    # MVS.GLOBAL.CSI): TYPE=FUNCTION/STATUS=REC APP resolve correctly, the
+    # LASTUPD line's embedded "TYPE=UPD" doesn't false-positive as a new
+    # SYSMOD header, and a page break landing mid-entry (inside the
+    # DELETE VER(001) list) doesn't disturb the already-captured status --
+    # see also test_mod_entry_survives_page_break_between_lastupd_and_fmid
+    # for the analogous LIST MOD fix this same page-break behavior needed.
+    zones = smpe_parser.parse_smplist(FIXTURES / "sample_smpe_sysmod_real.txt")
+    assert zones["MVST"].fmid_status == {"HBB77E0": "REC/APP"}
+
+
 def test_parse_globalzone_reads_zoneindex():
     entries = smpe_parser.parse_globalzone(FIXTURES / "sample_smpe_globalzone.txt")
     assert len(entries) == 2

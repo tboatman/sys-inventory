@@ -1,0 +1,30 @@
+##CSI MVS.GLOBAL.CSI
+PAGE 7757  - NOW SET TO TARGET ZONE MVST     DATE 07/07/26  TIME 11:05:43  SMP/E 37.27   SMPLIST  OUTPUT
+
+MVST     SYSMOD ENTRIES
+
+
+  NAME
+
+HBB77E0   TYPE            = FUNCTION
+          DESCRIPTION     = BCP Base
+          FEATURE         = IZOBB310  IZOBJ310  IZORU310  IZOZE310  IZWIB310
+          LASTUPD         = UCLIN    TYPE=UPD
+          STATUS          = REC  APP
+          FMID            = HBB77E0
+          REWORK          = 2023077
+          JCLIN           = YES
+          DELLMOD         = YES
+          DATE/TIME REC   = 23.102  13:01:00
+                    INS   = 23.102  13:48:04
+                    UCL   = 23.163  15:00:03
+          DELETE VER(001) = EBB1102   EDE1102   EIP1102   EMF1102   EML1102
+PAGE 7758  - NOW SET TO TARGET ZONE MVST     DATE 07/07/26  TIME 11:05:43  SMP/E 37.27   SMPLIST  OUTPUT
+
+MVST     SYSMOD ENTRIES
+
+
+  NAME
+
+                            EMS1102   ESU1102   ESY1400   ETC0108   EXW1102
+          DLMOD           = AMDPRFMT  ANTKINIT  ATBINPVT  IEAIPL04  IEANUC11
