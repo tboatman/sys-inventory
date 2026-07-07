@@ -25,6 +25,7 @@ from inventory.models import (
     Db2Package,
     Db2Plan,
     DevsupStatement,
+    DiagStatement,
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
@@ -68,7 +69,7 @@ EXPECTED_TABLES = {
     "devsup_statements", "opt_statements", "clock_statements",
     "autor_statements", "sched_statements", "couple_statements", "grsrnl_statements",
     "smf_statements", "ios_statements", "consol_statements", "igdsms_statements",
-    "izuprm_statements",
+    "izuprm_statements", "diag_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -330,6 +331,11 @@ ROUND_TRIP_CASES = [
         store.save_izuprm_statements, store.all_izuprm_statements,
         lambda n: [IzuprmStatement(stmt=f"STMT{i}", operands="OP", source_member="IZUPRM00") for i in range(n)],
         id="izuprm_statements",
+    ),
+    pytest.param(
+        store.save_diag_statements, store.all_diag_statements,
+        lambda n: [DiagStatement(stmt="VSM", operands=f"OP{i}", source_member="DIAG00") for i in range(n)],
+        id="diag_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,

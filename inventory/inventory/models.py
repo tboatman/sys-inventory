@@ -585,6 +585,35 @@ class IzuprmStatement:
 
 
 @dataclass
+class DiagStatement:
+    """One statement from an active DIAGxx PARMLIB member -- diagnostic
+    function defaults (common storage tracking, GETMAIN/FREEMAIN/storage
+    trace), named by IEASYSxx's own DIAG= keyword the same way SSN=/
+    CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/
+    GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+    BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/
+    COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx.
+    Dumped by ansible/roles/zos_extract/tasks/diag_snapshot.yml and
+    parsed by diag_parser.py. Tenth of the Category C
+    (statement-oriented) active-PARMLIB-member domains from doc/TODO.md
+    "9.2" -- reuses parmlib_engines.statement_engine() with a
+    one-keyword vocabulary ({"VSM"}), CONFIRMED against a real DIAG00
+    member (`VSM TRACK CSA(ON) SQA(ON)`, `VSM TRACE GETFREE(OFF)`),
+    capturing every sub-parameter generically as raw operand text.
+
+    DIAGxx's real member content carries traditional MVS PARMLIB
+    sequence numbers in columns 73-80 of every physical line (data
+    columns 1-71/72, ignored by the system) -- diag_parser.py strips
+    these before handing lines to statement_engine(), the first Category
+    C domain here to need that preprocessing step (no earlier confirmed
+    member happened to carry sequence numbers)."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

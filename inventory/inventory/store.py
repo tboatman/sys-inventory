@@ -22,6 +22,7 @@ from .models import (
     Db2Package,
     Db2Plan,
     DevsupStatement,
+    DiagStatement,
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
@@ -219,6 +220,13 @@ CREATE TABLE IF NOT EXISTS izuprm_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_izuprm_statements_stmt ON izuprm_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS diag_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_diag_statements_stmt ON diag_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -820,6 +828,22 @@ def save_izuprm_statements(conn: sqlite3.Connection, statements: list[IzuprmStat
 def all_izuprm_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM izuprm_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_diag_statements(conn: sqlite3.Connection, statements: list[DiagStatement]) -> None:
+    conn.execute("DELETE FROM diag_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO diag_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_diag_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM diag_statements ORDER BY stmt")
     return cur.fetchall()
 
 

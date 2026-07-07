@@ -1,0 +1,16 @@
+##MEMBER DIAG00
+/********************************************************************/  00050000
+/*                                                                  */  00100000
+/*  Member = DIAG00                                                 */  00150000
+/*                                                                  */  00200000
+/*  Function =                                                      */  00250000
+/*    This member of SYS1.PARMLIB is the mechanism through which    */  00300000
+/*    IBM provides defaults for various diagnostic functions.       */  00350000
+/*                                                                  */  00400000
+/*  change-activity =                                               */  01100000
+/*   $L0=DKB0029 ,HBB4430,920212,PDF5: Add defaults for             */  01150000
+/*                CSA tracking and GFS trace.                       */  01200000
+/*                                                                  */  01250000
+/********************************************************************/  01300000
+ VSM TRACK CSA(ON) SQA(ON)                                              01350000
+ VSM TRACE GETFREE(OFF)                                                 01400000
