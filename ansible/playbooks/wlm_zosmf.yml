@@ -1,34 +1,62 @@
 ---
-# Standalone entry point for the opt-in WLM z/OSMF REST API deepening
-# (tag 'wlm_zosmf', gated 'never' in roles/zos_extract/tasks/main.yml so
-# an ordinary site.yml/interactive.yml run never attempts it by
-# accident -- same convention racf.yml's own 'never' tag uses).
+# Entry point for the opt-in WLM z/OSMF REST API deepening (tag
+# 'wlm_zosmf', gated 'never' in roles/zos_extract/tasks/main.yml so an
+# ordinary site.yml/interactive.yml run never attempts it by accident --
+# same convention racf.yml's own 'never' tag uses).
 #
-# Prompts for z/OSMF connection details at runtime rather than storing
-# them in hosts.yml, same pattern playbooks/interactive.yml already uses
-# for SSH connection details -- the difference here is these are
-# REST/HTTPS credentials for z/OSMF itself, not SSH credentials for the
-# target LPAR, so they're kept entirely separate from
+# Prompts for BOTH the target system's connection details (same
+# vars_prompt/add_host idiom playbooks/interactive.yml uses, for a
+# system not yet in inventory/hosts.yml) AND z/OSMF's own REST/HTTPS
+# credentials, which are kept entirely separate from
 # ansible_user/ansible_password and registered as their own
-# zos_extract_zosmf_* vars via add_host (interactive.yml's own idiom for
-# threading per-run values onto hosts, reused here to inject vars onto
-# hosts *already* defined in inventory/hosts.yml rather than registering
-# a brand new one).
+# zos_extract_zosmf_* vars. The z/OSMF task itself (roles/zos_extract/
+# tasks/wlm_zosmf.yml) runs entirely via ansible.builtin.uri delegated to
+# localhost -- it never actually opens an SSH connection to the target
+# system -- but the play still needs a registered 'zos' group host to
+# run against (zos_extract_zosmf_host defaults to that host's own
+# ansible_host, see roles/zos_extract/defaults/main.yml), and
+# roles/zos_extract/tasks/main.yml's "Ensure local output directory
+# exists" step runs unconditionally (tags: always) regardless of which
+# tag was requested, so real connection details are collected the same
+# way interactive.yml does rather than special-casing this playbook.
 #
-# Run against every LPAR already in inventory/hosts.yml's 'zos' group:
-#   ansible-playbook playbooks/wlm_zosmf.yml --tags wlm_zosmf
-# (add --limit lpar1 to scope to just one). Each host defaults
-# zos_extract_zosmf_host to its own ansible_host (z/OSMF commonly runs
-# reachable at the same address as the LPAR itself) -- override
-# zos_extract_zosmf_host/zos_extract_zosmf_port per-host in hosts.yml if
-# your site's z/OSMF endpoint differs (e.g. a single shared instance for
-# the whole sysplex on its own hostname/port).
+# Run against a system already in inventory/hosts.yml's 'zos' group
+# without re-prompting for SSH details: skip the first play's prompts by
+# passing zos_extract_target_host as an extra-var pointing at an already-
+# registered host name, or just add a second play targeting hosts: zos
+# directly -- this default form always prompts, matching
+# playbooks/interactive.yml's own one-off-system convention.
+#
+# zos_extract_zosmf_host defaults to the entered system's own
+# ansible_host (z/OSMF commonly runs reachable at the same address as
+# the LPAR itself) -- override zos_extract_zosmf_host/
+# zos_extract_zosmf_port via -e if your site's real z/OSMF endpoint
+# differs (e.g. a single shared instance for the whole sysplex on its
+# own hostname/port).
 
-- name: Prompt for z/OSMF connection details
+- name: Prompt for connection details and register the target system
   hosts: localhost
   connection: local
   gather_facts: false
   vars_prompt:
+    - name: zos_extract_target_host
+      prompt: "z/OS system hostname or IP address"
+      private: false
+
+    - name: zos_extract_target_user
+      prompt: "Username"
+      private: false
+
+    - name: zos_extract_target_password
+      prompt: "Password (leave blank to use key-based auth instead)"
+      private: true
+      default: ""
+
+    - name: zos_extract_target_port
+      prompt: "SSH port"
+      private: false
+      default: "22"
+
     - name: zos_extract_zosmf_username
       prompt: "z/OSMF username"
       private: false
@@ -38,17 +66,38 @@
       private: true
 
   tasks:
-    - name: Register z/OSMF credentials on every host in the zos group
+    - name: Register the entered system in the zos group (password auth)
       ansible.builtin.add_host:
-        name: "{{ item }}"
+        name: "{{ zos_extract_target_host }}"
         groups: zos
+        ansible_host: "{{ zos_extract_target_host }}"
+        ansible_port: "{{ zos_extract_target_port }}"
+        ansible_user: "{{ zos_extract_target_user }}"
+        ansible_password: "{{ zos_extract_target_password }}"
+        ansible_connection: ssh
+        ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
         zos_extract_zosmf_username: "{{ zos_extract_zosmf_username }}"
         zos_extract_zosmf_password: "{{ zos_extract_zosmf_password }}"
-      loop: "{{ groups['zos'] | default([]) }}"
       no_log: true
       tags: always
+      when: zos_extract_target_password | length > 0
 
-- name: Run the WLM z/OSMF REST API deepening on each registered LPAR
+    - name: Register the entered system in the zos group (key-based auth)
+      ansible.builtin.add_host:
+        name: "{{ zos_extract_target_host }}"
+        groups: zos
+        ansible_host: "{{ zos_extract_target_host }}"
+        ansible_port: "{{ zos_extract_target_port }}"
+        ansible_user: "{{ zos_extract_target_user }}"
+        ansible_connection: ssh
+        ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
+        zos_extract_zosmf_username: "{{ zos_extract_zosmf_username }}"
+        zos_extract_zosmf_password: "{{ zos_extract_zosmf_password }}"
+      no_log: true
+      tags: always
+      when: zos_extract_target_password | length == 0
+
+- name: Run the WLM z/OSMF REST API deepening on the entered system
   hosts: zos
   gather_facts: false
   environment: "{{ zos_extract_env }}"
