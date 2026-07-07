@@ -1597,3 +1597,122 @@ command + fixture + tests + doc updates (`zos-extract.md`/`ansible.md`/
 `inventory.md`), same as `ieasys`/`bpxprm` this round -- 9.1's refactor
 only removes the *ansible* and *parsing-engine* duplication, not this
 per-domain wiring, which is inherently one-per-domain.
+
+---
+
+## 10. CICS resource discovery via CMCI -- IN PROGRESS (design decided, implementation partial)
+
+**Context:** `cics_deepening.yml`'s DFHCSDUP-based CSD reading
+(`CicsCsdDefinition`/`cics_csdup_parser.py`) is this pipeline's most
+speculative parser alongside DB2/WLM-z/OSMF, and only works at all for
+sites with no CMCI/CICSplex SM. The user clarified not every system they
+inventory lacks CMCI -- some do have it -- so CMCI is a genuinely better
+alternative *for those specific systems*, not a replacement for
+DFHCSDUP (which stays as the only option for CMCI-less regions).
+
+**Real judgment calls resolved with the user before implementing:**
+- **Topology**: standalone regions (SMSS), not full CICSplex SM -- `context`
+  in every CMCI call is a CICS region's own APPLID, not a CICSplex name.
+- **Resource types**: both CSD-sourced *definitions*
+  (`cicsdefinitionprogram`/`cicsdefinitiontransaction`/`cicsdefinitionfile`,
+  matching `cics_deepening.yml`'s existing scope) AND the
+  currently-installed/active equivalents (`CICSProgram`/`CICSTransaction`/
+  `CICSLocalFile`, a live snapshot like `cics.yml`/`db2.yml`) -- six
+  resource-type queries total, per configured CMCI target.
+
+**Mechanism**: `ibm.ibm_zos_cics`'s `cmci_get` module -- already installed
+*and* already pinned in `ansible/requirements.yml` with a comment
+anticipating exactly this ("pinned for future CMCI-based CICS resource
+discovery ... if this site ever enables CICSplex SM"). Confirmed (reading
+the module's own source/docs) that `cmci_get` already parses CMCI's XML
+wire format into clean per-record Python dicts (`records`) -- unlike
+every other REST-based domain here (`wlm_zosmf.yml`'s hand-rolled
+`ansible.builtin.uri` call), there's no report/response-format guessing
+needed at all for the mechanics, only for which attribute key holds each
+resource type's own "name" (see below). `context`/`resources.filter`/
+`get_parameters` shapes are all confirmed against `cmci_get`'s own
+module documentation examples (real, not guessed).
+
+**File format decided**: `cics_cmci.txt` as JSON Lines -- one line per
+(context, resource_type) query result, e.g. `{"context": "CICSA",
+"resource_type": "cicsdefinitionprogram", "records": [...]}`. This is
+this pipeline's *own* file format (not an external API response saved
+verbatim), so there's no schema uncertainty on the file-parsing side
+either -- a first for any REST-based domain in this codebase.
+
+**Done so far:**
+- `models.py`: `CmciResource` (`resource_type`, `context`, `name`,
+  `attributes` -- maximally generic like `WlmZosmfEntry`, full raw
+  per-record dict preserved, since CMCI's real attribute set varies by
+  resource type/CICS version and isn't worth guessing at typed fields
+  for).
+- `cmci_parser.py`: `parse_cmci()`, a straightforward JSON-Lines reader
+  (no report-format guessing, per above) plus `_resource_name()`, which
+  tries several candidate primary-identifier keys across all six
+  resource types (`name`/`program`/`tranid`/`transid`/`file`/`dsname`) --
+  `name` is confirmed via `cmci_get`'s own docs for the CSD-definition
+  types; the installed-resource types' candidate keys are partly
+  confirmed (`program`, from `cmci_get`'s own `CICSProgram` RETURN
+  sample) and partly inferred, not independently confirmed. Falls back
+  to `"?"` if nothing matches, same precedent as
+  `wlm_zosmf_parser.py`'s `_entry_name()`.
+- Both verified importable and the full existing test suite still
+  passes (312 tests) -- but **no dedicated fixture/tests for
+  `cmci_parser.py` itself yet**.
+
+**Still to do (stopped here, not yet implemented):**
+- `ansible/roles/zos_extract/tasks/cics_cmci.yml`: loop over configured
+  CMCI targets × the six resource types (Jinja's `product` filter, not
+  yet confirmed available/working in this ansible-core's native
+  templating -- verify before relying on it, same caution list
+  comprehensions needed earlier this session), call `cmci_get` with
+  `fail_on_nodata: false` (cmci_get's own default, `true`, would crash
+  the whole task on a legitimately-empty resource type -- same class of
+  bug already found and fixed twice this round for `db2.yml`/`cics.yml`),
+  build the JSON-Lines accumulator via a task-level `loop:`-based
+  `set_fact` (same idiom `db2_catalog.yml`'s STEPLIB-list fix uses, not
+  a Jinja comprehension), and write the file guarding against the
+  empty-content `ansible.builtin.copy` crash (`~ '\n'` suffix, same fix
+  already applied to `db2.yml`/`cics.yml`).
+- Still need to confirm whether `cmci_get` should run
+  `delegate_to: localhost` (like `wlm_zosmf.yml`'s REST call) rather than
+  executing on the target z/OS system's own Python interpreter -- its
+  module_utils imports `urllib`/`http.client` (stdlib only, not
+  `requests`), which should work either way, but delegating to localhost
+  avoids any dependency on the z/OS Unix System Services Python
+  environment having networking configured for outbound HTTPS, and
+  matches this pipeline's existing precedent of running REST calls from
+  the control node. Not yet confirmed either way.
+- `ansible/roles/zos_extract/defaults/main.yml`: `zos_extract_cics_cmci_targets`
+  (list of `{host, port, context}`, default `[]`, opt-in),
+  `zos_extract_cmci_username`/`_password` (default `""`, runtime-prompted,
+  same idiom as `zos_extract_zosmf_username`/`_password`),
+  `zos_extract_cics_cmci_scheme` (default `"https"`),
+  `zos_extract_cics_cmci_insecure` (default `true`, same self-signed-cert
+  tradeoff as `zos_extract_zosmf_validate_certs`), `zos_extract_cics_cmci_outfile`
+  (default `"cics_cmci.txt"`).
+- `ansible/roles/zos_extract/tasks/main.yml`: wire in, tag `cics_cmci`,
+  gated `never` (needs runtime-prompted credentials, same convention as
+  `racf.yml`/`wlm_zosmf.yml`) and
+  `zos_extract_cics_cmci_targets | length > 0`.
+- `playbooks/cics_cmci.yml`: new standalone entry point, merging
+  connection-detail prompts (same `vars_prompt`/`add_host` idiom
+  `interactive.yml` uses) with `zos_extract_cmci_username`/`_password`
+  prompts -- mirror `playbooks/wlm_zosmf.yml`'s now-fixed merged
+  structure exactly (that playbook originally only worked for hosts
+  already in `inventory/hosts.yml`; don't repeat that mistake here).
+- `store.py`: `cmci_resources` table, `save_cmci_resources`/
+  `all_cmci_resources`.
+- `cli.py`: glob `*cics_cmci*.txt` in `cmd_ingest` (no collision with the
+  existing `*cics_deepening*.txt` glob or the unglobbed `cics.txt`),
+  new `inventory cmci` command.
+- `tests/test_cmci_parser.py` + a hand-built JSON-Lines fixture
+  (including a legitimately-empty resource type, to exercise the
+  `fail_on_nodata: false` behavior downstream, and a malformed/truncated
+  trailing line to exercise the "skip invalid lines" tolerance).
+- Docs: `README.md`, `doc/ansible.md`, `doc/inventory.md` (new sections),
+  same as every other domain.
+- Real-system validation once implemented: whether CMCI genuinely
+  returns every CSD group's definitions with no `csdgroup` filter (no
+  `get_parameters` passed for the CSD-definition queries currently
+  planned) or requires one -- flagged for confirmation, not guessed.
