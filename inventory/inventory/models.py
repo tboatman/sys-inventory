@@ -753,6 +753,37 @@ class IeasvcStatement:
 
 
 @dataclass
+class LpalstEntry:
+    """One dataset entry from an active LPALSTxx PARMLIB member -- the
+    Link Pack Area (LPA) dataset concatenation, named by IEASYSxx's own
+    LPA= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/
+    OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU=/
+    DIAG=/CATALOG=/GRSCNF=/PROG=/SVC= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+    BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/
+    COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/
+    DIAGxx/IGGCATxx/GRSCNFxx/PROGxx/IEASVCxx. Dumped by
+    ansible/roles/zos_extract/tasks/lpalst_snapshot.yml and parsed by
+    lpalst_parser.py. The first Category E (positional/list format)
+    active-PARMLIB-member domain from doc/TODO.md "9.2" -- a dataset
+    name list, the same "what's configured" role LNKLST/APF already
+    play, except each entry is comma-terminated (one entry per physical
+    line) and can carry an optional volser hint in parens right after
+    the DSN (e.g. `SYS1.LPALIB(VOL001)`) -- captured as `volume`, not
+    folded into the DSN string.
+
+    CONFIRMED against a real LPALSTxx member, which also exercised
+    unresolved system symbols embedded in several DSNs (e.g.
+    `USER.&SYSVER..LPALIB`) -- left as literal text, the same "capture
+    raw, don't resolve" convention every other domain in this pipeline
+    follows (symbol resolution would need the system's own active
+    symbol table, not something this member itself provides)."""
+
+    dsn: str
+    volume: str | None = None
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

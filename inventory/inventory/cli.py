@@ -18,7 +18,7 @@
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
 `inventory grsrnl`, `inventory grscnf`, `inventory smf`, `inventory ios`, `inventory consol`,
 `inventory igdsms`, `inventory izuprm`, `inventory diag`, `inventory iggcat`,
-`inventory prog`, `inventory ieasvc`."""
+`inventory prog`, `inventory ieasvc`, `inventory lpalst`."""
 from __future__ import annotations
 
 import argparse
@@ -52,6 +52,7 @@ from . import (
     izuprm_parser,
     jcl_parser,
     jes2parm_parser,
+    lpalst_parser,
     opt_parser,
     parmlib_parser,
     prog_parser,
@@ -193,6 +194,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     ieasvc_statements = [s for p in sorted(input_dir.glob("*ieasvc_snapshot*.txt"))
                          for s in ieasvc_parser.parse_ieasvc_snapshot(p)]
 
+    lpalst_entries = [e for p in sorted(input_dir.glob("*lpalst_snapshot*.txt"))
+                      for e in lpalst_parser.parse_lpalst_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -309,6 +313,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_iggcat_statements(conn, iggcat_statements)
     store.save_prog_statements(conn, prog_statements)
     store.save_ieasvc_statements(conn, ieasvc_statements)
+    store.save_lpalst_entries(conn, lpalst_entries)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -359,6 +364,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(iggcat_statements)} active IGGCATxx statements, "
           f"{len(prog_statements)} active PROGxx statements, "
           f"{len(ieasvc_statements)} active IEASVCxx statements, "
+          f"{len(lpalst_entries)} active LPALSTxx entries, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -739,6 +745,17 @@ def cmd_ieasvc(args: argparse.Namespace) -> int:
     for row in rows:
         params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
         print(f"{row['stmt']} {row['svc_number']},{params}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_lpalst(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_lpalst_entries(conn)
+    conn.close()
+
+    for row in rows:
+        volume = f"({row['volume']})" if row["volume"] else ""
+        print(f"{row['dsn']}{volume}  [{row['source_member']}]")
     return 0
 
 
@@ -1251,6 +1268,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_ieasvc = sub.add_parser("ieasvc", help="list active IEASVCxx SVCPARM statements -- user SVC routine additions/replacements")
     p_ieasvc.set_defaults(func=cmd_ieasvc)
+
+    p_lpalst = sub.add_parser("lpalst", help="list active LPALSTxx entries -- Link Pack Area dataset concatenation")
+    p_lpalst.set_defaults(func=cmd_lpalst)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

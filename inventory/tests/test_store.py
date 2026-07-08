@@ -37,6 +37,7 @@ from inventory.models import (
     IzuprmStatement,
     Jes2InitStatement,
     LineageStep,
+    LpalstEntry,
     OptStatement,
     ParmlibDataset,
     Product,
@@ -70,7 +71,7 @@ EXPECTED_TABLES = {
     "devsup_statements", "opt_statements", "clock_statements",
     "autor_statements", "sched_statements", "couple_statements", "grsrnl_statements",
     "smf_statements", "ios_statements", "consol_statements", "igdsms_statements",
-    "izuprm_statements", "diag_statements", "ieasvc_statements",
+    "izuprm_statements", "diag_statements", "ieasvc_statements", "lpalst_entries",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -352,6 +353,11 @@ ROUND_TRIP_CASES = [
         store.save_ieasvc_statements, store.all_ieasvc_statements,
         lambda n: [IeasvcStatement(stmt="SVCPARM", svc_number=str(i), source_member="IEASVC00") for i in range(n)],
         id="ieasvc_statements",
+    ),
+    pytest.param(
+        store.save_lpalst_entries, store.all_lpalst_entries,
+        lambda n: [LpalstEntry(dsn=f"SYS1.LPALIB{i}", source_member="LPALST00") for i in range(n)],
+        id="lpalst_entries",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,

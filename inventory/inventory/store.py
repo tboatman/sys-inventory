@@ -37,6 +37,7 @@ from .models import (
     IzuprmStatement,
     Jes2InitStatement,
     LineageStep,
+    LpalstEntry,
     OptStatement,
     ParmlibDataset,
     Product,
@@ -261,6 +262,13 @@ CREATE TABLE IF NOT EXISTS ieasvc_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ieasvc_statements_svc_number ON ieasvc_statements(svc_number);
+
+CREATE TABLE IF NOT EXISTS lpalst_entries (
+    dsn            TEXT NOT NULL,
+    volume         TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lpalst_entries_dsn ON lpalst_entries(dsn);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -954,6 +962,22 @@ def save_ieasvc_statements(conn: sqlite3.Connection, statements: list[IeasvcStat
 def all_ieasvc_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM ieasvc_statements ORDER BY svc_number")
+    return cur.fetchall()
+
+
+def save_lpalst_entries(conn: sqlite3.Connection, entries: list[LpalstEntry]) -> None:
+    conn.execute("DELETE FROM lpalst_entries")
+    rows = [(e.dsn, e.volume, e.source_member) for e in entries]
+    conn.executemany(
+        "INSERT INTO lpalst_entries (dsn, volume, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_lpalst_entries(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM lpalst_entries ORDER BY dsn")
     return cur.fetchall()
 
 
