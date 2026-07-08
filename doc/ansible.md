@@ -105,6 +105,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grscnf_snapshot`, `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
 `igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`, `iggcat_snapshot`,
+`prog_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -219,7 +220,7 @@ CONFIRMED against a real (partial) member -- including a shape not in
 the original documented sample, `QNAME(...)`/`RNAME(...)` each on their
 own continuation line rather than sharing the `RNLDEF` line.
 
-`grscnf_snapshot` is the newest Category C domain: IEASYSxx's own
+`grscnf_snapshot` continues Category C: IEASYSxx's own
 `GRSCNF=` keyword names the active GRSCNFxx member(s) -- Global Resource
 Serialization configuration parameters (`GRSDEF`'s own `GRSQ`/`RESMIL`/
 `TOLINT`/`ACCELSYS`/`RESTART`/`REJOIN`/`CTRACE` sub-parameters). Fetched
@@ -320,19 +321,36 @@ own operand text as a bogus trailing 8-digit token.
 lines to `parmlib_engines.statement_engine()`, the first Category C
 parser here to need that preprocessing step.
 
-`iggcat_snapshot` is the newest of this family, and turned out to be
-neither Category B nor Category C's shape: IEASYSxx's own `CATALOG=`
-keyword names the active IGGCATxx member(s) -- catalog system parameters
-(`GDGEXTENDED`/`VVDSSPACE`/`NOTIFYEXTENT`/`TASKMAX`/...) -- fetched the
-same way and written to `iggcat_snapshot.txt`, ingested via `inventory
-iggcat`. CONFIRMED against a real IGGCAT00 member: it's one independent
-`KEYWORD(value)` (or bare `KEYWORD`) entry per physical line, with no
-`=`, no commas joining entries, and no statement grouping at all -- so
-neither `flat_keyword_engine()` (comma-continued) nor
-`statement_engine()` (per-domain statement vocabulary) fit, and
-`iggcat_parser.py` gets its own small tokenizer instead, same precedent
-CLOCKxx set (Category G) with parens instead of a bare space-separated
-value.
+`iggcat_snapshot` turned out to be neither Category B nor Category C's
+shape: IEASYSxx's own `CATALOG=` keyword names the active IGGCATxx
+member(s) -- catalog system parameters (`GDGEXTENDED`/`VVDSSPACE`/
+`NOTIFYEXTENT`/`TASKMAX`/...) -- fetched the same way and written to
+`iggcat_snapshot.txt`, ingested via `inventory iggcat`. CONFIRMED
+against a real IGGCAT00 member: it's one independent `KEYWORD(value)`
+(or bare `KEYWORD`) entry per physical line, with no `=`, no commas
+joining entries, and no statement grouping at all -- so neither
+`flat_keyword_engine()` (comma-continued) nor `statement_engine()`
+(per-domain statement vocabulary) fit, and `iggcat_parser.py` gets its
+own small tokenizer instead, same precedent CLOCKxx set (Category G)
+with parens instead of a bare space-separated value.
+
+`prog_snapshot` is the newest, and last, Category C domain: IEASYSxx's
+own `PROG=` keyword names the active PROGxx member(s) -- dynamic
+APF/LNKLST/LPA/EXIT/SCHED definitions. Fetched the same way and written
+to `prog_snapshot.txt` -- ingested via `inventory prog`. This domain had
+been flagged as "the richest and riskiest" of the active-PARMLIB family
+(APF/LNKLST/LPA/EXIT/SCHED are all distinct sub-statement families
+inside one PROGxx member), but CONFIRMED against a real member (193
+statements: 122 `APF` entries, 71 `LNKLST` entries) that the real
+top-level shape is a single first-word keyword per statement (`APF
+ADD`/`APF FORMAT(DYNAMIC)`/`LNKLST DEFINE`/`LNKLST ADD`/`LNKLST
+ACTIVATE`), with the action verb and every sub-parameter folded into
+generic operand text -- exactly the same shape every other Category C
+domain already has, so `prog_parser.py` reuses
+`parmlib_engines.statement_engine()` directly with a five-keyword
+vocabulary (`APF`, `LNKLST`, plus documented-but-unconfirmed `EXIT`/
+`LPA`/`SCHED`) -- no new engine or per-family modeling needed after all.
+This completes Category C.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1321,14 +1339,22 @@ roles/zos_extract/
                              # real member; own small parser, not either
                              # shared parmlib_engines.py engine (see
                              # iggcat_parser.py's own docstring)
+    prog_snapshot.yml        # explicit capture of the active PROGxx
+                             # member(s) -- dynamic APF/LNKLST/LPA/EXIT/
+                             # SCHED definitions, named by IEASYSxx's
+                             # own PROG= keyword; tag prog_snapshot;
+                             # writes prog_snapshot.txt, ingested via
+                             # inventory prog -- CONFIRMED against a
+                             # real member; reuses statement_engine()
+                             # directly (see prog_parser.py's docstring)
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/
                              # GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
-                             # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx fetches
-                             # above -- see doc/TODO.md "9.1"
+                             # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx
+                             # fetches above -- see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

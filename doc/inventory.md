@@ -156,10 +156,12 @@ just renaming them into that shape for a quick demo.)
    `diag_snapshot.txt` (the active DIAGxx member(s) — diagnostic
    function defaults, named by IEASYSxx's own `DIAG=` keyword),
    `iggcat_snapshot.txt` (the active IGGCATxx member(s) — catalog system
-   parameters, named by IEASYSxx's own `CATALOG=` keyword), and
+   parameters, named by IEASYSxx's own `CATALOG=` keyword),
    `grscnf_snapshot.txt` (the active GRSCNFxx member(s) — Global
    Resource Serialization configuration parameters, named by
-   IEASYSxx's own `GRSCNF=` keyword)
+   IEASYSxx's own `GRSCNF=` keyword), and `prog_snapshot.txt` (the
+   active PROGxx member(s) — dynamic APF/LNKLST/LPA/EXIT/SCHED
+   definitions, named by IEASYSxx's own `PROG=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
@@ -167,7 +169,7 @@ just renaming them into that shape for a quick demo.)
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grscnf_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
    `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
-   `diag_snapshot`/`iggcat_snapshot`
+   `diag_snapshot`/`iggcat_snapshot`/`prog_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -183,7 +185,7 @@ just renaming them into that shape for a quick demo.)
    `autor_snapshot.txt`/`sched_snapshot.txt`/`couple_snapshot.txt`/
    `grscnf_snapshot.txt`/`grsrnl_snapshot.txt`/`smf_snapshot.txt`/`consol_snapshot.txt`/
    `igdsms_snapshot.txt`/`izuprm_snapshot.txt`/`diag_snapshot.txt`/
-   `iggcat_snapshot.txt` have
+   `iggcat_snapshot.txt`/`prog_snapshot.txt` have
    since been confirmed against real members, see their own sections
    below); `cics_deepening.txt`'s own CSD-report portion is right behind
    `ios_snapshot.txt` — see their own sections below. `parmlib_snapshot.txt`
@@ -784,6 +786,37 @@ character or statement/sub-parameter grouping at all -- so
 shape) both would have misparsed it. `iggcat_parser.py` gets its own
 small tokenizer instead, the same precedent CLOCKxx set (Category G),
 just parenthesized rather than bare space-separated.
+
+### `inventory prog`
+
+Dynamic APF/LNKLST/LPA/EXIT/SCHED definitions from the active PROGxx
+member(s), if you ingested a `prog_snapshot.txt`. Named by IEASYSxx's
+own `PROG=` keyword.
+
+```
+$ inventory prog
+APF FORMAT(DYNAMIC)  [PROG00]
+APF ADD DSNAME(SYS1.LINKLIB) VOLUME(******)  [PROG00]
+APF ADD DSNAME(SYS1.LPALIB) VOLUME(******)  [PROG00]
+...
+LNKLST DEFINE NAME(LNKLSTBN)  [PROG00]
+LNKLST ADD NAME(LNKLSTBN) DSN(SYS1.LINKLIB)  [PROG00]
+...
+LNKLST ACTIVATE NAME(LNKLSTBN)  [PROG00]
+```
+
+CONFIRMED against a real PROGxx member (193 statements: 122 `APF`
+entries, 71 `LNKLST` entries) -- this had been flagged as "the richest
+and riskiest" of the active-PARMLIB family (APF/LNKLST/LPA/EXIT/SCHED
+are all distinct sub-statement families inside one PROGxx member), but
+the real top-level shape turned out to be a single first-word keyword
+per statement (`APF ADD`/`APF FORMAT(DYNAMIC)`/`LNKLST DEFINE`/`LNKLST
+ADD`/`LNKLST ACTIVATE`), with the action verb and every sub-parameter
+folded into generic operand text -- exactly the same shape every other
+Category C domain already has, so `prog_parser.py` reuses
+`parmlib_engines.statement_engine()` directly with a five-keyword
+vocabulary (`APF`, `LNKLST`, plus documented-but-unconfirmed `EXIT`/
+`LPA`/`SCHED`).
 
 ### `inventory active`
 

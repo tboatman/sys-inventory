@@ -1545,10 +1545,32 @@ domain):**
   real member's own full-line `/* ... */` comments (one per commented-out
   sub-parameter) were stripped cleanly by the existing
   `strip_comments()` with no code change.
-- `PROG`/`PROGxx` still to do -- **the richest and riskiest of these** --
-  LNKLST/APF/EXIT/LPA/SCHED are all distinct sub-statement types inside
-  one PROGxx member; treat as its own careful pass, not a drive-by
-  addition alongside the simpler ones.
+- `PROG`/`PROGxx` -- IMPLEMENTED and CONFIRMED against a real PROGxx
+  member (193 statements: 122 `APF` entries -- one `FORMAT(DYNAMIC)`
+  plus 121 `ADD`s -- and 71 `LNKLST` entries: one `DEFINE`, 69 `ADD`s,
+  one `ACTIVATE`): `ProgStatement`/`prog_parser.py`, `prog_statements`
+  table, `inventory prog` command, `prog_snapshot.yml`. This had been
+  flagged as **the richest and riskiest** of the remaining domains
+  (LNKLST/APF/EXIT/LPA/SCHED are all distinct sub-statement families
+  inside one PROGxx member), but the real member's own top-level
+  statement shape turned out to be a single first-word keyword per
+  statement (`APF ADD`/`APF FORMAT(DYNAMIC)`/`LNKLST DEFINE`/`LNKLST
+  ADD`/`LNKLST ACTIVATE`), with the action verb and every sub-parameter
+  folded into generic operand text -- exactly the same shape every
+  other Category C domain already has, so `prog_parser.py` reuses
+  `parmlib_engines.statement_engine()` directly with a five-keyword
+  vocabulary (`APF`, `LNKLST`, plus IBM-documented but **not** exercised
+  by this member: `EXIT`, `LPA`, `SCHED`) -- no new engine or per-family
+  modeling turned out to be needed after all. Each `APF ADD`/`LNKLST
+  ADD` entry restarts with its own literal keyword (whether on one
+  physical line or continued across further lines with no continuation
+  character, and regardless of a trailing `/* ... */` comment on the
+  same line as its own statement text), so each becomes its own row.
+  This completes Category C -- every domain in that category (see the
+  top-of-section table) is now implemented and confirmed against a real
+  member. Still outstanding from the original 23: Category D (`SVC`/
+  `IEASVCxx`) and Category E (`LPA`/`LPALSTxx`, `FIX`/`IEAFIXxx`,
+  `MLPA`/`IEALPAxx`, `VAL`/`VATLSTxx`) -- none of those five started yet.
 
 **Noticed, not yet fixed:** while wiring `grscnf`'s CLI help text,
 `cli.py`'s `grsrnl` subparser help was found still saying "not yet
@@ -1626,7 +1648,9 @@ handled than any of the above):**
 5. Category D (1 domain, SVC) -- needs the small `jes2parm_parser.py`
    extension first.
 6. `PROG` on its own, given its complexity (`IGDSMS` implemented and
-   confirmed).
+   confirmed; `PROG` itself now also implemented and confirmed -- turned
+   out to need no special handling beyond the standard statement
+   engine, see "9.2" Category C above).
 7. Category F -- now empty (`PAK`/`IEAPAKxx` and `UNI`/`CUNIMGxx` both
    dropped as out of scope, `IZU`/`IZUPRMxx` implemented and
    confirmed).

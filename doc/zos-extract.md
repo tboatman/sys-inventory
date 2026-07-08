@@ -421,6 +421,7 @@ list of what it looks for in the directory you point it at:
 | Active IZUPRMxx member snapshot (z/OSMF configuration, named by IEASYSxx's own IZU=) | `izuprm_snapshot` (default filename `izuprm_snapshot.txt`, override via `zos_extract_izuprm_snapshot_outfile`) | ansible-only, `izuprm_snapshot.yml` -- CONFIRMED against a real member |
 | Active DIAGxx member snapshot (diagnostic function defaults, named by IEASYSxx's own DIAG=) | `diag_snapshot` (default filename `diag_snapshot.txt`, override via `zos_extract_diag_snapshot_outfile`) | ansible-only, `diag_snapshot.yml` -- CONFIRMED against a real member |
 | Active IGGCATxx member snapshot (catalog system parameters, named by IEASYSxx's own CATALOG=) | `iggcat_snapshot` (default filename `iggcat_snapshot.txt`, override via `zos_extract_iggcat_snapshot_outfile`) | ansible-only, `iggcat_snapshot.yml` -- CONFIRMED against a real member |
+| Active PROGxx member snapshot (dynamic APF/LNKLST/LPA/EXIT/SCHED definitions, named by IEASYSxx's own PROG=) | `prog_snapshot` (default filename `prog_snapshot.txt`, override via `zos_extract_prog_snapshot_outfile`) | ansible-only, `prog_snapshot.yml` -- CONFIRMED against a real member |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |
