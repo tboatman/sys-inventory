@@ -27,6 +27,7 @@ from .models import (
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
+    GrscnfStatement,
     GrsrnlStatement,
     IeasysStatement,
     IgdsmsStatement,
@@ -176,6 +177,13 @@ CREATE TABLE IF NOT EXISTS couple_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_couple_statements_stmt ON couple_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS grscnf_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_grscnf_statements_stmt ON grscnf_statements(stmt);
 
 CREATE TABLE IF NOT EXISTS grsrnl_statements (
     stmt           TEXT NOT NULL,
@@ -749,6 +757,22 @@ def save_couple_statements(conn: sqlite3.Connection, statements: list[CoupleStat
 def all_couple_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM couple_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_grscnf_statements(conn: sqlite3.Connection, statements: list[GrscnfStatement]) -> None:
+    conn.execute("DELETE FROM grscnf_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO grscnf_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_grscnf_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM grscnf_statements ORDER BY stmt")
     return cur.fetchall()
 
 

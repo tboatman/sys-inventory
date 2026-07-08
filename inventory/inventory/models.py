@@ -645,6 +645,38 @@ class IggcatStatement:
 
 
 @dataclass
+class GrscnfStatement:
+    """One statement from an active GRSCNFxx PARMLIB member -- Global
+    Resource Serialization configuration parameters (GRSDEF's own
+    GRSQ/RESMIL/TOLINT/ACCELSYS/RESTART/REJOIN/CTRACE sub-parameters),
+    named by IEASYSxx's own GRSCNF= keyword the same way SSN=/CMD=/
+    PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/
+    GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU=/DIAG=/CATALOG= name IEFSSNxx/
+    COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+    AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
+    IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx. Dumped by
+    ansible/roles/zos_extract/tasks/grscnf_snapshot.yml and parsed by
+    grscnf_parser.py.
+
+    CONFIRMED against a real GRSCNFxx member -- like GRSRNLxx's own
+    RNLDEF statement, a real member is a single repeated statement shape
+    ('GRSDEF' followed by its sub-parameters on continuation lines with
+    no continuation character), so this reuses
+    parmlib_engines.statement_engine() with a one-keyword vocabulary
+    ({"GRSDEF"}), capturing every sub-parameter generically as raw
+    operand text rather than hand-modeling GRSQ/RESMIL/TOLINT/... each.
+    The real confirming member exercised every non-GRSQ sub-parameter as
+    a full-line `/* ... */` comment (documenting the site's own
+    defaulted/removed settings) -- stripped cleanly by
+    parmlib_engines.strip_comments() with no code change needed, leaving
+    just `GRSDEF GRSQ(LOCAL)`."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

@@ -207,7 +207,7 @@ def test_ingest_picks_up_renamed_snapshot_files(tmp_path):
 # above/below instead.
 NO_ARG_SUBCOMMANDS = [
     "subsystems", "started-tasks", "sysinfo", "products", "parmlib",
-    "ieasys", "bpxprm", "devsup", "opt", "clock", "autor", "sched", "couple", "grsrnl",
+    "ieasys", "bpxprm", "devsup", "opt", "clock", "autor", "sched", "couple", "grscnf", "grsrnl",
     "smf", "ios", "consol", "igdsms", "izuprm", "diag", "iggcat", "active", "processes", "catalog", "vsam",
     "racf-users", "racf-groups", "racf-connections", "racf-dataset-profiles",
     "racf-dataset-access", "racf-resource-profiles", "racf-resource-access",

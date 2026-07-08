@@ -16,7 +16,7 @@
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
-`inventory grsrnl`, `inventory smf`, `inventory ios`, `inventory consol`,
+`inventory grsrnl`, `inventory grscnf`, `inventory smf`, `inventory ios`, `inventory consol`,
 `inventory igdsms`, `inventory izuprm`, `inventory diag`, `inventory iggcat`."""
 from __future__ import annotations
 
@@ -40,6 +40,7 @@ from . import (
     db2_catalog_parser,
     devsup_parser,
     diag_parser,
+    grscnf_parser,
     grsrnl_parser,
     ieasys_parser,
     ifaprd_parser,
@@ -155,6 +156,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     couple_statements = [s for p in sorted(input_dir.glob("*couple_snapshot*.txt"))
                          for s in couple_parser.parse_couple_snapshot(p)]
+
+    grscnf_statements = [s for p in sorted(input_dir.glob("*grscnf_snapshot*.txt"))
+                         for s in grscnf_parser.parse_grscnf_snapshot(p)]
 
     grsrnl_statements = [s for p in sorted(input_dir.glob("*grsrnl_snapshot*.txt"))
                          for s in grsrnl_parser.parse_grsrnl_snapshot(p)]
@@ -285,6 +289,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_autor_statements(conn, autor_statements)
     store.save_sched_statements(conn, sched_statements)
     store.save_couple_statements(conn, couple_statements)
+    store.save_grscnf_statements(conn, grscnf_statements)
     store.save_grsrnl_statements(conn, grsrnl_statements)
     store.save_smf_statements(conn, smf_statements)
     store.save_ios_statements(conn, ios_statements)
@@ -332,6 +337,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(autor_statements)} active AUTORxx statements, "
           f"{len(sched_statements)} active SCHEDxx statements, "
           f"{len(couple_statements)} active COUPLExx statements, "
+          f"{len(grscnf_statements)} active GRSCNFxx statements, "
           f"{len(grsrnl_statements)} active GRSRNLxx statements, "
           f"{len(smf_statements)} active SMFPRMxx statements, "
           f"{len(ios_statements)} active IECIOSxx statements, "
@@ -604,6 +610,16 @@ def cmd_sched(args: argparse.Namespace) -> int:
 def cmd_couple(args: argparse.Namespace) -> int:
     conn = store.connect(Path(args.db))
     rows = store.all_couple_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_grscnf(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_grscnf_statements(conn)
     conn.close()
 
     for row in rows:
@@ -1169,7 +1185,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_couple = sub.add_parser("couple", help="list active COUPLExx statements -- XCF/sysplex couple dataset definitions (not yet production-validated)")
     p_couple.set_defaults(func=cmd_couple)
 
-    p_grsrnl = sub.add_parser("grsrnl", help="list active GRSRNLxx RNLDEF statements -- global resource serialization resource name lists (not yet production-validated)")
+    p_grscnf = sub.add_parser("grscnf", help="list active GRSCNFxx GRSDEF statements -- Global Resource Serialization configuration parameters, CONFIRMED against a real member")
+    p_grscnf.set_defaults(func=cmd_grscnf)
+
+    p_grsrnl = sub.add_parser("grsrnl", help="list active GRSRNLxx RNLDEF statements -- global resource serialization resource name lists, CONFIRMED against a real (partial) member")
     p_grsrnl.set_defaults(func=cmd_grsrnl)
 
     p_smf = sub.add_parser("smf", help="list active SMFPRMxx statements -- SMF recording configuration (not yet production-validated)")

@@ -1,0 +1,10 @@
+##MEMBER GRSCNF00
+   GRSDEF
+           GRSQ(LOCAL)
+        /* GRSQ(CONTENTION)   - use in GRS STAR  */
+        /* RESMIL(5)   */
+        /* TOLINT(180) */
+        /* ACCELSYS(99)       - REMOVED 6/4/19 MXE - RING */
+        /* RESTART(YES)       - Defaulted */
+        /* REJOIN(YES)        - Defaulted */
+        /* CTRACE(CTIGRS00)   - Defaulted */
