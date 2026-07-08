@@ -677,6 +677,48 @@ class GrscnfStatement:
 
 
 @dataclass
+class ProgStatement:
+    """One statement from an active PROGxx PARMLIB member -- dynamic
+    APF/LNKLST/LPA/EXIT/SCHED definitions, named by IEASYSxx's own PROG=
+    keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/
+    CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU=/DIAG=/
+    CATALOG=/GRSCNF= name IEFSSNxx/COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/
+    DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
+    SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/
+    GRSCNFxx. Dumped by ansible/roles/zos_extract/tasks/prog_snapshot.yml
+    and parsed by prog_parser.py.
+
+    CONFIRMED against a real PROGxx member -- this was flagged in
+    doc/TODO.md as "the richest and riskiest" of the remaining
+    active-PARMLIB domains (LNKLST/APF/EXIT/LPA/SCHED all being distinct
+    sub-statement families inside one member), but the real member's own
+    top-level statement vocabulary (`APF`, `LNKLST`, and -- per IBM's
+    documented PROGxx syntax, though not exercised by this particular
+    confirming member -- `EXIT`/`LPA`/`SCHED`) is a single first-word
+    keyword per statement (`APF ADD`/`APF FORMAT(DYNAMIC)`/`LNKLST
+    DEFINE`/`LNKLST ADD`/`LNKLST ACTIVATE`), with the action verb
+    (`ADD`/`FORMAT`/`DEFINE`/`ACTIVATE`) and every sub-parameter folded
+    into the same generic operand text `parmlib_engines.statement_engine()`
+    already produces for every other Category C domain -- no per-family
+    modeling or new engine turned out to be needed after all. Each `APF
+    ADD`/`LNKLST ADD` entry (whether written on one physical line or
+    continued onto further lines with no continuation character, and
+    regardless of a trailing `/* ... */` comment on the same line as its
+    own statement text) becomes its own row, since every entry restarts
+    with the literal `APF`/`LNKLST` keyword. `EXIT`/`LPA`/`SCHED` are
+    included in the recognized vocabulary on the strength of IBM's own
+    PROGxx documentation, not because this confirming member exercised
+    them -- if a real member ever uses one, it'll be captured the same
+    generic way; until then they're unconfirmed, same "broaden if a
+    future member exercises it" precedent every other generic-vocabulary
+    Category C domain here follows."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls
