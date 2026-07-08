@@ -209,3 +209,34 @@ zos_extract_cics_sdfhload: ""
 # zos_extract_smpe_workhlq.
 zos_extract_cics_workhlq: "{{ ansible_user | upper }}.CSDUP"
 zos_extract_cics_deepening_outfile: "cics_deepening.txt"
+
+# Opt-in CICS resource discovery via CMCI (see cics_cmci.yml) -- an
+# alternative to the DFHRPL/DFHCSDUP-based deepening above, for whichever
+# of this site's CICS regions actually have CMCI enabled (not every
+# region does). Standalone regions (SMSS) only: each target's `context`
+# is a CICS region's own APPLID, not a CICSplex name.
+zos_extract_cics_cmci_targets: []      # [{host: "...", port: 1490, context: "CICSA"}, ...]
+zos_extract_cics_cmci_scheme: "https"
+# Same self-signed/internal-CA certificate tradeoff already documented
+# for zos_extract_zosmf_validate_certs -- many internal CMCI listeners
+# present one.
+zos_extract_cics_cmci_insecure: true
+# Both CSD-sourced *definitions* (matching cics_deepening.yml's own
+# DFHCSDUP-based scope) and the currently-installed/active equivalents
+# (a live snapshot like cics.yml/db2.yml, not a static definition list)
+# -- per the user's own call. See cics_cmci.yml's own header comment for
+# the full detail, including what's still unconfirmed (whether CMCI
+# needs a csdgroup filter for the CSD-definition queries).
+zos_extract_cics_cmci_resource_types:
+  - cicsdefinitionprogram
+  - cicsdefinitiontransaction
+  - cicsdefinitionfile
+  - CICSProgram
+  - CICSTransaction
+  - CICSLocalFile
+zos_extract_cics_cmci_outfile: "cics_cmci.txt"
+# CMCI credentials -- never stored here; playbooks/cics_cmci.yml prompts
+# for them at runtime instead, same idiom as
+# zos_extract_zosmf_username/_password.
+zos_extract_cmci_username: ""
+zos_extract_cmci_password: ""

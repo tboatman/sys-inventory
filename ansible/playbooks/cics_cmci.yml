@@ -1,0 +1,102 @@
+---
+# Entry point for the opt-in CICS resource discovery via CMCI (tag
+# 'cics_cmci', gated 'never' in roles/zos_extract/tasks/main.yml so an
+# ordinary site.yml/interactive.yml run never attempts it by accident --
+# same convention racf.yml's own 'never' tag uses).
+#
+# Prompts for BOTH the target system's connection details (same
+# vars_prompt/add_host idiom playbooks/interactive.yml uses, for a
+# system not yet in inventory/hosts.yml) AND CMCI's own REST/HTTPS
+# credentials, which are kept entirely separate from
+# ansible_user/ansible_password and registered as their own
+# zos_extract_cmci_* vars -- same merged structure
+# playbooks/wlm_zosmf.yml uses (that playbook originally only worked for
+# hosts already in inventory/hosts.yml with no connection-detail prompts
+# of its own; built this one with the fix already in place instead of
+# repeating that mistake). The CMCI task itself (roles/zos_extract/
+# tasks/cics_cmci.yml) runs entirely via ibm.ibm_zos_cics.cmci_get
+# delegated to localhost -- it never actually opens an SSH connection to
+# the target system -- but the play still needs a registered 'zos' group
+# host to run against, and roles/zos_extract/tasks/main.yml's "Ensure
+# local output directory exists" step runs unconditionally (tags:
+# always) regardless of which tag was requested, so real connection
+# details are collected the same way interactive.yml does rather than
+# special-casing this playbook.
+#
+# zos_extract_cics_cmci_targets (a list of {host, port, context} dicts,
+# one per CMCI-enabled CICS region -- context is each region's own APPLID
+# in this pipeline's standalone-region/SMSS usage, not a CICSplex name)
+# has no sensible vars_prompt equivalent for a whole list of dicts --
+# supply it via -e, e.g.:
+#   ansible-playbook playbooks/cics_cmci.yml --tags cics_cmci \
+#     -e '{"zos_extract_cics_cmci_targets": [{"host": "cics1.example.com", "port": 1490, "context": "CICSA"}]}'
+
+- name: Prompt for connection details and register the target system
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: zos_extract_target_host
+      prompt: "z/OS system hostname or IP address"
+      private: false
+
+    - name: zos_extract_target_user
+      prompt: "Username"
+      private: false
+
+    - name: zos_extract_target_password
+      prompt: "Password (leave blank to use key-based auth instead)"
+      private: true
+      default: ""
+
+    - name: zos_extract_target_port
+      prompt: "SSH port"
+      private: false
+      default: "22"
+
+    - name: zos_extract_cmci_username
+      prompt: "CMCI username"
+      private: false
+
+    - name: zos_extract_cmci_password
+      prompt: "CMCI password"
+      private: true
+
+  tasks:
+    - name: Register the entered system in the zos group (password auth)
+      ansible.builtin.add_host:
+        name: "{{ zos_extract_target_host }}"
+        groups: zos
+        ansible_host: "{{ zos_extract_target_host }}"
+        ansible_port: "{{ zos_extract_target_port }}"
+        ansible_user: "{{ zos_extract_target_user }}"
+        ansible_password: "{{ zos_extract_target_password }}"
+        ansible_connection: ssh
+        ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
+        zos_extract_cmci_username: "{{ zos_extract_cmci_username }}"
+        zos_extract_cmci_password: "{{ zos_extract_cmci_password }}"
+      no_log: true
+      tags: always
+      when: zos_extract_target_password | length > 0
+
+    - name: Register the entered system in the zos group (key-based auth)
+      ansible.builtin.add_host:
+        name: "{{ zos_extract_target_host }}"
+        groups: zos
+        ansible_host: "{{ zos_extract_target_host }}"
+        ansible_port: "{{ zos_extract_target_port }}"
+        ansible_user: "{{ zos_extract_target_user }}"
+        ansible_connection: ssh
+        ansible_python_interpreter: "{{ zos_extract_target_python_interpreter | default('/shrd/cyp/pyz/bin/python3') }}"
+        zos_extract_cmci_username: "{{ zos_extract_cmci_username }}"
+        zos_extract_cmci_password: "{{ zos_extract_cmci_password }}"
+      no_log: true
+      tags: always
+      when: zos_extract_target_password | length == 0
+
+- name: Run the CICS-via-CMCI discovery on the entered system
+  hosts: zos
+  gather_facts: false
+  environment: "{{ zos_extract_env }}"
+  roles:
+    - zos_extract

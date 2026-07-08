@@ -1,0 +1,125 @@
+---
+# CICS resource discovery via CMCI (step 20): an alternative to
+# cics_deepening.yml's DFHCSDUP-based CSD reading, for whichever of this
+# site's CICS regions actually have CMCI enabled -- not every region
+# does (per the user's own confirmation), so this is entirely separate/
+# opt-in from cics_deepening.yml, not a replacement for it. Standalone-
+# region (SMSS) usage only: each zos_extract_cics_cmci_targets entry's
+# `context` is a CICS region's own APPLID, not a CICSplex name -- this
+# site doesn't use full CICSplex SM, so CMAS-scoped contexts aren't
+# implemented here.
+#
+# Uses ibm.ibm_zos_cics's own cmci_get module (pinned in requirements.yml
+# specifically for this) rather than a hand-rolled ansible.builtin.uri
+# call the way wlm_zosmf.yml does -- cmci_get already parses CMCI's XML
+# wire format into clean per-record dicts, sidestepping the report/
+# response-format guessing every other REST-based domain in this
+# pipeline (wlm_zosmf.yml) has had to do. delegate_to: localhost, same
+# reasoning as wlm_zosmf.yml's own REST call: avoids depending on the
+# z/OS Unix System Services Python environment having outbound HTTPS
+# configured, and keeps every REST-based domain in this pipeline
+# consistent about running from the control node.
+#
+# Queries both CSD-sourced *definitions* and the currently-installed
+# equivalents, per the user's own call:
+#   - cicsdefinitionprogram / cicsdefinitiontransaction / cicsdefinitionfile
+#     (CSD-sourced, matches cics_deepening.yml's own DFHCSDUP-based scope)
+#   - CICSProgram / CICSTransaction / CICSLocalFile (currently
+#     installed/active, a live snapshot like cics.yml/db2.yml, not a
+#     static definition list)
+# `context`/`resources.filter`/`get_parameters` shapes are confirmed
+# against cmci_get's own module documentation examples (real, not
+# guessed) -- but no csdgroup get_parameter is passed for the
+# CSD-definition queries here. STILL UNCONFIRMED whether CMCI returns
+# every CSD group's definitions with no group filter, or requires one;
+# flag this for real-system verification (same "implement, flag, confirm
+# later" precedent as every other domain here).
+#
+# fail_on_nodata: false on every query -- cmci_get's own default
+# (fail_on_nodata: true) fails the whole task if a resource type
+# genuinely has zero matches, the same class of "crash on empty result"
+# bug already found and fixed twice this round for db2.yml/cics.yml's
+# own empty-content ansible.builtin.copy crash -- a CICS region
+# legitimately having zero of some resource type shouldn't abort the
+# whole run.
+#
+# Every (target, resource_type) combination is queried via Jinja's
+# `product` filter (confirmed working in this ansible-core's native
+# templating, unlike list comprehensions which aren't supported at all --
+# see db2_catalog.yml's own header comment for that finding). The
+# JSON-Lines accumulator is built via a second, separate task-level
+# `loop:` over the first task's own `.results` (not a Jinja
+# comprehension/map-to-dict chain), reading each iteration's own
+# `records` back out by the SAME custom `loop_var` name used for the
+# first loop (confirmed: a looped task's registered `.results[i]` carries
+# the loop value under whatever `loop_control.loop_var` was set to, not
+# a generic `item` key, when one is specified) -- same idiom
+# db2_catalog.yml's STEPLIB-list fix uses for building a list of dicts
+# from a list of scalars.
+#
+# Auth: zos_extract_cmci_username/zos_extract_cmci_password, prompted at
+# runtime via the standalone playbooks/cics_cmci.yml entry point (same
+# vars_prompt/add_host idiom playbooks/wlm_zosmf.yml already uses) rather
+# than stored in hosts.yml. zos_extract_cics_cmci_insecure defaults to
+# true (skip cert validation) -- same real security tradeoff already
+# documented for zos_extract_zosmf_validate_certs (many internal CMCI
+# listeners present a self-signed/internal-CA certificate).
+#
+# Opt-in: skipped entirely unless zos_extract_cics_cmci_targets (a list
+# of {host, port, context} dicts, one per CMCI-enabled CICS region) is
+# configured.
+#
+# STILL GENUINELY UNCONFIRMED (needs a real CMCI-enabled system, not just
+# documentation research): whether this task's shape works end-to-end
+# against a real CMCI listener at all -- see cmci_parser.py's own module
+# docstring for which parts of the response shape are confirmed via
+# cmci_get's own documented examples vs. still inferred.
+
+- name: Query CMCI for each configured target/resource-type combination
+  ibm.ibm_zos_cics.cmci_get:
+    cmci_host: "{{ zos_extract_cics_cmci_pair[0].host }}"
+    cmci_port: "{{ zos_extract_cics_cmci_pair[0].port }}"
+    cmci_user: "{{ zos_extract_cmci_username }}"
+    cmci_password: "{{ zos_extract_cmci_password }}"
+    scheme: "{{ zos_extract_cics_cmci_scheme }}"
+    insecure: "{{ zos_extract_cics_cmci_insecure }}"
+    context: "{{ zos_extract_cics_cmci_pair[0].context }}"
+    type: "{{ zos_extract_cics_cmci_pair[1] }}"
+    fail_on_nodata: false
+  register: zos_extract_cics_cmci_result
+  delegate_to: localhost
+  no_log: true
+  loop: "{{ zos_extract_cics_cmci_targets | product(zos_extract_cics_cmci_resource_types) | list }}"
+  loop_control:
+    loop_var: zos_extract_cics_cmci_pair
+    label: "{{ zos_extract_cics_cmci_pair[0].context }}/{{ zos_extract_cics_cmci_pair[1] }}"
+
+- name: Build one JSON line per CMCI query result
+  ansible.builtin.set_fact:
+    zos_extract_cics_cmci_lines: >-
+      {{
+        (zos_extract_cics_cmci_lines | default([])) + [
+          {
+            'context': zos_extract_cics_cmci_item.zos_extract_cics_cmci_pair[0].context,
+            'resource_type': zos_extract_cics_cmci_item.zos_extract_cics_cmci_pair[1],
+            'records': zos_extract_cics_cmci_item.records | default([])
+          } | to_json
+        ]
+      }}
+  loop: "{{ zos_extract_cics_cmci_result.results }}"
+  loop_control:
+    loop_var: zos_extract_cics_cmci_item
+    label: "{{ zos_extract_cics_cmci_item.zos_extract_cics_cmci_pair[0].context }}/{{ zos_extract_cics_cmci_item.zos_extract_cics_cmci_pair[1] }}"
+
+- name: Write {{ zos_extract_cics_cmci_outfile }}
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_cics_cmci_outfile }}"
+    mode: "0644"
+    # ansible.builtin.copy treats an empty content: string as "not
+    # provided" (fails with "src (or content) is required") rather than
+    # writing an empty file -- same fix already needed for db2.yml/
+    # cics.yml -- the trailing ~ '\n' guarantees non-empty content even
+    # if zos_extract_cics_cmci_lines ends up empty (e.g. every query
+    # legitimately returned nothing).
+    content: "{{ (zos_extract_cics_cmci_lines | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
