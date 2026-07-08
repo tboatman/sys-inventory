@@ -1,0 +1,9 @@
+##MEMBER IEAFIX00
+INCLUDE LIBRARY(SYS1.LPALIB) MODULES(
+             IEAVAR00
+             IEAVAR06
+             IGC0001G
+             )
+INCLUDE LIBRARY(FFST.V120ESA.SEPWMOD2) MODULES(
+             EPWSTUB
+             )

@@ -784,6 +784,126 @@ class LpalstEntry:
 
 
 @dataclass
+class MlpaStatement:
+    """One statement from an active IEALPAxx PARMLIB member -- Modified
+    Link Pack Area (MLPA) module additions (`INCLUDE LIBRARY(dsn)` /
+    `MODULES(mod1,mod2,...)` statement pairs), named by IEASYSxx's own
+    MLPA= keyword the same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/
+    OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU=/
+    DIAG=/CATALOG=/GRSCNF=/PROG=/SVC=/LPA= name IEFSSNxx/COMMNDxx/
+    IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/
+    SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/
+    IZUPRMxx/DIAGxx/IGGCATxx/GRSCNFxx/PROGxx/IEASVCxx/LPALSTxx. Dumped
+    by ansible/roles/zos_extract/tasks/mlpa_snapshot.yml and parsed by
+    mlpa_parser.py.
+
+    Originally planned as its own Category E "modname,ddname pairs"
+    format in doc/TODO.md's initial sketch, before a real member was
+    available -- CONFIRMED against a real IEALPAxx member to actually be
+    statement-oriented (`INCLUDE`/`MODULES` top-level keywords), the
+    same shape every Category C domain already has, so this reuses
+    parmlib_engines.statement_engine() directly with a two-keyword
+    vocabulary instead of a bespoke library/module-list dataclass -- the
+    same kind of reclassification PROGxx and CLOCKxx each needed once
+    their own real members were seen. `INCLUDE LIBRARY(dsn)` and
+    `MODULES(mod1,mod2,...)` are captured as two separate generic rows,
+    not paired into one dataclass -- joining them back together (which
+    library a given module came from) is a query-time concern, not a
+    parse-time one, matching this pipeline's "capture raw text
+    generically" convention.
+
+    The confirming member also exercised a real formatting quirk not
+    seen in any earlier domain here: trailing descriptive comment lines
+    that each begin with `/*` but never close with a matching `*/`
+    anywhere in the member -- parmlib_engines.strip_comments()'s
+    balanced-pair regex can't remove these (there's nothing to pair
+    with), so mlpa_parser.py additionally drops any line that still
+    starts with `/*` after that pass, rather than letting the dangling
+    text get folded into the preceding statement's operands as garbage."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
+class FixStatement:
+    """One statement from an active IEAFIXxx PARMLIB member -- IBM
+    fix/PTF-supplied Link Pack Area module additions (the same
+    `INCLUDE LIBRARY(dsn) MODULES(mod1,mod2,...)` syntax MlpaStatement
+    has), named by IEASYSxx's own FIX= keyword the same way MLPA= names
+    IEALPAxx (see MlpaStatement's own docstring for the full IEASYSxx
+    keyword chain). Dumped by ansible/roles/zos_extract/tasks/
+    fix_snapshot.yml and parsed by fix_parser.py.
+
+    CONFIRMED against a real IEAFIXxx member to use the identical
+    `INCLUDE`/`MODULES` statement vocabulary IEALPAxx does -- the only
+    real difference between the two confirming members is formatting:
+    IEAFIXxx's `MODULES(` opens on the *same* physical line as its
+    `INCLUDE LIBRARY(...)` (so both fold into one `INCLUDE` statement's
+    operands generically, e.g. `LIBRARY(SYS1.LPALIB) MODULES( IEAVAR00
+    IEAVAR06 IGC0001G )`), whereas IEALPAxx's confirming member put
+    `MODULES(...)` on its own following line (producing two separate
+    top-level statements instead). Both shapes are handled correctly by
+    parmlib_engines.statement_engine() with zero code differences --
+    kept as its own dataclass/table/command anyway (not merged with
+    MlpaStatement) since IEAFIXxx and IEALPAxx are two distinct real
+    PARMLIB members, matching this project's own "shared parsing
+    mechanics, not shared domain identity" precedent."""
+
+    stmt: str
+    operands: str
+    source_member: str = ""
+
+
+@dataclass
+class VatlstDefaults:
+    """The single VATDEF statement from an active VATLSTxx PARMLIB
+    member -- default IPL-time/system-wide volume use attributes
+    (`VATDEF IPLUSE(attr),SYSUSE(attr)`), named by IEASYSxx's own VAL=
+    keyword the same way MLPA=/FIX= name IEALPAxx/IEAFIXxx (see
+    MlpaStatement's docstring for the full IEASYSxx keyword chain).
+    Dumped by ansible/roles/zos_extract/tasks/vatlst_snapshot.yml and
+    parsed by vatlst_parser.py. The second Category E domain from
+    doc/TODO.md "9.2" -- CONFIRMED against a real VATLSTxx member.
+
+    Unlike VatlstEntry's positional volser rows below it in the same
+    member, VATDEF's own two-keyword vocabulary (IPLUSE/SYSUSE) is
+    narrow and well-documented, so it's modeled explicitly here rather
+    than folded into a fully generic dict -- values keep their raw
+    parenthesized text (e.g. `(PRIVATE)`), matching this pipeline's
+    "capture raw operand text" convention elsewhere."""
+
+    ipluse: str | None = None
+    sysuse: str | None = None
+    source_member: str = ""
+
+
+@dataclass
+class VatlstEntry:
+    """One volume-attribute row from an active VATLSTxx PARMLIB member
+    -- `volser,attribute,percent-full,device-type,convertible` (e.g.
+    `C3SYS1,0,0,3390    ,Y`), named by IEASYSxx's own VAL= keyword.
+    Dumped by ansible/roles/zos_extract/tasks/vatlst_snapshot.yml and
+    parsed by vatlst_parser.py.
+
+    Purely positional, comma-separated fields, not KEYWORD=value at all
+    -- gets its own small dedicated parser (vatlst_parser.py) rather
+    than either shared parmlib_engines.py engine, the same as
+    LpalstEntry. `attribute` is confirmed to be a numeric code (0 in
+    the confirming member's rows) rather than the PRIVATE/PUBLIC/STORAGE
+    word VATDEF's own IPLUSE/SYSUSE use -- kept as raw text since its
+    full documented code table wasn't independently confirmed here."""
+
+    volser: str
+    attribute: str
+    percent_full: str
+    device_type: str
+    convertible: str
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

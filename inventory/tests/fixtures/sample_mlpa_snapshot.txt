@@ -1,0 +1,14 @@
+##MEMBER IEALPA00
+/*                                                                  */
+/*  This parmlib member has been customized for your order. If      */
+/*  there are any statements below, they are required in order      */
+/*  to complete the Installation Verification Procedures. If        */
+/*  no statements are provided, then none are needed.               */
+/*                                                                  */
+INCLUDE LIBRARY(ADCD.&SYSVER..LINKLIB)
+MODULES(DFSAFMD0,
+        IGC0020B)
+ /*
+ /* IGC0020B - IMS  TYPE 4 SVC FOR DBRC (SVC 202)
+ /* DFSAFMD0 - IMS  ONLINE FORMATTED DUMP MODULE
+ /*

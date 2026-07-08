@@ -24,6 +24,7 @@ from .models import (
     Db2Plan,
     DevsupStatement,
     DiagStatement,
+    FixStatement,
     Fmid,
     GeneralResourceAccess,
     GeneralResourceProfile,
@@ -38,6 +39,7 @@ from .models import (
     Jes2InitStatement,
     LineageStep,
     LpalstEntry,
+    MlpaStatement,
     OptStatement,
     ParmlibDataset,
     Product,
@@ -56,6 +58,8 @@ from .models import (
     TcpipProfileStatement,
     UssMount,
     UssProcess,
+    VatlstDefaults,
+    VatlstEntry,
     VsamCluster,
     VtamMajorNode,
     VtamStartOption,
@@ -269,6 +273,36 @@ CREATE TABLE IF NOT EXISTS lpalst_entries (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_lpalst_entries_dsn ON lpalst_entries(dsn);
+
+CREATE TABLE IF NOT EXISTS mlpa_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mlpa_statements_stmt ON mlpa_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS fix_statements (
+    stmt           TEXT NOT NULL,
+    operands       TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fix_statements_stmt ON fix_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS vatlst_defaults (
+    ipluse         TEXT,
+    sysuse         TEXT,
+    source_member  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS vatlst_entries (
+    volser         TEXT NOT NULL,
+    attribute      TEXT NOT NULL,
+    percent_full   TEXT NOT NULL,
+    device_type    TEXT NOT NULL,
+    convertible    TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vatlst_entries_volser ON vatlst_entries(volser);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -978,6 +1012,74 @@ def save_lpalst_entries(conn: sqlite3.Connection, entries: list[LpalstEntry]) ->
 def all_lpalst_entries(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM lpalst_entries ORDER BY dsn")
+    return cur.fetchall()
+
+
+def save_mlpa_statements(conn: sqlite3.Connection, statements: list[MlpaStatement]) -> None:
+    conn.execute("DELETE FROM mlpa_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO mlpa_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_mlpa_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM mlpa_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_fix_statements(conn: sqlite3.Connection, statements: list[FixStatement]) -> None:
+    conn.execute("DELETE FROM fix_statements")
+    rows = [(s.stmt, s.operands, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO fix_statements (stmt, operands, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_fix_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM fix_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_vatlst_defaults(conn: sqlite3.Connection, defaults: list[VatlstDefaults]) -> None:
+    conn.execute("DELETE FROM vatlst_defaults")
+    rows = [(d.ipluse, d.sysuse, d.source_member) for d in defaults]
+    conn.executemany(
+        "INSERT INTO vatlst_defaults (ipluse, sysuse, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_vatlst_defaults(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM vatlst_defaults")
+    return cur.fetchall()
+
+
+def save_vatlst_entries(conn: sqlite3.Connection, entries: list[VatlstEntry]) -> None:
+    conn.execute("DELETE FROM vatlst_entries")
+    rows = [
+        (e.volser, e.attribute, e.percent_full, e.device_type, e.convertible, e.source_member)
+        for e in entries
+    ]
+    conn.executemany(
+        "INSERT INTO vatlst_entries (volser, attribute, percent_full, device_type, convertible, source_member) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_vatlst_entries(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM vatlst_entries ORDER BY volser")
     return cur.fetchall()
 
 

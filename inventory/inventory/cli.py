@@ -18,7 +18,8 @@
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
 `inventory grsrnl`, `inventory grscnf`, `inventory smf`, `inventory ios`, `inventory consol`,
 `inventory igdsms`, `inventory izuprm`, `inventory diag`, `inventory iggcat`,
-`inventory prog`, `inventory ieasvc`, `inventory lpalst`."""
+`inventory prog`, `inventory ieasvc`, `inventory lpalst`, `inventory mlpa`,
+`inventory fix`, `inventory vatlst`."""
 from __future__ import annotations
 
 import argparse
@@ -41,6 +42,7 @@ from . import (
     db2_catalog_parser,
     devsup_parser,
     diag_parser,
+    fix_parser,
     grscnf_parser,
     grsrnl_parser,
     ieasvc_parser,
@@ -53,6 +55,7 @@ from . import (
     jcl_parser,
     jes2parm_parser,
     lpalst_parser,
+    mlpa_parser,
     opt_parser,
     parmlib_parser,
     prog_parser,
@@ -66,6 +69,7 @@ from . import (
     sysinfo_parser,
     tcpip_parser,
     uss_mounts_parser,
+    vatlst_parser,
     vtam_parser,
     wlm_parser,
     wlm_zosmf_parser,
@@ -197,6 +201,19 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     lpalst_entries = [e for p in sorted(input_dir.glob("*lpalst_snapshot*.txt"))
                       for e in lpalst_parser.parse_lpalst_snapshot(p)]
 
+    mlpa_statements = [s for p in sorted(input_dir.glob("*mlpa_snapshot*.txt"))
+                       for s in mlpa_parser.parse_mlpa_snapshot(p)]
+
+    fix_statements = [s for p in sorted(input_dir.glob("*fix_snapshot*.txt"))
+                      for s in fix_parser.parse_fix_snapshot(p)]
+
+    vatlst_defaults = []
+    vatlst_entries = []
+    for path in sorted(input_dir.glob("*vatlst_snapshot*.txt")):
+        defaults, entries = vatlst_parser.parse_vatlst_snapshot(path)
+        vatlst_defaults.extend(defaults)
+        vatlst_entries.extend(entries)
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -314,6 +331,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_prog_statements(conn, prog_statements)
     store.save_ieasvc_statements(conn, ieasvc_statements)
     store.save_lpalst_entries(conn, lpalst_entries)
+    store.save_mlpa_statements(conn, mlpa_statements)
+    store.save_fix_statements(conn, fix_statements)
+    store.save_vatlst_defaults(conn, vatlst_defaults)
+    store.save_vatlst_entries(conn, vatlst_entries)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -365,6 +386,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(prog_statements)} active PROGxx statements, "
           f"{len(ieasvc_statements)} active IEASVCxx statements, "
           f"{len(lpalst_entries)} active LPALSTxx entries, "
+          f"{len(mlpa_statements)} active IEALPAxx statements, "
+          f"{len(fix_statements)} active IEAFIXxx statements, "
+          f"{len(vatlst_defaults)} active VATLSTxx defaults, "
+          f"{len(vatlst_entries)} active VATLSTxx entries, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -756,6 +781,40 @@ def cmd_lpalst(args: argparse.Namespace) -> int:
     for row in rows:
         volume = f"({row['volume']})" if row["volume"] else ""
         print(f"{row['dsn']}{volume}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_mlpa(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_mlpa_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_fix(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_fix_statements(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_vatlst(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    defaults = store.all_vatlst_defaults(conn)
+    entries = store.all_vatlst_entries(conn)
+    conn.close()
+
+    for row in defaults:
+        print(f"VATDEF IPLUSE{row['ipluse'] or ''},SYSUSE{row['sysuse'] or ''}  [{row['source_member']}]")
+    for row in entries:
+        print(f"{row['volser']},{row['attribute']},{row['percent_full']},{row['device_type']},{row['convertible']}  "
+              f"[{row['source_member']}]")
     return 0
 
 
@@ -1271,6 +1330,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_lpalst = sub.add_parser("lpalst", help="list active LPALSTxx entries -- Link Pack Area dataset concatenation")
     p_lpalst.set_defaults(func=cmd_lpalst)
+
+    p_mlpa = sub.add_parser("mlpa", help="list active IEALPAxx statements -- Modified Link Pack Area module additions")
+    p_mlpa.set_defaults(func=cmd_mlpa)
+
+    p_fix = sub.add_parser("fix", help="list active IEAFIXxx statements -- IBM fix/PTF-supplied Link Pack Area module additions")
+    p_fix.set_defaults(func=cmd_fix)
+
+    p_vatlst = sub.add_parser("vatlst", help="list active VATLSTxx volume attribute defaults/entries")
+    p_vatlst.set_defaults(func=cmd_vatlst)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)
