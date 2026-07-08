@@ -1000,6 +1000,74 @@ report-format parsing, and whether this site's own CICS regions'
 CSD-access mode lets a concurrent `CSD(READONLY)` batch DFHCSDUP job
 succeed cleanly in practice, not just per IBM's general documentation.
 
+### CICS resource discovery via CMCI (opt-in, for CMCI-enabled regions only)
+
+`cics_cmci.yml` (tag `cics_cmci`, gated `never`) is an **alternative** to
+`cics_deepening.yml`'s DFHCSDUP-based CSD reading above, for whichever of
+a site's CICS regions actually have CMCI (CICS Management Client
+Interface) enabled -- not every region does, per the user's own
+confirmation, so this doesn't replace `cics_deepening.yml`, it
+complements it for the regions where it's available.
+
+- Uses `ibm.ibm_zos_cics`'s own `cmci_get` module -- already installed
+  *and* already pinned in `requirements.yml` with a comment anticipating
+  exactly this ("pinned for future CMCI-based CICS resource discovery").
+  Unlike `wlm_zosmf.yml`'s hand-rolled `ansible.builtin.uri` REST call,
+  `cmci_get` already parses CMCI's XML wire format into clean per-record
+  dicts itself -- confirmed reading the module's own source/docs -- so
+  there's no report/response-format guessing needed for the mechanics,
+  only for which attribute key holds each resource type's own "name"
+  (see `cmci_parser.py`'s module docstring).
+- **Standalone regions (SMSS) only**, per the user's own call: each
+  `zos_extract_cics_cmci_targets` entry's `context` is a CICS region's
+  own APPLID, not a CICSplex name -- full CICSplex SM/CMAS-scoped
+  contexts aren't implemented here.
+- **Six resource-type queries per target**, per the user's own call: both
+  CSD-sourced *definitions* (`cicsdefinitionprogram`/
+  `cicsdefinitiontransaction`/`cicsdefinitionfile`, matching
+  `cics_deepening.yml`'s own scope) and the currently-installed/active
+  equivalents (`CICSProgram`/`CICSTransaction`/`CICSLocalFile`, a live
+  snapshot like `cics.yml`/`db2.yml`, not a static definition list).
+  `context`/`resources.filter`/`get_parameters` shapes are confirmed
+  against `cmci_get`'s own module documentation examples -- but no
+  `csdgroup` filter is passed for the CSD-definition queries, and
+  whether CMCI returns every CSD group's definitions with no filter, or
+  requires one, is still unconfirmed.
+- `fail_on_nodata: false` on every query -- `cmci_get`'s own default
+  (`true`) would fail the whole task if a resource type genuinely has
+  zero matches, the same class of "crash on empty result" bug already
+  found and fixed twice this pipeline for `db2.yml`/`cics.yml`'s own
+  empty-content `ansible.builtin.copy` crash.
+- Every `(target, resource_type)` combination is queried via Jinja's
+  `product` filter (confirmed working in this ansible-core's native
+  templating). Results are written to `cics_cmci.txt` as **JSON Lines**
+  (one line per query, e.g. `{"context": "CICSA", "resource_type":
+  "cicsdefinitionprogram", "records": [...]}`) -- this pipeline's own
+  file format, not an external API response saved verbatim, so there's
+  no schema uncertainty on the file-parsing side either (a first for any
+  REST-based domain here).
+- **Not part of `site.yml`/`interactive.yml`**: run it via the dedicated
+  `playbooks/cics_cmci.yml` entry point, which prompts for both the
+  target system's connection details and CMCI's own username/password
+  (same merged structure `playbooks/wlm_zosmf.yml` uses).
+  `zos_extract_cics_cmci_targets` (a list of dicts) has no sensible
+  `vars_prompt` equivalent, so supply it via `-e`:
+  ```
+  ansible-playbook playbooks/cics_cmci.yml --tags cics_cmci \
+    -e '{"zos_extract_cics_cmci_targets": [{"host": "cics1.example.com", "port": 1490, "context": "CICSA"}]}'
+  ```
+- `zos_extract_cics_cmci_insecure` defaults to `true` (skip cert
+  validation) -- same self-signed/internal-CA certificate tradeoff
+  already documented for `zos_extract_zosmf_validate_certs`.
+
+**Still genuinely unconfirmed** (needs a real CMCI-enabled system, not
+just documentation research): whether this task's shape works end-to-end
+against a real CMCI listener at all -- see `cics_cmci.yml`'s own header
+comment and `cmci_parser.py`'s module docstring for exactly which parts
+are confirmed via `cmci_get`'s own documented examples vs. still
+inferred (particularly the installed-resource primary-identifier
+attribute names for `CICSTransaction`/`CICSLocalFile`).
+
 ### A performance note on `catalog`
 
 Unlike `zoautil_py`'s `datasets.list_datasets()` (which returns DSORG/RECFM/
@@ -1017,8 +1085,9 @@ that advice matters even more here.
 ansible/
 ansible.cfg
 requirements.yml           # ibm.ibm_zos_core collection pin, plus
-                            # ibm.ibm_zos_cics/ibm.ibm_zos_ims for future
-                            # expansion (both still unused today) --
+                            # ibm.ibm_zos_cics (now used -- cics_cmci.yml's
+                            # cmci_get, see below) and ibm.ibm_zos_ims (still
+                            # unused, pinned for future IMS expansion) --
                             # ibm.ibm_zosmf is pinned too, but not
                             # actually needed by wlm_zosmf.yml below
                             # (that uses plain ansible.builtin.uri, not
@@ -1035,6 +1104,10 @@ playbooks/interactive.yml  # same, but prompts for connection details for a
 playbooks/wlm_zosmf.yml    # standalone entry point for the opt-in WLM
                             # z/OSMF deepening (see below) -- prompts for
                             # z/OSMF credentials, never run as part of
+                            # site.yml/interactive.yml
+playbooks/cics_cmci.yml    # standalone entry point for the opt-in CICS-
+                            # via-CMCI discovery (see below) -- prompts for
+                            # CMCI credentials, never run as part of
                             # site.yml/interactive.yml
 playbooks/roles            # symlink to ../roles -- ansible.cfg's roles_path
                             # setting only applies when a tool's cwd is this
@@ -1259,6 +1332,10 @@ roles/zos_extract/
                                 # pipeline, even though the command
                                 # syntax/read-only access mode sent to it
                                 # are confirmed against real IBM docs
+    cics_cmci.yml              # opt-in CMCI-based alternative to the above,
+                                # for CMCI-enabled regions only (see below) --
+                                # ibm.ibm_zos_cics's cmci_get, gated 'never',
+                                # run via playbooks/cics_cmci.yml
     smplist.yml               # zos_mvs_raw (GIMSMP) per CSI/zone pair (see
                                # _smplist_zone.yml, the shared per-pair
                                # worker) -- zos_extract_smpe_csis is a list,

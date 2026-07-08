@@ -25,10 +25,12 @@ nodes/start options/APPN topology, TCP/IP home addresses and `PROFILE.TCPIP`
 config); SMS storage groups; the active WLM policy (and, opt-in, full
 service-class/goal definitions via z/OSMF); installed DB2 packages/plans
 (opt-in); and a deepened CICS view — DFHRPL load-library lineage, SIT
-overrides, and CSD resource definitions via DFHCSDUP (opt-in). Most of
-these have been confirmed against real command/API output from an actual
-z/OS system; a handful (WLM z/OSMF, RACF, DFHCSDUP's own report format)
-remain implementation-only until checked against a real one — see
+overrides, and CSD resource definitions via DFHCSDUP (opt-in), plus an
+alternative CMCI-based path (opt-in, for whichever CICS regions actually
+have CMCI enabled — not every region does). Most of these have been
+confirmed against real command/API output from an actual z/OS system; a
+handful (WLM z/OSMF, RACF, DFHCSDUP's own report format, CMCI) remain
+implementation-only until checked against a real one — see
 [`doc/inventory.md`](doc/inventory.md) for the full,
 per-command breakdown and current confirmation status of each, and
 [`doc/TODO.md`](doc/TODO.md) for what's still planned.
@@ -153,6 +155,7 @@ mkdir -p /tmp/demo && \
   cp tests/fixtures/sample_db2_catalog.txt /tmp/demo/db2_catalog.txt && \
   cp tests/fixtures/sample_wlm_zosmf.txt   /tmp/demo/wlm_zosmf.txt && \
   cp tests/fixtures/sample_cics_deepening.txt /tmp/demo/cics_deepening.txt && \
+  cp tests/fixtures/sample_cics_cmci.txt   /tmp/demo/cics_cmci.txt && \
   cp tests/fixtures/sample_parmlib_snapshot.txt /tmp/demo/parmlib_snapshot.txt && \
   cp tests/fixtures/sample_ieasys_snapshot.txt  /tmp/demo/ieasys_snapshot.txt && \
   cp tests/fixtures/sample_bpxprm_snapshot.txt  /tmp/demo/bpxprm_snapshot.txt && \
@@ -185,13 +188,14 @@ inventory --db /tmp/demo/demo.db sms-storgrps
 inventory --db /tmp/demo/demo.db wlm
 inventory --db /tmp/demo/demo.db db2-packages
 inventory --db /tmp/demo/demo.db cics-dfhrpl
+inventory --db /tmp/demo/demo.db cmci
 inventory --db /tmp/demo/demo.db parmlib
 inventory --db /tmp/demo/demo.db ieasys
 ```
 
 See [`doc/inventory.md`](doc/inventory.md) for the rest of the commands
 (`vtam-options`, `vtam-topology`, `tcpip-profile`, `wlm-zosmf`, `db2-plans`,
-`cics-sit`, `cics-csd`, `bpxprm`, `devsup`, `opt`, `clock`, `autor`, `sched`,
+`cics-sit`, `cics-csd`, `cmci`, `bpxprm`, `devsup`, `opt`, `clock`, `autor`, `sched`,
 `couple`, `grsrnl`, `smf`, `ios`,
 `zone-index`, `zones`, `fmids`,
 `zone-gaps`, `racf-connections`,

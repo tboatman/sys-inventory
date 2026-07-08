@@ -1150,17 +1150,51 @@ FILE FILE001  GROUP=GRP2  [CICS.PROD.DFHCSD]
 ```
 
 **`cics-csd` is the most speculative dimension in the pipeline alongside
-`db2-packages`/`db2-plans` and `wlm-zosmf`, and uniquely speculative on
-two separate axes at once**: unlike those two, the *command syntax* sent
-to DFHCSDUP (`LIST ALL` / `LIST LIST(name) OBJECTS`, `PARM='CSD(READONLY)'`)
-is confirmed against real IBM documentation this round — but DFHCSDUP's
-own LIST report *print format* (the column layout `cics_csdup_parser.py`
-has to make sense of) is not, and no real sample was found while writing
-this. `cics_csdup_parser.py` deliberately does the loosest, most tolerant
+`wlm-zosmf`, and uniquely speculative on two separate axes at once**:
+unlike `wlm-zosmf`, the *command syntax* sent to DFHCSDUP (`LIST ALL` /
+`LIST LIST(name) OBJECTS`, `PARM='CSD(READONLY)'`) is confirmed against
+real IBM documentation this round — but DFHCSDUP's own LIST report
+*print format* (the column layout `cics_csdup_parser.py` has to make
+sense of) is not, and no real sample was found while writing this.
+`cics_csdup_parser.py` deliberately does the loosest, most tolerant
 parsing in the whole pipeline as a result — see its module docstring for
 exactly what it recognizes and what it silently skips, and treat any
 count from this dimension as a floor, not a real total, until it's
 checked against a real DFHCSDUP LIST report.
+
+### `inventory cmci` (opt-in, for CMCI-enabled regions only, not yet production-validated)
+
+An **alternative** to `cics-csd` above, for whichever of a site's CICS
+regions actually have CMCI (CICS Management Client Interface) enabled —
+not every region does, so this doesn't replace the DFHCSDUP-based path,
+it complements it — if you ingested a `cics_cmci.txt`. See
+[`ansible.md`](ansible.md#cics-resource-discovery-via-cmci-opt-in-for-cmci-enabled-regions-only)
+for what produces this file.
+
+Unlike `cics-csd`, this domain queries `ibm.ibm_zos_cics`'s `cmci_get`
+module, which already parses CMCI's XML wire format into clean per-record
+dicts itself — no report-format guessing involved for the mechanics, only
+for which attribute holds each resource type's own "name"
+(`CmciResource` in `models.py`, `cmci_parser.py`). Both CSD-sourced
+*definitions* (`cicsdefinitionprogram`/`cicsdefinitiontransaction`/
+`cicsdefinitionfile`) and the currently-installed/active equivalents
+(`CICSProgram`/`CICSTransaction`/`CICSLocalFile`) are queried per
+configured CMCI target:
+
+```
+$ inventory cmci
+CICSLocalFile MYFILE  [CICSA]  {"file": "MYFILE", "dsname": "CICS.PROD.MYFILE"}
+CICSProgram MYPROG  [CICSA]  {"program": "MYPROG", "status": "ENABLED"}
+CICSTransaction MYTR  [CICSA]  {"tranid": "MYTR", "program": "MYPROG"}
+cicsdefinitionprogram MYPROG  [CICSA]  {"name": "MYPROG", "csdgroup": "GRP1"}
+```
+
+Standalone regions (SMSS) only — the bracketed value is a CICS region's
+own APPLID, not a CICSplex name (full CICSplex SM isn't implemented
+here). **Not yet checked against a real CMCI listener** — see
+`cmci_parser.py`'s module docstring for exactly which parts of the
+response shape are confirmed via `cmci_get`'s own documented examples vs.
+still inferred.
 
 ### `inventory zone-index` (opt-in)
 
