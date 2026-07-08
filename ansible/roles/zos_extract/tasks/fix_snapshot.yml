@@ -1,0 +1,23 @@
+---
+# Explicit, always-saved capture of the active IEAFIXxx member(s)' full
+# content -- IBM fix/PTF-supplied Link Pack Area module additions,
+# named by IEASYSxx's own FIX= keyword the same way MLPA= names
+# IEALPAxx (see mlpa_snapshot.yml's own header comment for the full
+# IEASYSxx keyword chain). Built on the generalized
+# _fetch_active_parmlib_member.yml worker (see doc/TODO.md "9.1").
+#
+# CONFIRMED against a real IEAFIXxx member to use the identical
+# `INCLUDE`/`MODULES` statement vocabulary IEALPAxx does -- see
+# fix_parser.py's module docstring for the one real formatting
+# difference between the two confirming members (MODULES( opening on
+# the same physical line as INCLUDE LIBRARY(...) here, vs. its own
+# following line in IEALPAxx's confirming member), which
+# parmlib_engines.statement_engine() handles correctly either way with
+# zero code differences.
+
+- name: Write fix_snapshot.txt (active IEAFIXxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_fix_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_fix_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

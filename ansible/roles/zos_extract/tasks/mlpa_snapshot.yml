@@ -1,0 +1,27 @@
+---
+# Explicit, always-saved capture of the active IEALPAxx member(s)' full
+# content -- Modified Link Pack Area (MLPA) module additions, named by
+# IEASYSxx's own MLPA= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+# MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+# CON=/SMS=/IZU=/DIAG=/CATALOG=/GRSCNF=/PROG=/SVC=/LPA= name IEFSSNxx/
+# COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+# AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
+# IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/GRSCNFxx/PROGxx/IEASVCxx/LPALSTxx.
+# Built on the generalized _fetch_active_parmlib_member.yml worker (see
+# doc/TODO.md "9.1"), same idiom as every other domain in this family.
+#
+# Originally planned as a bespoke Category E format in doc/TODO.md
+# before a real member was seen -- CONFIRMED against a real IEALPAxx
+# member to actually be statement-oriented (`INCLUDE`/`MODULES`
+# top-level keywords), so mlpa_parser.py reuses
+# parmlib_engines.statement_engine() directly, the same shape every
+# Category C domain already has. See mlpa_parser.py's module docstring
+# for the full detail, including a real formatting quirk (unterminated
+# `/* ...` comment lines with no matching `*/` anywhere in the member).
+
+- name: Write mlpa_snapshot.txt (active IEALPAxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_mlpa_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_mlpa_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

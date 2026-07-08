@@ -217,6 +217,27 @@
     zos_extract_active_lpa_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^LPA@@@') | map('regex_replace', '^LPA@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # MLPA=xx names the active IEALPAxx member(s) -- Modified Link Pack
+    # Area (MLPA) module additions. Same parenthesized-list shape as
+    # above, consumed by mlpa_snapshot.yml. Second Category E domain
+    # from doc/TODO.md "9.2".
+    zos_extract_active_mlpa_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^MLPA@@@') | map('regex_replace', '^MLPA@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # FIX=xx names the active IEAFIXxx member(s) -- IBM fix/PTF-supplied
+    # Link Pack Area module additions, same statement syntax as
+    # IEALPAxx. Same parenthesized-list shape as above, consumed by
+    # fix_snapshot.yml. Third Category E domain from doc/TODO.md "9.2".
+    zos_extract_active_fix_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^FIX@@@') | map('regex_replace', '^FIX@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # VAL=xx names the active VATLSTxx member(s) -- volume attribute
+    # list. Same parenthesized-list shape as above, consumed by
+    # vatlst_snapshot.yml. Fourth Category E domain from doc/TODO.md
+    # "9.2".
+    zos_extract_active_val_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^VAL@@@') | map('regex_replace', '^VAL@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -407,3 +428,33 @@
   vars:
     zos_extract_active_member_prefix: LPALST
     zos_extract_active_member_blocks_var: zos_extract_lpalst_member_blocks
+
+- name: Fetch each active IEALPAxx member's content, in order (for mlpa_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_mlpa_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "IEALPA{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IEALPA
+    zos_extract_active_member_blocks_var: zos_extract_mlpa_member_blocks
+
+- name: Fetch each active IEAFIXxx member's content, in order (for fix_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_fix_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "IEAFIX{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IEAFIX
+    zos_extract_active_member_blocks_var: zos_extract_fix_member_blocks
+
+- name: Fetch each active VATLSTxx member's content, in order (for vatlst_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_val_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "VATLST{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: VATLST
+    zos_extract_active_member_blocks_var: zos_extract_vatlst_member_blocks

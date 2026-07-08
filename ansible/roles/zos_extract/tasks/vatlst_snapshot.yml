@@ -1,0 +1,21 @@
+---
+# Explicit, always-saved capture of the active VATLSTxx member(s)' full
+# content -- the volume attribute list, named by IEASYSxx's own VAL=
+# keyword the same way MLPA=/FIX= name IEALPAxx/IEAFIXxx (see
+# mlpa_snapshot.yml's own header comment for the full IEASYSxx keyword
+# chain). Built on the generalized _fetch_active_parmlib_member.yml
+# worker (see doc/TODO.md "9.1"). The second Category E (positional/
+# list format) domain from doc/TODO.md "9.2".
+#
+# CONFIRMED against a real VATLSTxx member -- one VATDEF statement
+# (IPLUSE/SYSUSE defaults) followed by one comma-separated positional
+# row per volume (volser, attribute code, percent-full threshold,
+# device type, convertible flag). See vatlst_parser.py's module
+# docstring for the full field detail.
+
+- name: Write vatlst_snapshot.txt (active VATLSTxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_vatlst_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_vatlst_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
