@@ -130,6 +130,14 @@
     zos_extract_active_couple_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^COUPLE@@@') | map('regex_replace', '^COUPLE@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # GRSCNF=xx names the active GRSCNFxx member(s) -- Global Resource
+    # Serialization configuration parameters (GRSDEF's own GRSQ/RESMIL/
+    # TOLINT/ACCELSYS/RESTART/REJOIN/CTRACE sub-parameters). Same
+    # parenthesized-list shape as above, consumed by grscnf_snapshot.yml.
+    # CONFIRMED against a real GRSCNFxx member, doc/TODO.md "9.2".
+    zos_extract_active_grscnf_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^GRSCNF@@@') | map('regex_replace', '^GRSCNF@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
     # GRSRNL=xx names the active GRSRNLxx member(s) -- same
     # parenthesized-list shape as above, consumed by grsrnl_snapshot.yml.
     # Fourth Category C domain from doc/TODO.md "9.2".
@@ -257,6 +265,16 @@
   vars:
     zos_extract_active_member_prefix: COUPLE
     zos_extract_active_member_blocks_var: zos_extract_couple_member_blocks
+
+- name: Fetch each active GRSCNFxx member's content, in order (for grscnf_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_grscnf_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "GRSCNF{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: GRSCNF
+    zos_extract_active_member_blocks_var: zos_extract_grscnf_member_blocks
 
 - name: Fetch each active GRSRNLxx member's content, in order (for grsrnl_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml

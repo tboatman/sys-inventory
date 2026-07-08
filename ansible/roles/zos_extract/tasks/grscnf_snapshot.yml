@@ -1,0 +1,25 @@
+---
+# Explicit, always-saved capture of the active GRSCNFxx member(s)' full
+# content -- Global Resource Serialization configuration parameters
+# (GRSDEF's own GRSQ/RESMIL/TOLINT/ACCELSYS/RESTART/REJOIN/CTRACE
+# sub-parameters), named by IEASYSxx's own GRSCNF= keyword the same way
+# SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/
+# COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU=/DIAG=/CATALOG= name IEFSSNxx/
+# COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+# AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
+# IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx. Built on the generalized
+# _fetch_active_parmlib_member.yml worker (see doc/TODO.md "9.1"), same
+# idiom as every other domain in this family.
+#
+# CONFIRMED against a real GRSCNFxx member -- see grscnf_parser.py's
+# module docstring for the confirmed statement shape (a single repeated
+# 'GRSDEF' statement, sub-parameters folded in as raw operand text via
+# parmlib_engines.statement_engine() with a one-keyword vocabulary --
+# same as GRSRNLxx's own RNLDEF statement, see grsrnl_snapshot.yml).
+
+- name: Write grscnf_snapshot.txt (active GRSCNFxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_grscnf_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_grscnf_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
