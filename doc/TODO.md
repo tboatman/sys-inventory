@@ -1512,15 +1512,29 @@ domain):**
   content (not a separate comment line), `strip_comments()` alone
   wouldn't remove it; `diag_parser.py`'s own `_strip_sequence_numbers()`
   strips it before handing lines to `parmlib_engines.statement_engine()`.
-- `CATALOG`/`IGGCATxx`, `GRSCNF`/`GRSCNFxx`, and `PROG`/`PROGxx`
-  (**the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
+- `CATALOG`/`IGGCATxx` -- IMPLEMENTED and CONFIRMED against a real
+  IGGCAT00 member (`GDGEXTENDED(NO)`, `VVDSSPACE(10,10)`,
+  `NOTIFYEXTENT(80)`, `TASKMAX(180)`): `IggcatStatement`/
+  `iggcat_parser.py`, `iggcat_statements` table, `inventory iggcat`
+  command, `iggcat_snapshot.yml`. **Turned out to be neither Category B
+  nor Category C's shape** -- the real member is one independent
+  `KEYWORD(value)` (or bare `KEYWORD`) entry per physical line, with no
+  `=`, no commas joining entries, and no statement/sub-parameter
+  grouping at all, so neither `parmlib_engines.flat_keyword_engine()`
+  (assumes comma-separated continuation) nor `statement_engine()`
+  (assumes a per-domain top-level statement vocabulary) fit --
+  `iggcat_parser.py` gets its own small tokenizer instead (closest
+  precedent: CLOCKxx's own dedicated parser, Category G, just
+  parenthesized rather than space-separated). The real member's own
+  header comment happened to mention `GDGEXTENDED(YES)` as prose
+  (documenting why the real value below it is set to `NO`) -- a good
+  built-in regression check that comment-stripping happens before
+  tokenizing, now covered by
+  `test_comment_mentioning_a_keyword_is_stripped_not_parsed`.
+- `GRSCNF`/`GRSCNFxx` and `PROG`/`PROGxx` still to do. `PROGxx` remains
+  **the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
   all distinct sub-statement types inside one PROGxx member; treat as its
-  own careful pass, not a drive-by addition alongside the simpler ones)
-  still to do. **`IGGCATxx`'s own exact statement vocabulary couldn't be
-  confidently confirmed this round** (IBM's docs pages and known mirrors
-  all 403'd on direct fetch, same recurring friction this project has
-  hit before) -- needs a real member sample or a working docs fetch
-  before implementing, not a guess.
+  own careful pass, not a drive-by addition alongside the simpler ones.
 
 **D -- `STMT param,KEYWORD=value,...` (reuse jes2parm_parser.py's engine
 as-is):**

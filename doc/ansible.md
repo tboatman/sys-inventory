@@ -104,7 +104,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
-`igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`,
+`igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`, `iggcat_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -303,6 +303,20 @@ own operand text as a bogus trailing 8-digit token.
 `diag_parser.py`'s `_strip_sequence_numbers()` strips it before handing
 lines to `parmlib_engines.statement_engine()`, the first Category C
 parser here to need that preprocessing step.
+
+`iggcat_snapshot` is the newest of this family, and turned out to be
+neither Category B nor Category C's shape: IEASYSxx's own `CATALOG=`
+keyword names the active IGGCATxx member(s) -- catalog system parameters
+(`GDGEXTENDED`/`VVDSSPACE`/`NOTIFYEXTENT`/`TASKMAX`/...) -- fetched the
+same way and written to `iggcat_snapshot.txt`, ingested via `inventory
+iggcat`. CONFIRMED against a real IGGCAT00 member: it's one independent
+`KEYWORD(value)` (or bare `KEYWORD`) entry per physical line, with no
+`=`, no commas joining entries, and no statement grouping at all -- so
+neither `flat_keyword_engine()` (comma-continued) nor
+`statement_engine()` (per-domain statement vocabulary) fit, and
+`iggcat_parser.py` gets its own small tokenizer instead, same precedent
+CLOCKxx set (Category G) with parens instead of a bare space-separated
+value.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1274,14 +1288,23 @@ roles/zos_extract/
                              # diag_snapshot.txt, ingested via
                              # inventory diag -- CONFIRMED against a
                              # real member
+    iggcat_snapshot.yml      # explicit capture of the active IGGCATxx
+                             # member(s) -- catalog system parameters,
+                             # named by IEASYSxx's own CATALOG=
+                             # keyword; tag iggcat_snapshot; writes
+                             # iggcat_snapshot.txt, ingested via
+                             # inventory iggcat -- CONFIRMED against a
+                             # real member; own small parser, not either
+                             # shared parmlib_engines.py engine (see
+                             # iggcat_parser.py's own docstring)
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
                              # SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/
-                             # IZUPRMxx/DIAGxx fetches above -- see
-                             # doc/TODO.md "9.1"
+                             # IZUPRMxx/DIAGxx/IGGCATxx fetches above --
+                             # see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

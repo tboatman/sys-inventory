@@ -419,6 +419,7 @@ list of what it looks for in the directory you point it at:
 | Active IGDSMSxx member snapshot (SMS base configuration, named by IEASYSxx's own SMS= -- deliberately distinct naming from the live `sms`/`SmsStorageGroup` domain below) | `igdsms_snapshot` (default filename `igdsms_snapshot.txt`, override via `zos_extract_igdsms_snapshot_outfile`) | ansible-only, `igdsms_snapshot.yml` -- CONFIRMED against a real member |
 | Active IZUPRMxx member snapshot (z/OSMF configuration, named by IEASYSxx's own IZU=) | `izuprm_snapshot` (default filename `izuprm_snapshot.txt`, override via `zos_extract_izuprm_snapshot_outfile`) | ansible-only, `izuprm_snapshot.yml` -- CONFIRMED against a real member |
 | Active DIAGxx member snapshot (diagnostic function defaults, named by IEASYSxx's own DIAG=) | `diag_snapshot` (default filename `diag_snapshot.txt`, override via `zos_extract_diag_snapshot_outfile`) | ansible-only, `diag_snapshot.yml` -- CONFIRMED against a real member |
+| Active IGGCATxx member snapshot (catalog system parameters, named by IEASYSxx's own CATALOG=) | `iggcat_snapshot` (default filename `iggcat_snapshot.txt`, override via `zos_extract_iggcat_snapshot_outfile`) | ansible-only, `iggcat_snapshot.yml` -- CONFIRMED against a real member |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

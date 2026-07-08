@@ -152,9 +152,11 @@ just renaming them into that shape for a quick demo.)
    keyword — deliberately distinct naming from the live
    `sms`/`SmsStorageGroup` domain below, see `inventory igdsms`'s own
    section), `izuprm_snapshot.txt` (the active IZUPRMxx member(s) —
-   z/OSMF configuration, named by IEASYSxx's own `IZU=` keyword), and
+   z/OSMF configuration, named by IEASYSxx's own `IZU=` keyword),
    `diag_snapshot.txt` (the active DIAGxx member(s) — diagnostic
-   function defaults, named by IEASYSxx's own `DIAG=` keyword)
+   function defaults, named by IEASYSxx's own `DIAG=` keyword), and
+   `iggcat_snapshot.txt` (the active IGGCATxx member(s) — catalog system
+   parameters, named by IEASYSxx's own `CATALOG=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
@@ -162,7 +164,7 @@ just renaming them into that shape for a quick demo.)
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
    `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
-   `diag_snapshot`
+   `diag_snapshot`/`iggcat_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -177,7 +179,8 @@ just renaming them into that shape for a quick demo.)
    `devsup_snapshot.txt`/`opt_snapshot.txt`/`clock_snapshot.txt`/
    `autor_snapshot.txt`/`sched_snapshot.txt`/`couple_snapshot.txt`/
    `grsrnl_snapshot.txt`/`smf_snapshot.txt`/`consol_snapshot.txt`/
-   `igdsms_snapshot.txt`/`izuprm_snapshot.txt`/`diag_snapshot.txt` have
+   `igdsms_snapshot.txt`/`izuprm_snapshot.txt`/`diag_snapshot.txt`/
+   `iggcat_snapshot.txt` have
    since been confirmed against real members, see their own sections
    below); `cics_deepening.txt`'s own CSD-report portion is right behind
    `ios_snapshot.txt` — see their own sections below. `parmlib_snapshot.txt`
@@ -733,6 +736,32 @@ on the *same* line as real statement content (unlike a `/* ... */`
 comment, which `strip_comments()` already handles regardless of where it
 falls). `diag_parser.py` strips that trailing field before handing lines
 to `parmlib_engines.statement_engine()`.
+
+### `inventory iggcat`
+
+Catalog system parameters (`GDGEXTENDED`/`VVDSSPACE`/`NOTIFYEXTENT`/
+`TASKMAX`/...) from the active IGGCATxx member(s), if you ingested an
+`iggcat_snapshot.txt`. Named by IEASYSxx's own `CATALOG=` keyword.
+
+```
+$ inventory iggcat
+GDGEXTENDED=NO  [IGGCAT00]
+VVDSSPACE=10,10  [IGGCAT00]
+NOTIFYEXTENT=80  [IGGCAT00]
+TASKMAX=180  [IGGCAT00]
+```
+
+CONFIRMED against a real IGGCAT00 member -- and its real shape turned
+out to be neither of the two shared parsing engines every other
+active-PARMLIB-member domain reuses: a real member is one independent
+`KEYWORD(value)` (or bare `KEYWORD`, value `None`) entry per physical
+line, with no `=`, no commas joining entries, and no continuation
+character or statement/sub-parameter grouping at all -- so
+`flat_keyword_engine()` (comma-continued, IEASYSxx's own shape) and
+`statement_engine()` (per-domain statement vocabulary, AUTORxx/SCHEDxx's
+shape) both would have misparsed it. `iggcat_parser.py` gets its own
+small tokenizer instead, the same precedent CLOCKxx set (Category G),
+just parenthesized rather than bare space-separated.
 
 ### `inventory active`
 
