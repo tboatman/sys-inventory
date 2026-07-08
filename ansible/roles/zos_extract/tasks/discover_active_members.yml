@@ -180,6 +180,13 @@
     zos_extract_active_diag_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^DIAG@@@') | map('regex_replace', '^DIAG@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # CATALOG=xx names the active IGGCATxx member(s) -- catalog system
+    # parameters (GDGEXTENDED/VVDSSPACE/NOTIFYEXTENT/TASKMAX/...). Same
+    # parenthesized-list shape as above, consumed by iggcat_snapshot.yml.
+    # CONFIRMED against a real IGGCAT00 member, doc/TODO.md "9.2".
+    zos_extract_active_catalog_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^CATALOG@@@') | map('regex_replace', '^CATALOG@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -320,3 +327,13 @@
   vars:
     zos_extract_active_member_prefix: DIAG
     zos_extract_active_member_blocks_var: zos_extract_diag_member_blocks
+
+- name: Fetch each active IGGCATxx member's content, in order (for iggcat_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_catalog_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "IGGCAT{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: IGGCAT
+    zos_extract_active_member_blocks_var: zos_extract_iggcat_member_blocks

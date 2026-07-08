@@ -1,0 +1,25 @@
+---
+# Explicit, always-saved capture of the active IGGCATxx member(s)' full
+# content -- catalog system parameters (GDGEXTENDED/VVDSSPACE/
+# NOTIFYEXTENT/TASKMAX/...), named by IEASYSxx's own CATALOG= keyword the
+# same way SSN=/CMD=/PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/
+# COUPLE=/GRSRNL=/SMF=/IOS=/CON=/SMS=/IZU=/DIAG= name IEFSSNxx/COMMNDxx/
+# IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/
+# COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/DIAGxx.
+# Built on the generalized _fetch_active_parmlib_member.yml worker (see
+# doc/TODO.md "9.1"), same idiom as every other domain in this family.
+#
+# CONFIRMED against a real IGGCAT00 member -- see iggcat_parser.py's
+# module docstring for the confirmed statement shape (one independent
+# `KEYWORD(value)`/bare `KEYWORD` entry per physical line, no `=`, no
+# commas, no continuation character or statement grouping -- neither of
+# the two shared parmlib_engines.py engines the other Category B/C
+# domains reuse, so this is its own small dedicated parser, same
+# precedent CLOCKxx set).
+
+- name: Write iggcat_snapshot.txt (active IGGCATxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_iggcat_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_iggcat_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
