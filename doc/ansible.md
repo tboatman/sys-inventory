@@ -103,7 +103,7 @@ ansible-playbook playbooks/site.yml --limit lpar1 --tags activity
 Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `ieasys_snapshot`, `bpxprm_snapshot`, `devsup_snapshot`, `opt_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
-`grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
+`grscnf_snapshot`, `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
 `igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`, `iggcat_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
@@ -218,6 +218,22 @@ documented GRS resource name list syntax, and `grsrnl_parser.py` is now
 CONFIRMED against a real (partial) member -- including a shape not in
 the original documented sample, `QNAME(...)`/`RNAME(...)` each on their
 own continuation line rather than sharing the `RNLDEF` line.
+
+`grscnf_snapshot` is the newest Category C domain: IEASYSxx's own
+`GRSCNF=` keyword names the active GRSCNFxx member(s) -- Global Resource
+Serialization configuration parameters (`GRSDEF`'s own `GRSQ`/`RESMIL`/
+`TOLINT`/`ACCELSYS`/`RESTART`/`REJOIN`/`CTRACE` sub-parameters). Fetched
+the same way and written to `grscnf_snapshot.txt` -- ingested via
+`inventory grscnf`. CONFIRMED against a real GRSCNF00 member -- exactly
+GRSRNLxx's own shape (a single repeated statement, here `GRSDEF`, with
+sub-parameters folded in as raw operand text), so `grscnf_parser.py`
+reuses `parmlib_engines.statement_engine()` with a one-keyword
+vocabulary (`{"GRSDEF"}`) directly, no new engine or preprocessing
+needed. The real member had every sub-parameter except `GRSQ` commented
+out as a full-line `/* ... */` (documenting the site's own defaulted or
+removed settings) -- stripped cleanly by the existing
+`strip_comments()` with no code change, leaving just `GRSDEF
+GRSQ(LOCAL)`.
 
 `smf_snapshot`/`ios_snapshot` continue Category C: IEASYSxx's own
 `SMF=`/`IOS=` keywords name the active SMFPRMxx/IECIOSxx member(s) (SMF
@@ -1237,6 +1253,14 @@ roles/zos_extract/
                              # writes couple_snapshot.txt, ingested via
                              # inventory couple -- CONFIRMED against a
                              # real member
+    grscnf_snapshot.yml      # explicit capture of the active GRSCNFxx
+                             # member(s) -- Global Resource
+                             # Serialization configuration parameters,
+                             # named by IEASYSxx's own GRSCNF= keyword;
+                             # tag grscnf_snapshot; writes
+                             # grscnf_snapshot.txt, ingested via
+                             # inventory grscnf -- CONFIRMED against a
+                             # real member
     grsrnl_snapshot.yml      # explicit capture of the active GRSRNLxx
                              # member(s) -- global resource
                              # serialization resource name lists, named
@@ -1301,10 +1325,10 @@ roles/zos_extract/
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
-                             # AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/
-                             # SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/
-                             # IZUPRMxx/DIAGxx/IGGCATxx fetches above --
-                             # see doc/TODO.md "9.1"
+                             # AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/
+                             # GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
+                             # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx fetches
+                             # above -- see doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

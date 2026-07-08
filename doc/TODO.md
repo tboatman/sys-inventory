@@ -1531,10 +1531,35 @@ domain):**
   built-in regression check that comment-stripping happens before
   tokenizing, now covered by
   `test_comment_mentioning_a_keyword_is_stripped_not_parsed`.
-- `GRSCNF`/`GRSCNFxx` and `PROG`/`PROGxx` still to do. `PROGxx` remains
-  **the richest and riskiest of these** -- LNKLST/APF/EXIT/LPA/SCHED are
-  all distinct sub-statement types inside one PROGxx member; treat as its
-  own careful pass, not a drive-by addition alongside the simpler ones.
+- `GRSCNF`/`GRSCNFxx` -- IMPLEMENTED and CONFIRMED against a real
+  GRSCNF00 member (`GRSDEF` / `GRSQ(LOCAL)`, with every other
+  sub-parameter -- `RESMIL`/`TOLINT`/`ACCELSYS`/`RESTART`/`REJOIN`/
+  `CTRACE` -- commented out to document the site's own defaulted or
+  removed settings): `GrscnfStatement`/`grscnf_parser.py`,
+  `grscnf_statements` table, `inventory grscnf` command,
+  `grscnf_snapshot.yml`. Turned out to be exactly GRSRNLxx's own shape
+  (a single repeated statement, here `GRSDEF`, with sub-parameters
+  folded in as raw operand text) -- reuses
+  `parmlib_engines.statement_engine()` with a one-keyword vocabulary
+  (`{"GRSDEF"}`) directly, no new engine or preprocessing needed. The
+  real member's own full-line `/* ... */` comments (one per commented-out
+  sub-parameter) were stripped cleanly by the existing
+  `strip_comments()` with no code change.
+- `PROG`/`PROGxx` still to do -- **the richest and riskiest of these** --
+  LNKLST/APF/EXIT/LPA/SCHED are all distinct sub-statement types inside
+  one PROGxx member; treat as its own careful pass, not a drive-by
+  addition alongside the simpler ones.
+
+**Noticed, not yet fixed:** while wiring `grscnf`'s CLI help text,
+`cli.py`'s `grsrnl` subparser help was found still saying "not yet
+production-validated" despite `GrsrnlStatement`/`grsrnl_parser.py` having
+been CONFIRMED against a real member earlier this round -- fixed that one
+in passing, but `bpxprm`/`devsup`/`opt`/`clock`/`autor`/`sched`/`couple`/
+`smf`/`ios` subparsers all carry the same stale "not yet
+production-validated" wording despite most of them (all but `ios`) also
+being CONFIRMED per this file's own log above -- a systemic doc-drift
+issue worth a dedicated sweep, not fixed wholesale here to keep this
+change scoped to `grscnf`.
 
 **D -- `STMT param,KEYWORD=value,...` (reuse jes2parm_parser.py's engine
 as-is):**

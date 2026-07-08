@@ -154,15 +154,18 @@ just renaming them into that shape for a quick demo.)
    section), `izuprm_snapshot.txt` (the active IZUPRMxx member(s) —
    z/OSMF configuration, named by IEASYSxx's own `IZU=` keyword),
    `diag_snapshot.txt` (the active DIAGxx member(s) — diagnostic
-   function defaults, named by IEASYSxx's own `DIAG=` keyword), and
+   function defaults, named by IEASYSxx's own `DIAG=` keyword),
    `iggcat_snapshot.txt` (the active IGGCATxx member(s) — catalog system
-   parameters, named by IEASYSxx's own `CATALOG=` keyword)
+   parameters, named by IEASYSxx's own `CATALOG=` keyword), and
+   `grscnf_snapshot.txt` (the active GRSCNFxx member(s) — Global
+   Resource Serialization configuration parameters, named by
+   IEASYSxx's own `GRSCNF=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
    `smpe_zone_discovery`/`parmlib_snapshot`/`ieasys_snapshot`/`bpxprm_snapshot`/
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
-   `sched_snapshot`/`couple_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
+   `sched_snapshot`/`couple_snapshot`/`grscnf_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
    `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
    `diag_snapshot`/`iggcat_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
@@ -178,7 +181,7 @@ just renaming them into that shape for a quick demo.)
    syntax only, no real sample yet -- `bpxprm_snapshot.txt`/
    `devsup_snapshot.txt`/`opt_snapshot.txt`/`clock_snapshot.txt`/
    `autor_snapshot.txt`/`sched_snapshot.txt`/`couple_snapshot.txt`/
-   `grsrnl_snapshot.txt`/`smf_snapshot.txt`/`consol_snapshot.txt`/
+   `grscnf_snapshot.txt`/`grsrnl_snapshot.txt`/`smf_snapshot.txt`/`consol_snapshot.txt`/
    `igdsms_snapshot.txt`/`izuprm_snapshot.txt`/`diag_snapshot.txt`/
    `iggcat_snapshot.txt` have
    since been confirmed against real members, see their own sections
@@ -556,6 +559,25 @@ DATA TYPE(WLM) PCOUPLE(SYS1.ADCDPL.WLM.CDS01) ACOUPLE(SYS1.ADCDPL.WLM.CDS02)  [C
 CONFIRMED against a real COUPLExx member (the `COUPLE01` rows above) --
 one `COUPLE` statement followed by four distinct `DATA TYPE(...)`
 statements, all kept in order rather than collapsed.
+
+### `inventory grscnf`
+
+Global Resource Serialization configuration parameters — every `GRSDEF`
+statement in the active GRSCNFxx member(s) — if you ingested a
+`grscnf_snapshot.txt`. Named by IEASYSxx's own `GRSCNF=` keyword.
+
+```
+$ inventory grscnf
+GRSDEF GRSQ(LOCAL)  [GRSCNF00]
+```
+
+CONFIRMED against a real GRSCNF00 member -- exactly GRSRNLxx's own shape
+(a single repeated statement, `GRSDEF`, with sub-parameters folded in as
+raw operand text), so `grscnf_parser.py` reuses
+`parmlib_engines.statement_engine()` directly. The real member had every
+sub-parameter except `GRSQ` (`RESMIL`/`TOLINT`/`ACCELSYS`/`RESTART`/
+`REJOIN`/`CTRACE`) commented out as a full-line `/* ... */`, stripped
+cleanly with no code change.
 
 ### `inventory grsrnl`
 
