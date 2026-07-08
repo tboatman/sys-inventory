@@ -1,0 +1,31 @@
+---
+# Explicit, always-saved capture of the active IEASVCxx member(s)' full
+# content -- user SVC (Supervisor Call) routine additions/replacements,
+# named by IEASYSxx's own SVC= keyword the same way SSN=/CMD=/PROD=/
+# OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/
+# IOS=/CON=/SMS=/IZU=/DIAG=/CATALOG=/GRSCNF=/PROG= name IEFSSNxx/
+# COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+# AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
+# IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/GRSCNFxx/PROGxx. Built on the
+# generalized _fetch_active_parmlib_member.yml worker (see doc/TODO.md
+# "9.1"), same idiom as every other domain in this family. The Category
+# D domain from doc/TODO.md "9.2" -- unlike every Category C domain
+# above, `ieasvc_parser.py` reuses jes2parm_parser.py's own
+# continuation-joiner/split_params instead of
+# parmlib_engines.statement_engine(), since IEASVCxx's `SVCPARM
+# nnn,KEYWORD(value),...` shape has a bare positional SVC number, not a
+# top-level statement-keyword vocabulary.
+#
+# CONFIRMED syntax via a real IEASVCxx member's own documented example
+# (`SVCPARM 254,REPLACE,TYPE(1),APF(NO)`, itself commented out in the
+# member -- confirms the real syntax even though this particular line
+# isn't a live definition) -- see ieasvc_parser.py's module docstring
+# for the full detail, including the same PARMLIB sequence-number
+# stripping quirk DIAGxx's confirmed member needed.
+
+- name: Write ieasvc_snapshot.txt (active IEASVCxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_ieasvc_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_ieasvc_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

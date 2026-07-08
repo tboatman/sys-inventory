@@ -35,15 +35,15 @@
 
 - name: Auto-discover the PARMLIB concatenation if not explicitly configured
   ansible.builtin.import_tasks: discover_parmlib.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grscnf_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot, iggcat_snapshot, prog_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grscnf_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot, iggcat_snapshot, prog_snapshot, ieasvc_snapshot]
 
 - name: Determine the active IEASYSxx/IEASYMxx suffixes
   ansible.builtin.import_tasks: discover_active_parmlib_suffixes.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grscnf_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot, iggcat_snapshot, prog_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grscnf_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot, iggcat_snapshot, prog_snapshot, ieasvc_snapshot]
 
-- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, and the full IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx content, for ieasys_snapshot.yml/bpxprm_snapshot.yml/devsup_snapshot.yml/opt_snapshot.yml/clock_snapshot.yml/autor_snapshot.yml/sched_snapshot.yml/couple_snapshot.yml/grscnf_snapshot.yml/grsrnl_snapshot.yml/smf_snapshot.yml/ios_snapshot.yml/consol_snapshot.yml/igdsms_snapshot.yml/izuprm_snapshot.yml/diag_snapshot.yml/iggcat_snapshot.yml/prog_snapshot.yml)
+- name: Determine the active IEFSSNxx/COMMNDxx/IFAPRDxx members (also pulls the active MSTRJCL suffix, for discover_mstrjcl_proclibs.yml, and the full IEASYSxx/BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx/IEASVCxx content, for ieasys_snapshot.yml/bpxprm_snapshot.yml/devsup_snapshot.yml/opt_snapshot.yml/clock_snapshot.yml/autor_snapshot.yml/sched_snapshot.yml/couple_snapshot.yml/grscnf_snapshot.yml/grsrnl_snapshot.yml/smf_snapshot.yml/ios_snapshot.yml/consol_snapshot.yml/igdsms_snapshot.yml/izuprm_snapshot.yml/diag_snapshot.yml/iggcat_snapshot.yml/prog_snapshot.yml/ieasvc_snapshot.yml)
   ansible.builtin.import_tasks: discover_active_members.yml
-  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grscnf_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot, iggcat_snapshot, prog_snapshot]
+  tags: [proclib, ssn_commnd, ifaprd, ieasys_snapshot, bpxprm_snapshot, devsup_snapshot, opt_snapshot, clock_snapshot, autor_snapshot, sched_snapshot, couple_snapshot, grscnf_snapshot, grsrnl_snapshot, smf_snapshot, ios_snapshot, consol_snapshot, igdsms_snapshot, izuprm_snapshot, diag_snapshot, iggcat_snapshot, prog_snapshot, ieasvc_snapshot]
 
 - name: Auto-discover proclib datasets concatenated onto MSTRJCL's IEFPDSI DD, invisible to '$D PROCLIB'
   ansible.builtin.import_tasks: discover_mstrjcl_proclibs.yml
@@ -136,6 +136,10 @@
 - name: Explicit active PROGxx member snapshot -- dynamic APF/LNKLST/LPA/EXIT/SCHED definitions, named by IEASYSxx's own PROG= keyword (step 38, see prog_snapshot.yml)
   ansible.builtin.import_tasks: prog_snapshot.yml
   tags: [prog_snapshot]
+
+- name: Explicit active IEASVCxx member snapshot -- user SVC routine additions/replacements, named by IEASYSxx's own SVC= keyword (step 39, see ieasvc_snapshot.yml)
+  ansible.builtin.import_tasks: ieasvc_snapshot.yml
+  tags: [ieasvc_snapshot]
 
 - name: LNKLST dataset list (step 4)
   ansible.builtin.import_tasks: lnklst.yml
