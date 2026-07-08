@@ -195,6 +195,13 @@
     zos_extract_active_catalog_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^CATALOG@@@') | map('regex_replace', '^CATALOG@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # PROG=xx names the active PROGxx member(s) -- dynamic APF/LNKLST/
+    # LPA/EXIT/SCHED definitions. Same parenthesized-list shape as
+    # above, consumed by prog_snapshot.yml. CONFIRMED against a real
+    # PROGxx member, doc/TODO.md "9.2".
+    zos_extract_active_prog_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^PROG@@@') | map('regex_replace', '^PROG@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -355,3 +362,13 @@
   vars:
     zos_extract_active_member_prefix: IGGCAT
     zos_extract_active_member_blocks_var: zos_extract_iggcat_member_blocks
+
+- name: Fetch each active PROGxx member's content, in order (for prog_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_prog_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "PROG{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: PROG
+    zos_extract_active_member_blocks_var: zos_extract_prog_member_blocks

@@ -1,0 +1,29 @@
+---
+# Explicit, always-saved capture of the active PROGxx member(s)' full
+# content -- dynamic APF/LNKLST/LPA/EXIT/SCHED definitions, named by
+# IEASYSxx's own PROG= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+# MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+# CON=/SMS=/IZU=/DIAG=/CATALOG=/GRSCNF= name IEFSSNxx/COMMNDxx/
+# IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/
+# SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/
+# IZUPRMxx/DIAGxx/IGGCATxx/GRSCNFxx. Built on the generalized
+# _fetch_active_parmlib_member.yml worker (see doc/TODO.md "9.1"), same
+# idiom as every other domain in this family.
+#
+# CONFIRMED against a real PROGxx member -- despite this domain having
+# been flagged as "the richest and riskiest" of the active-PARMLIB
+# family (APF/LNKLST/LPA/EXIT/SCHED are all distinct sub-statement
+# families in a real member), the real top-level statement shape turned
+# out to be a single first-word keyword per statement (`APF ADD`/`APF
+# FORMAT(DYNAMIC)`/`LNKLST DEFINE`/`LNKLST ADD`/`LNKLST ACTIVATE`), with
+# the action verb and every sub-parameter folded into generic operand
+# text -- exactly the same shape every other Category C domain already
+# has, so no new engine or per-family modeling turned out to be needed.
+# See prog_parser.py's module docstring for the full detail.
+
+- name: Write prog_snapshot.txt (active PROGxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_prog_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_prog_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost
