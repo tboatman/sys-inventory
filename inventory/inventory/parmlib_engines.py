@@ -23,6 +23,30 @@ def strip_comments(text: str) -> str:
     return _COMMENT.sub(" ", text)
 
 
+_SEQUENCE_NUMBER = re.compile(r"^(.{0,72}?)\s*\d{8}\s*$")
+
+
+def strip_sequence_numbers(raw_lines: list[str]) -> list[str]:
+    """Strip a traditional MVS PARMLIB sequence number (columns 73-80,
+    data in columns 1-71/72) from each physical line, if present.
+
+    Unlike a '/* ... */' comment, a sequence number sits on the *same*
+    physical line as real statement content, so strip_comments() alone
+    won't remove it -- left alone, it would get folded into a
+    statement's own operand/param text as a bogus trailing 8-digit
+    token. First needed by diag_parser.py (a real DIAGxx member), then
+    confirmed to recur in an IEASVCxx member sample too -- promoted here
+    once a second domain needed the identical logic (doc/TODO.md "9.2")."""
+    stripped = []
+    for line in raw_lines:
+        if len(line) > 72:
+            match = _SEQUENCE_NUMBER.match(line)
+            if match:
+                line = match.group(1)
+        stripped.append(line)
+    return stripped
+
+
 _BARE_PAREN = re.compile(r"^([A-Za-z0-9$#@_]+)(\(.*\))$")
 
 

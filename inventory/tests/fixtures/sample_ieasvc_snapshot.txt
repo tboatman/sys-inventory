@@ -1,0 +1,16 @@
+##MEMBER IEASVC00
+/********************************************************************/  00010001
+/*                                                                  */  00010002
+/*  Member = IEASVC00                                                */  00010003
+/*                                                                  */  00010004
+/*  Function =                                                      */  00010005
+/*    This member of SYS1.PARMLIB is used to add or replace          */  00010006
+/*    user SVC routines during system initialization.                */  00010007
+/*                                                                  */  00010008
+/*  Sample statement =                                               */  00010009
+/*                                                                  */  00010010
+/* SVCPARM 254,REPLACE,TYPE(1),APF(NO)                   IMS    SVC  */ 00010003
+/*                                                                  */  00010012
+/********************************************************************/  00010013
+ SVCPARM 200,REPLACE,TYPE(3),APF(YES)                                   00020001
+ SVCPARM 201,TYPE(1)                                                    00020002

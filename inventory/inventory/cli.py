@@ -18,7 +18,7 @@
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
 `inventory grsrnl`, `inventory grscnf`, `inventory smf`, `inventory ios`, `inventory consol`,
 `inventory igdsms`, `inventory izuprm`, `inventory diag`, `inventory iggcat`,
-`inventory prog`."""
+`inventory prog`, `inventory ieasvc`."""
 from __future__ import annotations
 
 import argparse
@@ -43,6 +43,7 @@ from . import (
     diag_parser,
     grscnf_parser,
     grsrnl_parser,
+    ieasvc_parser,
     ieasys_parser,
     ifaprd_parser,
     igdsms_parser,
@@ -189,6 +190,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     prog_statements = [s for p in sorted(input_dir.glob("*prog_snapshot*.txt"))
                        for s in prog_parser.parse_prog_snapshot(p)]
 
+    ieasvc_statements = [s for p in sorted(input_dir.glob("*ieasvc_snapshot*.txt"))
+                         for s in ieasvc_parser.parse_ieasvc_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -304,6 +308,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_diag_statements(conn, diag_statements)
     store.save_iggcat_statements(conn, iggcat_statements)
     store.save_prog_statements(conn, prog_statements)
+    store.save_ieasvc_statements(conn, ieasvc_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -353,6 +358,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(diag_statements)} active DIAGxx statements, "
           f"{len(iggcat_statements)} active IGGCATxx statements, "
           f"{len(prog_statements)} active PROGxx statements, "
+          f"{len(ieasvc_statements)} active IEASVCxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -722,6 +728,17 @@ def cmd_prog(args: argparse.Namespace) -> int:
 
     for row in rows:
         print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_ieasvc(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_ieasvc_statements(conn)
+    conn.close()
+
+    for row in rows:
+        params = ",".join(f"{k}={v}" for k, v in json.loads(row["params_json"]).items())
+        print(f"{row['stmt']} {row['svc_number']},{params}  [{row['source_member']}]")
     return 0
 
 
@@ -1231,6 +1248,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_prog = sub.add_parser("prog", help="list active PROGxx APF/LNKLST/LPA/EXIT/SCHED statements, CONFIRMED against a real member")
     p_prog.set_defaults(func=cmd_prog)
+
+    p_ieasvc = sub.add_parser("ieasvc", help="list active IEASVCxx SVCPARM statements -- user SVC routine additions/replacements")
+    p_ieasvc.set_defaults(func=cmd_ieasvc)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)

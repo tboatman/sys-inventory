@@ -28,8 +28,11 @@ Left unstripped, that trailing 8-digit field would get folded into the
 statement's own operand text as a bogus trailing token (`"TRACK
 CSA(ON) SQA(ON) 01350000"`), since it lives on the same physical line as
 real content, not a separate line strip_comments()/statement_engine()
-would otherwise drop. _strip_sequence_numbers() removes it up front,
-before handing lines to statement_engine().
+would otherwise drop. parmlib_engines.strip_sequence_numbers() removes
+it up front, before handing lines to statement_engine() -- this was the
+first domain to need it; a second (IEASVCxx, ieasvc_parser.py) needed
+the identical logic, so it now lives there as a shared helper instead of
+being copy-pasted a second time.
 
 Statement vocabulary CONFIRMED against a real DIAG00 member: VSM (the
 only top-level keyword exercised -- `VSM TRACK ...`/`VSM TRACE ...` are
@@ -37,38 +40,21 @@ two separate statements, both kept in order since VSM starts each one).
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from .jcl_parser import split_members
 from .models import DiagStatement
-from .parmlib_engines import statement_engine
+from .parmlib_engines import statement_engine, strip_sequence_numbers
 
 _DIAG_STATEMENT_KEYWORDS = {
     "VSM",
 }
 
-_SEQUENCE_NUMBER = re.compile(r"^(.{0,72}?)\s*\d{8}\s*$")
-
-
-def _strip_sequence_numbers(raw_lines: list[str]) -> list[str]:
-    """Strip a traditional PARMLIB sequence number (columns 73-80) from
-    each physical line, if present, so it doesn't get folded into a
-    statement's own operand text -- see this module's docstring."""
-    stripped = []
-    for line in raw_lines:
-        if len(line) > 72:
-            match = _SEQUENCE_NUMBER.match(line)
-            if match:
-                line = match.group(1)
-        stripped.append(line)
-    return stripped
-
 
 def parse_member(name: str, raw_lines: list[str]) -> list[DiagStatement]:
     return [
         DiagStatement(stmt=stmt, operands=operands, source_member=name)
-        for stmt, operands in statement_engine(_strip_sequence_numbers(raw_lines), _DIAG_STATEMENT_KEYWORDS)
+        for stmt, operands in statement_engine(strip_sequence_numbers(raw_lines), _DIAG_STATEMENT_KEYWORDS)
     ]
 
 

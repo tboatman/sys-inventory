@@ -29,6 +29,7 @@ from .models import (
     GeneralResourceProfile,
     GrscnfStatement,
     GrsrnlStatement,
+    IeasvcStatement,
     IeasysStatement,
     IgdsmsStatement,
     IggcatStatement,
@@ -252,6 +253,14 @@ CREATE TABLE IF NOT EXISTS prog_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_prog_statements_stmt ON prog_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS ieasvc_statements (
+    stmt           TEXT NOT NULL,
+    svc_number     TEXT NOT NULL,
+    params_json    TEXT NOT NULL,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ieasvc_statements_svc_number ON ieasvc_statements(svc_number);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -925,6 +934,26 @@ def save_prog_statements(conn: sqlite3.Connection, statements: list[ProgStatemen
 def all_prog_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM prog_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_ieasvc_statements(conn: sqlite3.Connection, statements: list[IeasvcStatement]) -> None:
+    conn.execute("DELETE FROM ieasvc_statements")
+    rows = [
+        (s.stmt, s.svc_number, json.dumps(s.params), s.source_member)
+        for s in statements
+    ]
+    conn.executemany(
+        "INSERT INTO ieasvc_statements (stmt, svc_number, params_json, source_member) "
+        "VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_ieasvc_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM ieasvc_statements ORDER BY svc_number")
     return cur.fetchall()
 
 

@@ -719,6 +719,40 @@ class ProgStatement:
 
 
 @dataclass
+class IeasvcStatement:
+    """One SVCPARM definition from an active IEASVCxx PARMLIB member --
+    user SVC (Supervisor Call) routine additions/replacements, named by
+    IEASYSxx's own SVC= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+    MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+    CON=/SMS=/IZU=/DIAG=/CATALOG=/GRSCNF=/PROG= name IEFSSNxx/COMMNDxx/
+    IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/
+    SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/
+    IZUPRMxx/DIAGxx/IGGCATxx/GRSCNFxx/PROGxx. Dumped by
+    ansible/roles/zos_extract/tasks/ieasvc_snapshot.yml and parsed by
+    ieasvc_parser.py. The Category D active-PARMLIB-member domain from
+    doc/TODO.md "9.2" -- unlike JES2's own init deck (Jes2InitStatement),
+    a SVCPARM statement's positional value right after the statement
+    name is a bare SVC number (e.g. `SVCPARM 254,REPLACE,TYPE(1),
+    APF(NO)`), not a parenthesized subscript like JES2's own
+    `JOBCLASS(1)` -- captured as its own svc_number field instead of
+    forced into a subscript-shaped slot, reusing
+    jes2parm_parser.py's continuation-joiner and
+    parmlib_engines.split_params() for the rest, per doc/TODO.md's own
+    "reuse jes2parm_parser.py's engine as-is" plan for this domain.
+
+    CONFIRMED syntax via a real IEASVCxx member's own documented example
+    (`SVCPARM 254,REPLACE,TYPE(1),APF(NO)`, itself commented out in the
+    member -- confirming the real syntax even though this particular
+    line isn't a live definition) -- not yet validated against a live,
+    uncommented SVCPARM statement from a real system."""
+
+    stmt: str                                   # e.g. "SVCPARM"
+    svc_number: str                              # e.g. "254"
+    params: dict[str, str] = field(default_factory=dict)
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

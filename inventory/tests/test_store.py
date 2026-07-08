@@ -30,6 +30,7 @@ from inventory.models import (
     GeneralResourceAccess,
     GeneralResourceProfile,
     GrsrnlStatement,
+    IeasvcStatement,
     IeasysStatement,
     IgdsmsStatement,
     IosStatement,
@@ -69,7 +70,7 @@ EXPECTED_TABLES = {
     "devsup_statements", "opt_statements", "clock_statements",
     "autor_statements", "sched_statements", "couple_statements", "grsrnl_statements",
     "smf_statements", "ios_statements", "consol_statements", "igdsms_statements",
-    "izuprm_statements", "diag_statements",
+    "izuprm_statements", "diag_statements", "ieasvc_statements",
     "active_jobs", "uss_processes", "catalog_datasets", "vsam_clusters",
     "racf_users", "racf_groups", "racf_group_connections",
     "racf_dataset_profiles", "racf_dataset_access",
@@ -185,6 +186,16 @@ def test_jes2_init_statements_params_json_round_trips(conn):
     ])
     row = store.all_jes2_init_statements(conn)[0]
     assert json.loads(row["params_json"]) == {"MAXCARDS": "9999"}
+
+
+def test_ieasvc_statements_params_json_round_trips(conn):
+    store.save_ieasvc_statements(conn, [
+        IeasvcStatement(stmt="SVCPARM", svc_number="254",
+                         params={"REPLACE": "", "TYPE": "(1)", "APF": "(NO)"},
+                         source_member="IEASVC00"),
+    ])
+    row = store.all_ieasvc_statements(conn)[0]
+    assert json.loads(row["params_json"]) == {"REPLACE": "", "TYPE": "(1)", "APF": "(NO)"}
 
 
 def test_sms_storage_groups_volumes_json_round_trips(conn):
@@ -336,6 +347,11 @@ ROUND_TRIP_CASES = [
         store.save_diag_statements, store.all_diag_statements,
         lambda n: [DiagStatement(stmt="VSM", operands=f"OP{i}", source_member="DIAG00") for i in range(n)],
         id="diag_statements",
+    ),
+    pytest.param(
+        store.save_ieasvc_statements, store.all_ieasvc_statements,
+        lambda n: [IeasvcStatement(stmt="SVCPARM", svc_number=str(i), source_member="IEASVC00") for i in range(n)],
+        id="ieasvc_statements",
     ),
     pytest.param(
         store.save_active_jobs, store.all_active_jobs,
