@@ -1,0 +1,26 @@
+---
+# Explicit, always-saved capture of the active LPALSTxx member(s)' full
+# content -- the Link Pack Area dataset concatenation, named by
+# IEASYSxx's own LPA= keyword the same way SSN=/CMD=/PROD=/OMVS=/
+# MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/SMF=/IOS=/
+# CON=/SMS=/IZU=/DIAG=/CATALOG=/GRSCNF=/PROG=/SVC= name IEFSSNxx/
+# COMMNDxx/IFAPRDxx/BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
+# AUTORxx/SCHEDxx/COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
+# IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/GRSCNFxx/PROGxx/IEASVCxx. Built on
+# the generalized _fetch_active_parmlib_member.yml worker (see
+# doc/TODO.md "9.1"), same idiom as every other domain in this family.
+# The first Category E (positional/list format) domain from doc/TODO.md
+# "9.2" -- a dataset name list, same shape as LNKLST/APF, except each
+# entry can carry an optional volser hint in parens (e.g.
+# SYS1.LPALIB(VOL001)) and the list is comma-terminated per entry
+# (except the last).
+#
+# CONFIRMED against a real LPALSTxx member -- see lpalst_parser.py's
+# module docstring for the confirmed shape.
+
+- name: Write lpalst_snapshot.txt (active LPALSTxx member content)
+  ansible.builtin.copy:
+    dest: "{{ zos_extract_local_output_dir }}/{{ zos_extract_lpalst_snapshot_outfile }}"
+    mode: "0644"
+    content: "{{ (zos_extract_lpalst_member_blocks | default([]) | join('\n')) ~ '\n' }}"
+  delegate_to: localhost

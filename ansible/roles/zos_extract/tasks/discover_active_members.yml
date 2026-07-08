@@ -209,6 +209,14 @@
     zos_extract_active_svc_suffixes: >-
       {{ (zos_extract_ieasys_kv_lines | select('match', '^SVC@@@') | map('regex_replace', '^SVC@@@', '')
           | list | last | default('')).split(',') | reject('equalto', '') | list }}
+    # LPA=xx names the active LPALSTxx member(s) -- a dataset name list
+    # (each entry optionally carrying a volser hint in parens, e.g.
+    # SYS1.LPALIB(VOL001)), same parenthesized-list shape as above,
+    # consumed by lpalst_snapshot.yml. The first Category E domain from
+    # doc/TODO.md "9.2".
+    zos_extract_active_lpa_suffixes: >-
+      {{ (zos_extract_ieasys_kv_lines | select('match', '^LPA@@@') | map('regex_replace', '^LPA@@@', '')
+          | list | last | default('')).split(',') | reject('equalto', '') | list }}
 
 - name: Fetch each active BPXPRMxx member's content, in order (for bpxprm_snapshot.yml)
   ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
@@ -389,3 +397,13 @@
   vars:
     zos_extract_active_member_prefix: IEASVC
     zos_extract_active_member_blocks_var: zos_extract_ieasvc_member_blocks
+
+- name: Fetch each active LPALSTxx member's content, in order (for lpalst_snapshot.yml)
+  ansible.builtin.include_tasks: _fetch_active_parmlib_member.yml
+  loop: "{{ zos_extract_active_lpa_suffixes }}"
+  loop_control:
+    loop_var: zos_extract_active_member_suffix
+    label: "LPALST{{ zos_extract_active_member_suffix }}"
+  vars:
+    zos_extract_active_member_prefix: LPALST
+    zos_extract_active_member_blocks_var: zos_extract_lpalst_member_blocks
