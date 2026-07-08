@@ -214,7 +214,7 @@ NO_ARG_SUBCOMMANDS = [
     "uss-mounts", "jes2parm", "vtam-majnodes", "vtam-options",
     "vtam-topology", "tcpip-home", "tcpip-profile", "sms-storgrps", "wlm",
     "db2-packages", "db2-plans", "wlm-zosmf", "cics-dfhrpl", "cics-sit",
-    "cics-csd", "zone-index", "zones", "fmids", "zone-gaps", "report",
+    "cics-csd", "cmci", "zone-index", "zones", "fmids", "zone-gaps", "report",
 ]
 
 

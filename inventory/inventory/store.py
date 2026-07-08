@@ -15,6 +15,7 @@ from .models import (
     CicsDfhrplEntry,
     CicsSitOverride,
     ClockStatement,
+    CmciResource,
     ConsolStatement,
     CoupleStatement,
     DatasetAccess,
@@ -459,6 +460,14 @@ CREATE TABLE IF NOT EXISTS cics_csd_definitions (
     csd_dsn   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cics_csd_definitions_name ON cics_csd_definitions(name);
+
+CREATE TABLE IF NOT EXISTS cmci_resources (
+    resource_type    TEXT NOT NULL,
+    context          TEXT NOT NULL,
+    name             TEXT NOT NULL,
+    attributes_json  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cmci_resources_name ON cmci_resources(name);
 
 CREATE TABLE IF NOT EXISTS zone_index (
     zone_name   TEXT NOT NULL,
@@ -1273,6 +1282,22 @@ def save_cics_csd_definitions(conn: sqlite3.Connection, definitions: list[CicsCs
 def all_cics_csd_definitions(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM cics_csd_definitions ORDER BY grp, name")
+    return cur.fetchall()
+
+
+def save_cmci_resources(conn: sqlite3.Connection, resources: list[CmciResource]) -> None:
+    conn.execute("DELETE FROM cmci_resources")
+    rows = [(r.resource_type, r.context, r.name, json.dumps(r.attributes)) for r in resources]
+    conn.executemany(
+        "INSERT INTO cmci_resources (resource_type, context, name, attributes_json) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_cmci_resources(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM cmci_resources ORDER BY resource_type, name")
     return cur.fetchall()
 
 

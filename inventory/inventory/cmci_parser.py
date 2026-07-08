@@ -19,7 +19,13 @@ same "tolerant of surrounding noise" precedent as every other parser here
 (e.g. a truncated/malformed line at the end of a partially-written file).
 
 What IS still a guess: which attribute in a resource's own record dict is
-its primary "name" -- CMCI attribute names vary by resource type. The
+its primary "name" -- CMCI attribute names vary by resource type, and
+this is looked up PER RESOURCE TYPE (_NAME_KEY_BY_TYPE), not via one
+flat candidate list -- a flat list bit us during testing: an installed
+CICSTransaction record legitimately carries both its own "tranid" and a
+"program" attribute (the program it invokes), and if "program" outranks
+"tranid" in a shared priority list, every transaction's own name gets
+misidentified as whatever program it happens to invoke instead. The
 following are confirmed against cmci_get's own module documentation
 examples (real, not guessed): CSD-defined resources
 (cicsdefinitionprogram/cicsdefinitiontransaction/cicsdefinitionfile/
@@ -30,14 +36,14 @@ currently-installed equivalents are NOT confirmed the same way -- the
 "program" attribute is confirmed for the installed CICSProgram sample
 in cmci_get's own RETURN documentation (`"program": "ANSITEST"`), but
 CICSTransaction/CICSLocalFile's own installed-resource primary-identifier
-attribute names ("tranid"/"transid", "file") are inferred from CMCI's
-general naming convention and cmci_get's own filter-example key names
+attribute names ("tranid", "file") are inferred from CMCI's general
+naming convention and cmci_get's own filter-example key names
 (`file: "DFH*"` used against CICSLocalFile), not independently confirmed
-against a real response. _NAME_KEYS tries every candidate across all
-resource types (harmless: a record simply won't have the keys that don't
-apply to its own resource type) and falls back to "?" if none match,
-same graceful-degradation precedent as wlm_zosmf_parser.py's
-_entry_name() -- the full attributes dict is preserved either way.
+against a real response. A resource type not in _NAME_KEY_BY_TYPE (or
+missing its own expected key) falls back to scanning every candidate key
+across all types, then "?" if still nothing matches -- same
+graceful-degradation precedent as wlm_zosmf_parser.py's _entry_name() --
+the full attributes dict is preserved either way.
 """
 from __future__ import annotations
 
@@ -46,11 +52,26 @@ from pathlib import Path
 
 from .models import CmciResource
 
-_NAME_KEYS = ("name", "program", "tranid", "transid", "file", "dsname")
+_NAME_KEY_BY_TYPE = {
+    "cicsdefinitionprogram": "name",
+    "cicsdefinitiontransaction": "name",
+    "cicsdefinitionfile": "name",
+    "cicsdefinitionbundle": "name",
+    "CICSProgram": "program",
+    "CICSTransaction": "tranid",
+    "CICSLocalFile": "file",
+}
+_FALLBACK_NAME_KEYS = ("name", "program", "tranid", "transid", "file", "dsname")
 
 
-def _resource_name(attributes: dict) -> str:
-    for key in _NAME_KEYS:
+def _resource_name(resource_type: str, attributes: dict) -> str:
+    expected_key = _NAME_KEY_BY_TYPE.get(resource_type)
+    if expected_key:
+        value = attributes.get(expected_key)
+        if isinstance(value, str) and value:
+            return value
+
+    for key in _FALLBACK_NAME_KEYS:
         value = attributes.get(key)
         if isinstance(value, str) and value:
             return value
@@ -85,7 +106,7 @@ def parse_cmci(path: Path) -> list[CmciResource]:
                 CmciResource(
                     resource_type=resource_type,
                     context=context,
-                    name=_resource_name(record),
+                    name=_resource_name(resource_type, record),
                     attributes=record,
                 )
             )

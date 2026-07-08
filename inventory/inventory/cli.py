@@ -12,7 +12,7 @@
 `inventory sms-storgrps`,
 `inventory wlm`, `inventory db2-packages`, `inventory db2-plans`,
 `inventory wlm-zosmf`, `inventory cics-dfhrpl`, `inventory cics-sit`,
-`inventory cics-csd`, `inventory zone-index`, `inventory zones`,
+`inventory cics-csd`, `inventory cmci`, `inventory zone-index`, `inventory zones`,
 `inventory fmids`, `inventory zone-gaps`, `inventory parmlib`,
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
@@ -34,6 +34,7 @@ from . import (
     cics_csdup_parser,
     cics_proc_parser,
     clock_parser,
+    cmci_parser,
     consol_parser,
     couple_parser,
     db2_catalog_parser,
@@ -262,6 +263,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         entry.zone = dataset_zone(entry.dsn, zones)
         entry.apf_authorized = None if apf is None else entry.dsn in apf
 
+    cmci_resources = [r for path in sorted(input_dir.glob("*cics_cmci*.txt"))
+                       for r in cmci_parser.parse_cmci(path)]
+
     conn = store.connect(Path(args.db))
     store.save_lineage(conn, lineage)
     store.save_subsystems(conn, subsystems)
@@ -304,6 +308,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_cics_dfhrpl_entries(conn, cics_dfhrpl_entries)
     store.save_cics_sit_overrides(conn, cics_sit_overrides)
     store.save_cics_csd_definitions(conn, cics_csd_definitions)
+    store.save_cmci_resources(conn, cmci_resources)
     store.save_zone_index(conn, zone_index_entries)
     store.save_zones(conn, list(zones.values()))
     store.save_fmids(conn, fmids)
@@ -347,6 +352,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(cics_dfhrpl_entries)} CICS DFHRPL entries, "
           f"{len(cics_sit_overrides)} CICS SIT overrides, "
           f"{len(cics_csd_definitions)} CICS CSD definitions, "
+          f"{len(cmci_resources)} CICS CMCI resources, "
           f"{len(zone_index_entries)} SMP/E zone index entries, "
           f"{len(fmids)} FMIDs -> {args.db}")
     return 0
@@ -1014,6 +1020,16 @@ def cmd_cics_csd(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_cmci(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_cmci_resources(conn)
+    conn.close()
+
+    for row in rows:
+        print(f"{row['resource_type']} {row['name']}  [{row['context']}]  {row['attributes_json']}")
+    return 0
+
+
 def cmd_zone_index(args: argparse.Namespace) -> int:
     """SMP/E's own authoritative zone census per CSI (LIST GLOBALZONE's
     ZONEINDEX), if any *smpzones*.txt files were ingested -- see
@@ -1217,10 +1233,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_wlm = sub.add_parser("wlm", help="show the active WLM policy name/mode (confirmed against a real reply)")
     p_wlm.set_defaults(func=cmd_wlm)
 
-    p_db2_packages = sub.add_parser("db2-packages", help="list installed DB2 packages (not yet production-validated)")
+    p_db2_packages = sub.add_parser("db2-packages", help="list installed DB2 packages (confirmed against a real DSNTEP2 report)")
     p_db2_packages.set_defaults(func=cmd_db2_packages)
 
-    p_db2_plans = sub.add_parser("db2-plans", help="list installed DB2 plans (not yet production-validated)")
+    p_db2_plans = sub.add_parser("db2-plans", help="list installed DB2 plans (confirmed against a real DSNTEP2 report)")
     p_db2_plans.set_defaults(func=cmd_db2_plans)
 
     p_wlm_zosmf = sub.add_parser("wlm-zosmf", help="list WLM entries fetched via z/OSMF's REST API (most speculative dimension, not yet production-validated)")
@@ -1232,8 +1248,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_cics_sit = sub.add_parser("cics-sit", help="list deepened CICS SIT (System Initialization Table) overrides (opt-in, not yet production-validated)")
     p_cics_sit.set_defaults(func=cmd_cics_sit)
 
-    p_cics_csd = sub.add_parser("cics-csd", help="list deepened CICS resource definitions from a DFHCSDUP LIST report (opt-in, most speculative dimension alongside db2/wlm-zosmf, not yet production-validated)")
+    p_cics_csd = sub.add_parser("cics-csd", help="list deepened CICS resource definitions from a DFHCSDUP LIST report (opt-in, most speculative dimension alongside wlm-zosmf, not yet production-validated)")
     p_cics_csd.set_defaults(func=cmd_cics_csd)
+
+    p_cmci = sub.add_parser("cmci", help="list CICS resources fetched via CMCI (opt-in, for CMCI-enabled regions only, not yet production-validated)")
+    p_cmci.set_defaults(func=cmd_cmci)
 
     p_zone_index = sub.add_parser("zone-index", help="list SMP/E's own authoritative zone census per CSI (LIST GLOBALZONE), if ingested -- not yet production-validated")
     p_zone_index.set_defaults(func=cmd_zone_index)

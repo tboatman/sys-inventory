@@ -1,0 +1,8 @@
+{"context": "CICSA", "resource_type": "cicsdefinitionprogram", "records": [{"name": "MYPROG", "csdgroup": "GRP1"}, {"name": "MYPROG2", "csdgroup": "GRP1"}]}
+{"context": "CICSA", "resource_type": "cicsdefinitiontransaction", "records": [{"name": "MYTRAN", "csdgroup": "GRP1", "program": "MYPROG"}]}
+{"context": "CICSA", "resource_type": "cicsdefinitionfile", "records": []}
+{"context": "CICSA", "resource_type": "CICSProgram", "records": [{"program": "MYPROG", "status": "ENABLED"}]}
+{"context": "CICSA", "resource_type": "CICSTransaction", "records": [{"tranid": "MYTR", "program": "MYPROG"}]}
+{"context": "CICSA", "resource_type": "CICSLocalFile", "records": [{"file": "MYFILE", "dsname": "CICS.PROD.MYFILE"}]}
+this is not valid json and should be skipped
+{"context": "CICSA"}
