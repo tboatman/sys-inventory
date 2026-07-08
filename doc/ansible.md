@@ -105,7 +105,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grscnf_snapshot`, `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
 `igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`, `iggcat_snapshot`,
-`prog_snapshot`, `ieasvc_snapshot`,
+`prog_snapshot`, `ieasvc_snapshot`, `lpalst_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -366,6 +366,23 @@ documented example (`SVCPARM 254,REPLACE,TYPE(1),APF(NO)`, itself
 commented out in the member, carrying the same PARMLIB sequence-number
 trailer DIAGxx's confirmed member had) -- not yet validated against a
 live, uncommented SVCPARM statement from a real system.
+
+`lpalst_snapshot` is the first Category E domain: IEASYSxx's own `LPA=`
+keyword names the active LPALSTxx member(s) -- the Link Pack Area (LPA)
+dataset concatenation, the same "what's configured" role LNKLST/APF
+already play. Fetched the same way and written to `lpalst_snapshot.txt`
+-- ingested via `inventory lpalst`. CONFIRMED against a real LPALSTxx
+member (18 entries): one dataset name per physical line, comma-
+terminated except the last entry, with an optional volser hint in
+parens right after the DSN (e.g. `SYS1.LPALIB(VOL001)`) -- captured as
+its own `volume` field, not folded into the DSN string.
+`lpalst_parser.py` gets its own small line-based tokenizer (a single
+regex per entry), not either shared `parmlib_engines.py` engine, since
+this is a positional list, not a `KEYWORD=value`/statement shape. The
+real member also exercised unresolved system symbols embedded in
+several DSNs (e.g. `USER.&SYSVER..LPALIB`) -- left as literal text, the
+same "capture raw, don't resolve" convention this whole pipeline
+follows.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1373,6 +1390,15 @@ roles/zos_extract/
                              # continuation-joiner, not
                              # statement_engine() (see ieasvc_parser.py's
                              # own docstring)
+    lpalst_snapshot.yml      # explicit capture of the active LPALSTxx
+                             # member(s) -- Link Pack Area dataset
+                             # concatenation, named by IEASYSxx's own
+                             # LPA= keyword; tag lpalst_snapshot; writes
+                             # lpalst_snapshot.txt, ingested via
+                             # inventory lpalst -- CONFIRMED against a
+                             # real member; own small tokenizer, not
+                             # either shared parmlib_engines.py engine
+                             # (see lpalst_parser.py's own docstring)
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
@@ -1380,8 +1406,8 @@ roles/zos_extract/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/
                              # GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
                              # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx/
-                             # IEASVCxx fetches above -- see doc/TODO.md
-                             # "9.1"
+                             # IEASVCxx/LPALSTxx fetches above -- see
+                             # doc/TODO.md "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

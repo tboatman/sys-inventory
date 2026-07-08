@@ -1569,9 +1569,11 @@ domain):**
   This completes Category C -- every domain in that category (see the
   top-of-section table) is now implemented and confirmed against a real
   member. Category D (`SVC`/`IEASVCxx`) is now implemented too (see its
-  own entry below). Still outstanding from the original 23: Category E
-  (`LPA`/`LPALSTxx`, `FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx`,
-  `VAL`/`VATLSTxx`) -- none of those four started yet.
+  own entry below), and Category E's first domain (`LPA`/`LPALSTxx`) is
+  implemented and confirmed as well (see its own entry below). Still
+  outstanding from the original 23: the rest of Category E
+  (`FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx`, `VAL`/`VATLSTxx`) -- none of
+  those three started yet.
 
 **Noticed, not yet fixed:** while wiring `grscnf`'s CLI help text,
 `cli.py`'s `grsrnl` subparser help was found still saying "not yet
@@ -1612,7 +1614,18 @@ as-is):**
 **E -- positional/list formats, not KEYWORD=value at all (need their own
 small dedicated parsers, closer to how `lnklst.txt`/`apf.txt` are
 handled than any of the above):**
-- `LPA`/`LPALSTxx` -- a dataset name list, same shape LNKLST already is
+- `LPA`/`LPALSTxx` -- IMPLEMENTED and CONFIRMED against a real LPALSTxx
+  member (18 entries): `LpalstEntry`/`lpalst_parser.py`,
+  `lpalst_entries` table, `inventory lpalst` command,
+  `lpalst_snapshot.yml`. A dataset name list, the same shape LNKLST
+  already is, except each entry is comma-terminated (one per physical
+  line, except the last) and can carry an optional volser hint in
+  parens right after the DSN (e.g. `SYS1.LPALIB(VOL001)`) -- captured
+  as its own `volume` field via a single small regex per entry, no
+  shared `parmlib_engines.py` engine needed. The real member also
+  exercised unresolved system symbols embedded in several DSNs (e.g.
+  `USER.&SYSVER..LPALIB`) -- left as literal text, not resolved (this
+  pipeline has no access to the system's active symbol table).
 - `FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx` -- `modname,ddname` pairs, same
   shape as each other
 - `VAL`/`VATLSTxx` -- volume attribute list (`PRIVATE`/`PUBLIC`/`STORAGE`
@@ -1660,8 +1673,9 @@ handled than any of the above):**
 2. Category B (2 domains, DEVSUP/OPT) plus Category G (1 domain, CLOCK,
    its own small parser but no new engine) -- cheapest, most mechanical
    once 9.1 lands.
-3. Category E (4 domains) -- simple positional formats, no engine
-   dependency, can happen in parallel with B/G.
+3. Category E (4 domains, 1 implemented -- `LPA`/`LPALSTxx`) -- simple
+   positional formats, no engine dependency, can happen in parallel
+   with B/G.
 4. Category C minus PROG/IGDSMS (8 domains) -- mechanical once the
    statement engine exists.
 5. Category D (1 domain, SVC) -- IMPLEMENTED; turned out to need its own

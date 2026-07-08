@@ -423,6 +423,7 @@ list of what it looks for in the directory you point it at:
 | Active IGGCATxx member snapshot (catalog system parameters, named by IEASYSxx's own CATALOG=) | `iggcat_snapshot` (default filename `iggcat_snapshot.txt`, override via `zos_extract_iggcat_snapshot_outfile`) | ansible-only, `iggcat_snapshot.yml` -- CONFIRMED against a real member |
 | Active PROGxx member snapshot (dynamic APF/LNKLST/LPA/EXIT/SCHED definitions, named by IEASYSxx's own PROG=) | `prog_snapshot` (default filename `prog_snapshot.txt`, override via `zos_extract_prog_snapshot_outfile`) | ansible-only, `prog_snapshot.yml` -- CONFIRMED against a real member |
 | Active IEASVCxx member snapshot (user SVC routine additions/replacements, named by IEASYSxx's own SVC=) | `ieasvc_snapshot` (default filename `ieasvc_snapshot.txt`, override via `zos_extract_ieasvc_snapshot_outfile`) | ansible-only, `ieasvc_snapshot.yml` -- syntax CONFIRMED via a real member's own documented (commented-out) example, not yet validated against a live statement |
+| Active LPALSTxx member snapshot (Link Pack Area dataset concatenation, named by IEASYSxx's own LPA=) | `lpalst_snapshot` (default filename `lpalst_snapshot.txt`, override via `zos_extract_lpalst_snapshot_outfile`) | ansible-only, `lpalst_snapshot.yml` -- CONFIRMED against a real member |
 | Active jobs/tasks snapshot | exactly `active_jobs.txt` | `extrjobs.py` (step 8) |
 | USS process snapshot | exactly `processes.txt` | `extrprocs.py` (step 8) |
 | Dataset catalog | `catalog` | `extrcat.py` (step 9), one file per HLQ/pattern group |

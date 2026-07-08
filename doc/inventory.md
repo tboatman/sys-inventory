@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Thirty more files —
+   file naming and how to produce each file. Thirty-one more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -161,9 +161,11 @@ just renaming them into that shape for a quick demo.)
    Resource Serialization configuration parameters, named by
    IEASYSxx's own `GRSCNF=` keyword), `prog_snapshot.txt` (the
    active PROGxx member(s) — dynamic APF/LNKLST/LPA/EXIT/SCHED
-   definitions, named by IEASYSxx's own `PROG=` keyword), and
+   definitions, named by IEASYSxx's own `PROG=` keyword),
    `ieasvc_snapshot.txt` (the active IEASVCxx member(s) — user SVC
    routine additions/replacements, named by IEASYSxx's own `SVC=`
+   keyword), and `lpalst_snapshot.txt` (the active LPALSTxx member(s) —
+   Link Pack Area dataset concatenation, named by IEASYSxx's own `LPA=`
    keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
@@ -172,7 +174,8 @@ just renaming them into that shape for a quick demo.)
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grscnf_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
    `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
-   `diag_snapshot`/`iggcat_snapshot`/`prog_snapshot`/`ieasvc_snapshot`
+   `diag_snapshot`/`iggcat_snapshot`/`prog_snapshot`/`ieasvc_snapshot`/
+   `lpalst_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -846,6 +849,31 @@ confirming the real syntax even though that particular line isn't a
 live definition, and correctly producing zero rows on its own) -- not
 yet validated against a live, uncommented SVCPARM statement from a real
 system.
+
+### `inventory lpalst`
+
+The Link Pack Area (LPA) dataset concatenation from the active LPALSTxx
+member(s), if you ingested an `lpalst_snapshot.txt`. Named by
+IEASYSxx's own `LPA=` keyword. The first Category E (positional/list
+format) domain from `doc/TODO.md` "9.2":
+
+```
+$ inventory lpalst
+ADCD.&SYSVER..LPALIB  [LPALST00]
+ISM403.SEQALPA(C3PRD1)  [LPALST00]
+SYS1.LPALIB  [LPALST00]
+USER.&SYSVER..LPALIB(C3CFG1)  [LPALST00]
+```
+
+Same "what's configured" role LNKLST/APF already play, except each real
+LPALSTxx entry is comma-terminated (one entry per physical line, except
+the last) and can carry an optional volser hint in parens right after
+the DSN -- captured as its own `volume` field, not folded into the DSN
+string. CONFIRMED against a real LPALSTxx member (18 entries), which
+also exercised unresolved system symbols embedded in several DSNs (e.g.
+`USER.&SYSVER..LPALIB` above) -- left as literal text, the same
+"capture raw, don't resolve" convention every other domain in this
+pipeline follows.
 
 ### `inventory active`
 
