@@ -8,3 +8,4 @@ venv/
 ansible/inventory/hosts.yml
 ansible/output/
 .vscode/settings.json
+.DS_Store
