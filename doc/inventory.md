@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Thirty-one more files —
+   file naming and how to produce each file. Thirty-four more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -164,9 +164,15 @@ just renaming them into that shape for a quick demo.)
    definitions, named by IEASYSxx's own `PROG=` keyword),
    `ieasvc_snapshot.txt` (the active IEASVCxx member(s) — user SVC
    routine additions/replacements, named by IEASYSxx's own `SVC=`
-   keyword), and `lpalst_snapshot.txt` (the active LPALSTxx member(s) —
+   keyword), `lpalst_snapshot.txt` (the active LPALSTxx member(s) —
    Link Pack Area dataset concatenation, named by IEASYSxx's own `LPA=`
-   keyword)
+   keyword), `mlpa_snapshot.txt` (the active IEALPAxx member(s) —
+   Modified Link Pack Area module additions, named by IEASYSxx's own
+   `MLPA=` keyword), `fix_snapshot.txt` (the active IEAFIXxx member(s) —
+   IBM fix/PTF-supplied Link Pack Area module additions, named by
+   IEASYSxx's own `FIX=` keyword), and `vatlst_snapshot.txt` (the
+   active VATLSTxx member(s) — volume attribute list, named by
+   IEASYSxx's own `VAL=` keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
@@ -175,7 +181,7 @@ just renaming them into that shape for a quick demo.)
    `sched_snapshot`/`couple_snapshot`/`grscnf_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
    `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
    `diag_snapshot`/`iggcat_snapshot`/`prog_snapshot`/`ieasvc_snapshot`/
-   `lpalst_snapshot`
+   `lpalst_snapshot`/`mlpa_snapshot`/`fix_snapshot`/`vatlst_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -874,6 +880,71 @@ also exercised unresolved system symbols embedded in several DSNs (e.g.
 `USER.&SYSVER..LPALIB` above) -- left as literal text, the same
 "capture raw, don't resolve" convention every other domain in this
 pipeline follows.
+
+### `inventory mlpa`
+
+Modified Link Pack Area (MLPA) module additions from the active
+IEALPAxx member(s), if you ingested an `mlpa_snapshot.txt`. Named by
+IEASYSxx's own `MLPA=` keyword:
+
+```
+$ inventory mlpa
+INCLUDE LIBRARY(ADCD.&SYSVER..LINKLIB)  [IEALPA00]
+MODULES (DFSAFMD0, IGC0020B)  [IEALPA00]
+```
+
+Originally planned as a bespoke Category E "modname,ddname pairs"
+format in `doc/TODO.md`, before a real member was available -- CONFIRMED
+against a real IEALPAxx member to actually be statement-oriented
+(`INCLUDE`/`MODULES` top-level keywords), the same shape every Category
+C domain already has, so `mlpa_parser.py` reuses
+`parmlib_engines.statement_engine()` directly rather than a bespoke
+library/module-list dataclass. The confirming member also exercised a
+formatting quirk no earlier domain had: trailing descriptive comment
+lines that begin with `/*` but never close with a matching `*/`
+anywhere in the member -- handled by explicitly dropping any line still
+starting with `/*` after the normal comment-stripping pass.
+
+### `inventory fix`
+
+IBM fix/PTF-supplied Link Pack Area module additions from the active
+IEAFIXxx member(s), if you ingested an `fix_snapshot.txt`. Named by
+IEASYSxx's own `FIX=` keyword -- the identical `INCLUDE LIBRARY(dsn)
+MODULES(...)` syntax `inventory mlpa` has:
+
+```
+$ inventory fix
+INCLUDE LIBRARY(SYS1.LPALIB) MODULES( IEAVAR00 IEAVAR06 IGC0001G )  [IEAFIX00]
+INCLUDE LIBRARY(FFST.V120ESA.SEPWMOD2) MODULES( EPWSTUB )  [IEAFIX00]
+```
+
+CONFIRMED against a real IEAFIXxx member -- the only real difference
+from IEALPAxx's own confirming member is formatting (`MODULES(` opens
+on the same physical line as `INCLUDE LIBRARY(...)` here, folding both
+into one statement's operands, vs. IEALPAxx's own following-line
+`MODULES(...)`) -- both handled correctly with zero code differences.
+
+### `inventory vatlst`
+
+The volume attribute list from the active VATLSTxx member(s), if you
+ingested a `vatlst_snapshot.txt`. Named by IEASYSxx's own `VAL=`
+keyword. The second Category E (positional/list format) domain from
+`doc/TODO.md` "9.2":
+
+```
+$ inventory vatlst
+VATDEF IPLUSE(PRIVATE),SYSUSE(PRIVATE)  [VATLST00]
+C3DBAR,0,0,3390,Y  [VATLST00]
+C3SYS1,0,0,3390,Y  [VATLST00]
+```
+
+CONFIRMED against a real VATLSTxx member: one `VATDEF` statement
+(default IPL-time/system-wide volume use attributes, reusing
+`parmlib_engines.split_params()`) followed by one comma-separated
+positional row per volume (volser, a numeric attribute code, percent-
+full threshold, device type, and a Y/N convertible flag) --
+`vatlst_parser.py` gets its own small dedicated parser for the
+per-volume rows, the same as `lpalst_parser.py`.
 
 ### `inventory active`
 

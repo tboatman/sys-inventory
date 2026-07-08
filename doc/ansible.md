@@ -105,7 +105,8 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grscnf_snapshot`, `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
 `igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`, `iggcat_snapshot`,
-`prog_snapshot`, `ieasvc_snapshot`, `lpalst_snapshot`,
+`prog_snapshot`, `ieasvc_snapshot`, `lpalst_snapshot`, `mlpa_snapshot`,
+`fix_snapshot`, `vatlst_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -383,6 +384,40 @@ real member also exercised unresolved system symbols embedded in
 several DSNs (e.g. `USER.&SYSVER..LPALIB`) -- left as literal text, the
 same "capture raw, don't resolve" convention this whole pipeline
 follows.
+
+`mlpa_snapshot`/`fix_snapshot` (IEASYSxx's own `MLPA=`/`FIX=` keywords,
+naming IEALPAxx/IEAFIXxx) were both originally planned as bespoke
+"modname,ddname pairs" Category E formats before real members were
+seen -- CONFIRMED against real members to actually be statement-
+oriented, `INCLUDE LIBRARY(dsn)` / `MODULES(mod1,mod2,...)`, the same
+shape every Category C domain already has, so `mlpa_parser.py`/
+`fix_parser.py` each reuse `parmlib_engines.statement_engine()`
+directly with a two-keyword vocabulary (`INCLUDE`, `MODULES`) instead
+of a bespoke library/module-list dataclass -- the same kind of
+reclassification PROGxx/CLOCKxx each needed once their own real members
+were seen. Ingested via `inventory mlpa`/`inventory fix`. The two
+confirming members differ only in formatting: IEAFIXxx's `MODULES(`
+opens on the same physical line as its `INCLUDE LIBRARY(...)`, while
+IEALPAxx's confirming member put `MODULES(...)` on its own following
+line -- both fold correctly with zero code differences, since operands
+are captured as raw generic text either way. IEALPAxx's confirming
+member also exercised a real formatting quirk no earlier domain had:
+trailing descriptive comment lines that begin with `/*` but never close
+with a matching `*/` anywhere in the member -- `mlpa_parser.py`
+explicitly drops any line still starting with `/*` after the normal
+`strip_comments()` pass, since the unbalanced comment can't be removed
+by that pass alone.
+
+`vatlst_snapshot` is the second Category E (positional/list) domain:
+IEASYSxx's own `VAL=` keyword names the active VATLSTxx member(s) --
+the volume attribute list. Fetched the same way and written to
+`vatlst_snapshot.txt` -- ingested via `inventory vatlst`. CONFIRMED
+against a real member: one `VATDEF IPLUSE(attr),SYSUSE(attr)` statement
+(reusing `parmlib_engines.split_params()`) followed by one
+comma-separated positional row per volume (volser, a numeric attribute
+code, percent-full threshold, device type, and a Y/N convertible flag)
+-- `vatlst_parser.py` gets its own small dedicated parser for the
+per-volume rows, the same as `lpalst_parser.py`.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1399,6 +1434,31 @@ roles/zos_extract/
                              # real member; own small tokenizer, not
                              # either shared parmlib_engines.py engine
                              # (see lpalst_parser.py's own docstring)
+    mlpa_snapshot.yml        # explicit capture of the active IEALPAxx
+                             # member(s) -- Modified Link Pack Area
+                             # module additions, named by IEASYSxx's own
+                             # MLPA= keyword; tag mlpa_snapshot; writes
+                             # mlpa_snapshot.txt, ingested via
+                             # inventory mlpa -- CONFIRMED against a
+                             # real member; reuses statement_engine()
+                             # (see mlpa_parser.py's own docstring)
+    fix_snapshot.yml         # explicit capture of the active IEAFIXxx
+                             # member(s) -- IBM fix/PTF-supplied Link
+                             # Pack Area module additions, named by
+                             # IEASYSxx's own FIX= keyword; tag
+                             # fix_snapshot; writes fix_snapshot.txt,
+                             # ingested via inventory fix -- CONFIRMED
+                             # against a real member; same statement
+                             # syntax as IEALPAxx (see fix_parser.py's
+                             # own docstring)
+    vatlst_snapshot.yml      # explicit capture of the active VATLSTxx
+                             # member(s) -- volume attribute list, named
+                             # by IEASYSxx's own VAL= keyword; tag
+                             # vatlst_snapshot; writes
+                             # vatlst_snapshot.txt, ingested via
+                             # inventory vatlst -- CONFIRMED against a
+                             # real member; own small tokenizer (see
+                             # vatlst_parser.py's own docstring)
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
@@ -1406,8 +1466,9 @@ roles/zos_extract/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/
                              # GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
                              # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx/
-                             # IEASVCxx/LPALSTxx fetches above -- see
-                             # doc/TODO.md "9.1"
+                             # IEASVCxx/LPALSTxx/IEALPAxx/IEAFIXxx/
+                             # VATLSTxx fetches above -- see doc/TODO.md
+                             # "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

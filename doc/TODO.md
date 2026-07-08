@@ -1569,11 +1569,11 @@ domain):**
   This completes Category C -- every domain in that category (see the
   top-of-section table) is now implemented and confirmed against a real
   member. Category D (`SVC`/`IEASVCxx`) is now implemented too (see its
-  own entry below), and Category E's first domain (`LPA`/`LPALSTxx`) is
-  implemented and confirmed as well (see its own entry below). Still
-  outstanding from the original 23: the rest of Category E
-  (`FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx`, `VAL`/`VATLSTxx`) -- none of
-  those three started yet.
+  own entry below), and Category E is now complete as well
+  (`LPA`/`LPALSTxx`, `MLPA`/`IEALPAxx`, `FIX`/`IEAFIXxx`,
+  `VAL`/`VATLSTxx` -- see their own entries below). **This completes
+  every domain in the original 23-member active-PARMLIB-member
+  expansion from doc/TODO.md "9.2".**
 
 **Noticed, not yet fixed:** while wiring `grscnf`'s CLI help text,
 `cli.py`'s `grsrnl` subparser help was found still saying "not yet
@@ -1626,10 +1626,45 @@ handled than any of the above):**
   exercised unresolved system symbols embedded in several DSNs (e.g.
   `USER.&SYSVER..LPALIB`) -- left as literal text, not resolved (this
   pipeline has no access to the system's active symbol table).
-- `FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx` -- `modname,ddname` pairs, same
-  shape as each other
-- `VAL`/`VATLSTxx` -- volume attribute list (`PRIVATE`/`PUBLIC`/`STORAGE`
-  + volser lists)
+- `MLPA`/`IEALPAxx` -- IMPLEMENTED and CONFIRMED against a real
+  IEALPAxx member. Originally planned as a bespoke "modname,ddname
+  pairs" format above, before a real member was seen -- turned out to
+  actually be statement-oriented (`INCLUDE LIBRARY(dsn)` /
+  `MODULES(mod1,mod2,...)`), the same shape every Category C domain
+  already has, so `MlpaStatement`/`mlpa_parser.py` reuses
+  `parmlib_engines.statement_engine()` directly with a two-keyword
+  vocabulary (`INCLUDE`, `MODULES`) instead -- the same kind of
+  reclassification PROGxx/CLOCKxx each needed. `mlpa_statements` table,
+  `inventory mlpa` command, `mlpa_snapshot.yml`. The confirming member
+  also exercised a real formatting quirk no earlier domain had: trailing
+  descriptive comment lines beginning with `/*` that never close with a
+  matching `*/` anywhere in the member -- `parmlib_engines.
+  strip_comments()`'s balanced-pair regex can't remove these, so
+  `mlpa_parser.py` additionally drops any line still starting with `/*`
+  after that pass.
+- `FIX`/`IEAFIXxx` -- IMPLEMENTED and CONFIRMED against a real IEAFIXxx
+  member to use the identical `INCLUDE`/`MODULES` syntax MLPA has:
+  `FixStatement`/`fix_parser.py`, `fix_statements` table, `inventory
+  fix` command, `fix_snapshot.yml`. The only real difference from
+  IEALPAxx's own confirming member is formatting -- IEAFIXxx's
+  `MODULES(` opens on the same physical line as its own `INCLUDE
+  LIBRARY(...)`, folding both into one statement's operands, rather
+  than IEALPAxx's own following-line `MODULES(...)` -- both handled
+  correctly by `statement_engine()` with zero code differences.
+- `VAL`/`VATLSTxx` -- IMPLEMENTED and CONFIRMED against a real VATLSTxx
+  member: `VatlstDefaults`/`VatlstEntry`/`vatlst_parser.py`,
+  `vatlst_defaults`/`vatlst_entries` tables, `inventory vatlst` command,
+  `vatlst_snapshot.yml`. One `VATDEF IPLUSE(attr),SYSUSE(attr)`
+  statement (reusing `parmlib_engines.split_params()`) followed by one
+  comma-separated positional row per volume (volser, a numeric
+  attribute code -- 0 in the confirming member's rows, not the
+  PRIVATE/PUBLIC/STORAGE word VATDEF's own IPLUSE/SYSUSE use --
+  percent-full threshold, device type, and a Y/N convertible flag). Not
+  KEYWORD=value at all, so `vatlst_parser.py` gets its own small
+  dedicated parser for the per-volume rows, the same as
+  `lpalst_parser.py`. This completes Category E -- every domain
+  originally sketched here is now implemented and confirmed against a
+  real member.
 
 **F -- needs research before committing to *any* design, not just a
 "not yet validated" flag like everything above:**
@@ -1673,9 +1708,12 @@ handled than any of the above):**
 2. Category B (2 domains, DEVSUP/OPT) plus Category G (1 domain, CLOCK,
    its own small parser but no new engine) -- cheapest, most mechanical
    once 9.1 lands.
-3. Category E (4 domains, 1 implemented -- `LPA`/`LPALSTxx`) -- simple
-   positional formats, no engine dependency, can happen in parallel
-   with B/G.
+3. Category E (4 domains) -- IMPLEMENTED; simple positional formats,
+   no engine dependency. `LPA`/`VAL` (`LPALSTxx`/`VATLSTxx`) turned out
+   to be genuinely positional as planned; `MLPA`/`FIX`
+   (`IEALPAxx`/`IEAFIXxx`) turned out to actually be statement-oriented
+   once real members were seen, reclassified into Category C's shape
+   (see their own entries above) rather than needing bespoke parsers.
 4. Category C minus PROG/IGDSMS (8 domains) -- mechanical once the
    statement engine exists.
 5. Category D (1 domain, SVC) -- IMPLEMENTED; turned out to need its own
