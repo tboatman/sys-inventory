@@ -105,7 +105,7 @@ Available tags: `proclib`, `ssn_commnd`, `ifaprd`, `parmlib_snapshot`,
 `clock_snapshot`, `autor_snapshot`, `sched_snapshot`, `couple_snapshot`,
 `grscnf_snapshot`, `grsrnl_snapshot`, `smf_snapshot`, `ios_snapshot`, `consol_snapshot`,
 `igdsms_snapshot`, `izuprm_snapshot`, `diag_snapshot`, `iggcat_snapshot`,
-`prog_snapshot`,
+`prog_snapshot`, `ieasvc_snapshot`,
 `lnklst`, `apf`,
 `sysinfo`, `uss_mounts`, `jes2parm`, `vtam`, `tcpip`, `sms`, `wlm`,
 `smplist`, `activity`, `catalog`, `cics`, `db2`, `racf`, `wlm_zosmf`.
@@ -351,6 +351,21 @@ domain already has, so `prog_parser.py` reuses
 vocabulary (`APF`, `LNKLST`, plus documented-but-unconfirmed `EXIT`/
 `LPA`/`SCHED`) -- no new engine or per-family modeling needed after all.
 This completes Category C.
+
+`ieasvc_snapshot` is the Category D domain: IEASYSxx's own `SVC=`
+keyword names the active IEASVCxx member(s) -- user SVC (Supervisor
+Call) routine additions/replacements (`SVCPARM nnn,KEYWORD(value),...`).
+Fetched the same way and written to `ieasvc_snapshot.txt` -- ingested
+via `inventory ieasvc`. Unlike every Category C domain above,
+`ieasvc_parser.py` reuses `jes2parm_parser.py`'s own continuation-joiner
+and `parmlib_engines.split_params()` instead of `statement_engine()`,
+since a `SVCPARM` statement's positional value is a bare SVC number
+(e.g. `254`), not a top-level statement keyword -- captured as its own
+`svc_number` field. CONFIRMED syntax via a real IEASVCxx member's own
+documented example (`SVCPARM 254,REPLACE,TYPE(1),APF(NO)`, itself
+commented out in the member, carrying the same PARMLIB sequence-number
+trailer DIAGxx's confirmed member had) -- not yet validated against a
+live, uncommented SVCPARM statement from a real system.
 
 ### Running it against a system that isn't in `hosts.yml` yet
 
@@ -1347,14 +1362,26 @@ roles/zos_extract/
                              # inventory prog -- CONFIRMED against a
                              # real member; reuses statement_engine()
                              # directly (see prog_parser.py's docstring)
+    ieasvc_snapshot.yml      # explicit capture of the active IEASVCxx
+                             # member(s) -- user SVC routine additions/
+                             # replacements, named by IEASYSxx's own
+                             # SVC= keyword; tag ieasvc_snapshot; writes
+                             # ieasvc_snapshot.txt, ingested via
+                             # inventory ieasvc -- syntax CONFIRMED via
+                             # a real member's own documented (commented
+                             # out) example; reuses jes2parm_parser.py's
+                             # continuation-joiner, not
+                             # statement_engine() (see ieasvc_parser.py's
+                             # own docstring)
     _fetch_active_parmlib_member.yml
                              # generic worker shared by
                              # discover_active_members.yml's IEASYSxx/
                              # BPXPRMxx/DEVSUPxx/IEAOPTxx/CLOCKxx/
                              # AUTORxx/SCHEDxx/COUPLExx/GRSCNFxx/
                              # GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/
-                             # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx
-                             # fetches above -- see doc/TODO.md "9.1"
+                             # IGDSMSxx/IZUPRMxx/DIAGxx/IGGCATxx/PROGxx/
+                             # IEASVCxx fetches above -- see doc/TODO.md
+                             # "9.1"
     lnklst.yml, apf.yml, sysinfo.yml
                              # zos_operator / zos_apf console-command and
                              # APF-list analogs

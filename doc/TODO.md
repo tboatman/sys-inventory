@@ -1568,9 +1568,10 @@ domain):**
   same line as its own statement text), so each becomes its own row.
   This completes Category C -- every domain in that category (see the
   top-of-section table) is now implemented and confirmed against a real
-  member. Still outstanding from the original 23: Category D (`SVC`/
-  `IEASVCxx`) and Category E (`LPA`/`LPALSTxx`, `FIX`/`IEAFIXxx`,
-  `MLPA`/`IEALPAxx`, `VAL`/`VATLSTxx`) -- none of those five started yet.
+  member. Category D (`SVC`/`IEASVCxx`) is now implemented too (see its
+  own entry below). Still outstanding from the original 23: Category E
+  (`LPA`/`LPALSTxx`, `FIX`/`IEAFIXxx`, `MLPA`/`IEALPAxx`,
+  `VAL`/`VATLSTxx`) -- none of those four started yet.
 
 **Noticed, not yet fixed:** while wiring `grscnf`'s CLI help text,
 `cli.py`'s `grsrnl` subparser help was found still saying "not yet
@@ -1585,10 +1586,28 @@ change scoped to `grscnf`.
 
 **D -- `STMT param,KEYWORD=value,...` (reuse jes2parm_parser.py's engine
 as-is):**
-- `SVC`/`IEASVCxx` (`SVCPARM nnn,KEYWORD=value,...` -- note the leading
-  `nnn` is a bare positional parameter, not a parenthesized subscript like
-  JES2's own `JOBCLASS(1)`; `jes2parm_parser.py`'s `_STMT` regex needs a
-  small extension to accept that shape, not a fresh rewrite)
+- `SVC`/`IEASVCxx` -- IMPLEMENTED: `IeasvcStatement`/`ieasvc_parser.py`,
+  `ieasvc_statements` table, `inventory ieasvc` command,
+  `ieasvc_snapshot.yml`. Real syntax CONFIRMED via a real IEASVCxx
+  member's own documented example (`SVCPARM 254,REPLACE,TYPE(1),
+  APF(NO)`, itself commented out in the member -- confirms the syntax
+  even though it's not a live definition, and correctly produces zero
+  rows on its own). Turned out not to need `jes2parm_parser.py`'s
+  `_STMT` regex extended after all -- rather than reuse it directly (as
+  originally planned), `ieasvc_parser.py` has its own small regex
+  (`^([A-Z0-9$#@]+)\s+(\d+)\s*,?\s*(.*)$`) that captures the leading
+  bare SVC number as its own `svc_number` field, then reuses
+  `jes2parm_parser.py`'s `_join_continuations` and
+  `parmlib_engines.split_params()` for the rest -- a fresh small parser
+  built *from* the shared pieces, not a rewrite of jes2parm's own
+  `_STMT`/model (which stays JES2-specific, keyed on a parenthesized
+  subscript, not a bare number). Also confirmed the same PARMLIB
+  sequence-number trailer DIAGxx's confirmed member needed --
+  `parmlib_engines.strip_sequence_numbers()` (promoted out of
+  `diag_parser.py` once a second domain needed the identical logic) is
+  applied before continuation-joining. **Not yet validated against a
+  live, uncommented SVCPARM statement from a real system** -- only the
+  syntax itself is confirmed, via the member's own commented sample.
 
 **E -- positional/list formats, not KEYWORD=value at all (need their own
 small dedicated parsers, closer to how `lnklst.txt`/`apf.txt` are
@@ -1645,8 +1664,9 @@ handled than any of the above):**
    dependency, can happen in parallel with B/G.
 4. Category C minus PROG/IGDSMS (8 domains) -- mechanical once the
    statement engine exists.
-5. Category D (1 domain, SVC) -- needs the small `jes2parm_parser.py`
-   extension first.
+5. Category D (1 domain, SVC) -- IMPLEMENTED; turned out to need its own
+   small regex rather than an extension to `jes2parm_parser.py`'s own
+   `_STMT`, reusing its continuation-joiner/`split_params()` instead.
 6. `PROG` on its own, given its complexity (`IGDSMS` implemented and
    confirmed; `PROG` itself now also implemented and confirmed -- turned
    out to need no special handling beyond the standard statement

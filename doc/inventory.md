@@ -103,7 +103,7 @@ just renaming them into that shape for a quick demo.)
    only, see its README section — a RACF security snapshot) into one local
    directory — see
    [`zos-extract.md`](zos-extract.md) for the exact
-   file naming and how to produce each file. Twenty-four more files —
+   file naming and how to produce each file. Thirty more files —
    `uss_mounts.txt` (mounted USS filesystems), `jes2parm.txt`/
    `NN_jes2parm.txt` (JES2's own initialization statements), `vtam.txt`
    (VTAM major-node status and start options, incl. APPN
@@ -159,9 +159,12 @@ just renaming them into that shape for a quick demo.)
    parameters, named by IEASYSxx's own `CATALOG=` keyword),
    `grscnf_snapshot.txt` (the active GRSCNFxx member(s) — Global
    Resource Serialization configuration parameters, named by
-   IEASYSxx's own `GRSCNF=` keyword), and `prog_snapshot.txt` (the
+   IEASYSxx's own `GRSCNF=` keyword), `prog_snapshot.txt` (the
    active PROGxx member(s) — dynamic APF/LNKLST/LPA/EXIT/SCHED
-   definitions, named by IEASYSxx's own `PROG=` keyword)
+   definitions, named by IEASYSxx's own `PROG=` keyword), and
+   `ieasvc_snapshot.txt` (the active IEASVCxx member(s) — user SVC
+   routine additions/replacements, named by IEASYSxx's own `SVC=`
+   keyword)
    — have no standalone `zos-extract/python` script
    yet and are only produced by the `ansible/` role's
    `uss_mounts`/`jes2parm`/`vtam`/`tcpip`/`sms`/`wlm`/`db2`/`wlm_zosmf`/`cics`/
@@ -169,7 +172,7 @@ just renaming them into that shape for a quick demo.)
    `devsup_snapshot`/`opt_snapshot`/`clock_snapshot`/`autor_snapshot`/
    `sched_snapshot`/`couple_snapshot`/`grscnf_snapshot`/`grsrnl_snapshot`/`smf_snapshot`/
    `ios_snapshot`/`consol_snapshot`/`igdsms_snapshot`/`izuprm_snapshot`/
-   `diag_snapshot`/`iggcat_snapshot`/`prog_snapshot`
+   `diag_snapshot`/`iggcat_snapshot`/`prog_snapshot`/`ieasvc_snapshot`
    tags; see [`ansible.md`](ansible.md)'s Layout
    section. `wlm_zosmf.txt` specifically comes from
    `playbooks/wlm_zosmf.yml`, a standalone entry point, not `site.yml`/
@@ -817,6 +820,32 @@ Category C domain already has, so `prog_parser.py` reuses
 `parmlib_engines.statement_engine()` directly with a five-keyword
 vocabulary (`APF`, `LNKLST`, plus documented-but-unconfirmed `EXIT`/
 `LPA`/`SCHED`).
+
+### `inventory ieasvc`
+
+User SVC (Supervisor Call) routine additions/replacements from the
+active IEASVCxx member(s), if you ingested an `ieasvc_snapshot.txt`.
+Named by IEASYSxx's own `SVC=` keyword. The Category D domain from
+`doc/TODO.md` "9.2":
+
+```
+$ inventory ieasvc
+SVCPARM 200,REPLACE=,TYPE=(3),APF=(YES)  [IEASVC00]
+SVCPARM 201,TYPE=(1)  [IEASVC00]
+```
+
+Unlike every Category C domain above, `ieasvc_parser.py` reuses
+`jes2parm_parser.py`'s own continuation-joiner and
+`parmlib_engines.split_params()` instead of `statement_engine()`, since
+a `SVCPARM` statement's positional value right after the statement name
+is a bare SVC number (e.g. `254`), not a top-level statement keyword
+like every other domain's vocabulary. CONFIRMED syntax via a real
+IEASVCxx member's own documented example (`SVCPARM
+254,REPLACE,TYPE(1),APF(NO)`, itself commented out in the member --
+confirming the real syntax even though that particular line isn't a
+live definition, and correctly producing zero rows on its own) -- not
+yet validated against a live, uncommented SVCPARM statement from a real
+system.
 
 ### `inventory active`
 
