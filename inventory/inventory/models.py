@@ -614,6 +614,37 @@ class DiagStatement:
 
 
 @dataclass
+class IggcatStatement:
+    """One statement from an active IGGCATxx PARMLIB member -- catalog
+    system parameters (GDGEXTENDED/VVDSSPACE/NOTIFYEXTENT/TASKMAX/...),
+    named by IEASYSxx's own CATALOG= keyword the same way SSN=/CMD=/
+    PROD=/OMVS=/MSTRJCL=/DEVSUP=/OPT=/CLOCK=/AUTOR=/SCH=/COUPLE=/GRSRNL=/
+    SMF=/IOS=/CON=/SMS=/IZU=/DIAG= name IEFSSNxx/COMMNDxx/IFAPRDxx/
+    BPXPRMxx/MSTJCLxx/DEVSUPxx/IEAOPTxx/CLOCKxx/AUTORxx/SCHEDxx/
+    COUPLExx/GRSRNLxx/SMFPRMxx/IECIOSxx/CONSOLxx/IGDSMSxx/IZUPRMxx/
+    DIAGxx. Dumped by ansible/roles/zos_extract/tasks/iggcat_snapshot.yml
+    and parsed by iggcat_parser.py.
+
+    CONFIRMED against a real IGGCAT00 member -- and its real shape is
+    neither of the two existing engines: unlike IEASYSxx/DEVSUPxx (Category
+    B, comma-separated `KEYWORD=value`/`KEYWORD(value)` on one continued
+    logical line) or AUTORxx/SCHEDxx/etc. (Category C, `STMT
+    KEYWORD(value)...` blocks needing a per-domain statement vocabulary),
+    a real IGGCATxx member is simply one independent `KEYWORD(value)` (or
+    bare `KEYWORD`) entry per physical line, with no `=`, no commas
+    joining entries, and no statement/sub-parameter grouping at all --
+    closest to CLOCKxx's own "one bare pair per line" shape (Category G),
+    but parenthesized rather than space-separated. iggcat_parser.py's own
+    small tokenizer handles both bare keywords and `KEYWORD(value)` pairs
+    generically rather than hand-listing IGGCATxx's full documented
+    keyword set."""
+
+    keyword: str
+    value: str | None = None
+    source_member: str = ""
+
+
+@dataclass
 class ActiveJob:
     """One currently-executing job/started task, as dumped by
     ansible/roles/zos_extract/tasks/activity.yml calling ZOAU's jls

@@ -1,0 +1,23 @@
+##MEMBER IGGCAT00
+/*********************************************************************/
+/*                                                                   */
+/* Copyright:                                                        */
+/* Licensed Materials - Property of IBM                              */
+/* 5694-A01                                                          */
+/* (C) Copyright IBM Corp. 2011                                      */
+/*                                                                   */
+/* Part Name: IGGCAT00                                               */
+/*                                                                   */
+/*                                                                   */
+/* Description = IGGCATxx allows you to define catalog system        */
+/* parameters and make permanent changes between IPLs.               */
+/*                                                                   */
+/*  01/31/2020 - cstmmm:                                             */
+/*  GDGEXTENDED(YES) allowed but set to NO incase 2.1 comes in to    */
+/*                                                                   */
+/*********************************************************************/
+GDGEXTENDED(NO)
+VVDSSPACE(10,10)
+NOTIFYEXTENT(80)
+TASKMAX(180)
+NOSWAP

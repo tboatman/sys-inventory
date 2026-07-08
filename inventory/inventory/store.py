@@ -30,6 +30,7 @@ from .models import (
     GrsrnlStatement,
     IeasysStatement,
     IgdsmsStatement,
+    IggcatStatement,
     IosStatement,
     IzuprmStatement,
     Jes2InitStatement,
@@ -228,6 +229,13 @@ CREATE TABLE IF NOT EXISTS diag_statements (
     source_member  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_diag_statements_stmt ON diag_statements(stmt);
+
+CREATE TABLE IF NOT EXISTS iggcat_statements (
+    keyword        TEXT NOT NULL,
+    value          TEXT,
+    source_member  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_iggcat_statements_keyword ON iggcat_statements(keyword);
 
 CREATE TABLE IF NOT EXISTS active_jobs (
     job_id             TEXT NOT NULL,
@@ -853,6 +861,22 @@ def save_diag_statements(conn: sqlite3.Connection, statements: list[DiagStatemen
 def all_diag_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     conn.row_factory = sqlite3.Row
     cur = conn.execute("SELECT * FROM diag_statements ORDER BY stmt")
+    return cur.fetchall()
+
+
+def save_iggcat_statements(conn: sqlite3.Connection, statements: list[IggcatStatement]) -> None:
+    conn.execute("DELETE FROM iggcat_statements")
+    rows = [(s.keyword, s.value, s.source_member) for s in statements]
+    conn.executemany(
+        "INSERT INTO iggcat_statements (keyword, value, source_member) VALUES (?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+
+
+def all_iggcat_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute("SELECT * FROM iggcat_statements ORDER BY keyword")
     return cur.fetchall()
 
 

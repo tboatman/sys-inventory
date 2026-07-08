@@ -17,7 +17,7 @@
 `inventory ieasys`, `inventory bpxprm`, `inventory devsup`, `inventory opt`,
 `inventory clock`, `inventory autor`, `inventory sched`, `inventory couple`,
 `inventory grsrnl`, `inventory smf`, `inventory ios`, `inventory consol`,
-`inventory igdsms`, `inventory izuprm`, `inventory diag`."""
+`inventory igdsms`, `inventory izuprm`, `inventory diag`, `inventory iggcat`."""
 from __future__ import annotations
 
 import argparse
@@ -44,6 +44,7 @@ from . import (
     ieasys_parser,
     ifaprd_parser,
     igdsms_parser,
+    iggcat_parser,
     ios_parser,
     izuprm_parser,
     jcl_parser,
@@ -176,6 +177,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     diag_statements = [s for p in sorted(input_dir.glob("*diag_snapshot*.txt"))
                        for s in diag_parser.parse_diag_snapshot(p)]
 
+    iggcat_statements = [s for p in sorted(input_dir.glob("*iggcat_snapshot*.txt"))
+                         for s in iggcat_parser.parse_iggcat_snapshot(p)]
+
     active_jobs_file = input_dir / "active_jobs.txt"
     active_jobs = activity_parser.parse_active_jobs(active_jobs_file) if active_jobs_file.exists() else []
 
@@ -288,6 +292,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     store.save_igdsms_statements(conn, igdsms_statements)
     store.save_izuprm_statements(conn, izuprm_statements)
     store.save_diag_statements(conn, diag_statements)
+    store.save_iggcat_statements(conn, iggcat_statements)
     store.save_active_jobs(conn, active_jobs)
     store.save_processes(conn, processes)
     store.save_catalog_datasets(conn, catalog_datasets)
@@ -334,6 +339,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
           f"{len(igdsms_statements)} active IGDSMSxx statements, "
           f"{len(izuprm_statements)} active IZUPRMxx statements, "
           f"{len(diag_statements)} active DIAGxx statements, "
+          f"{len(iggcat_statements)} active IGGCATxx statements, "
           f"{len(active_jobs)} active jobs, {len(processes)} processes, "
           f"{len(catalog_datasets)} cataloged datasets, "
           f"{len(vsam_clusters)} VSAM clusters, "
@@ -672,6 +678,17 @@ def cmd_diag(args: argparse.Namespace) -> int:
 
     for row in rows:
         print(f"{row['stmt']} {row['operands']}  [{row['source_member']}]")
+    return 0
+
+
+def cmd_iggcat(args: argparse.Namespace) -> int:
+    conn = store.connect(Path(args.db))
+    rows = store.all_iggcat_statements(conn)
+    conn.close()
+
+    for row in rows:
+        value = row["value"] if row["value"] is not None else ""
+        print(f"{row['keyword']}={value}  [{row['source_member']}]")
     return 0
 
 
@@ -1172,6 +1189,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_diag = sub.add_parser("diag", help="list active DIAGxx statements -- diagnostic function defaults")
     p_diag.set_defaults(func=cmd_diag)
+
+    p_iggcat = sub.add_parser("iggcat", help="list active IGGCATxx KEYWORD(value) statements -- catalog system parameters, CONFIRMED against a real member")
+    p_iggcat.set_defaults(func=cmd_iggcat)
 
     p_active = sub.add_parser("active", help="list currently-active jobs/started tasks (live snapshot)")
     p_active.set_defaults(func=cmd_active)
