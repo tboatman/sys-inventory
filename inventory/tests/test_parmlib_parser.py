@@ -17,13 +17,13 @@ def test_parse_parmlib_snapshot_reads_all_entries():
 
     assert second.entry == "2"
     assert second.flags == "S"
-    assert second.volume == "BES2W1"
-    assert second.dsn == "SYS3.BES2.PARMLIB"
+    assert second.volume == "SYSBW1"
+    assert second.dsn == "SYS3.SYSB.PARMLIB"
 
     assert third.entry == "3"
     assert third.flags == "D"
-    assert third.volume == "BES2W1"
-    assert third.dsn == "SYS3.BES2.LOCAL.PARMLIB"
+    assert third.volume == "SYSBW1"
+    assert third.dsn == "SYS3.SYSB.LOCAL.PARMLIB"
 
 
 def test_parse_parmlib_snapshot_skips_banner_and_header_lines():

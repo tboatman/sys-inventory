@@ -17,7 +17,7 @@ def test_active_jobs_parsed():
     assert cics.status == "AC"
     assert cics.job_class == "STC"
     assert cics.svc_class == "SYSSTC"
-    assert cics.system == "BES2"
+    assert cics.system == "SYSB"
     assert cics.membname == "CICS"
 
     payroll = next(j for j in jobs if j.name == "PAYROLL")

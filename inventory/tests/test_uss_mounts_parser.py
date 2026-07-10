@@ -44,7 +44,7 @@ def test_mount_parm_continuation_line_does_not_break_parsing():
     mounts = load_mounts()
     tmp = next(m for m in mounts if m.path == "/tmp")
     assert tmp.fs_type == "TFS"
-    assert tmp.name == "USS.BES1.TMP"
+    assert tmp.name == "USS.SYSA.TMP"
 
 
 def test_summary_and_header_lines_not_treated_as_mounts():

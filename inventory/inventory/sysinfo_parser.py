@@ -13,9 +13,9 @@ originally guessed; each line is just "&SYMBOL.  = value" directly:
     IEA007I STATIC SYSTEM SYMBOL VALUES 754
     &SYSALVL.          = "2"
     &SYSCLONE.         = "S2"
-    &SYSNAME.          = "BES2"
+    &SYSNAME.          = "SYSB"
     &SYSOSLVL.         = "Z1020500"
-    &SYSPLEX.          = "BESCFCC"
+    &SYSPLEX.          = "ABCCFCC"
     ...
 
 'D IPLINFO' reply -- RELEASE and ARCHLVL happened to still match the
@@ -35,7 +35,7 @@ volume is "VOLUME(xxxxxx)" (parenthesized), not "VOLUME: xxxxxx"
     IEASYM LIST = (BN,L)
     IEASYS LIST = (BN) (OP)
     IODF DEVICE: ORIGINAL(0A113) CURRENT(0A113)
-    IPL DEVICE: ORIGINAL(0A348) CURRENT(0A348) VOLUME(BES25A)
+    IPL DEVICE: ORIGINAL(0A348) CURRENT(0A348) VOLUME(SYSB5A)
     VM CPID = z/VM    7.4.0
 
 `ipl_parm_member` is now sourced from "IEASYS LIST = (...)" instead (the

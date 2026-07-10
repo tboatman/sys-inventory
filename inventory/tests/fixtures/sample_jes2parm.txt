@@ -6,9 +6,9 @@
                              *    Checkpoint Parameters              *
                              *---------------------------------------*
                                                                      */
-CKPTDEF  CKPT1=(DSNAME=SYS1.BES2.HASPCKPT,
+CKPTDEF  CKPT1=(DSNAME=SYS1.SYSB.HASPCKPT,
                              /* NAME FOR CKPT &DSNPRFX           ONC*/
-         VOLSER=BES2W1,      /* SYS1.BES2.HASPCKPT               ONC*/
+         VOLSER=SYSBW1,      /* SYS1.SYSB.HASPCKPT               ONC*/
          INUSE=YES),         /*                                   onc*/
          DUPLEX=ON           /* NO DUPLEXING        &CHKPT2       NC*/
 /*                                                                   */
@@ -24,7 +24,7 @@ FSS(PRINTOFF)                /* FSS TOKEN FOR PRINTERNN FSS=    aownc*/
 INIT(1)  NAME=1,             /* INITIATOR NAME                    wnc*/
          CLASS=QE,           /* INITIAL JOB CLASSES              ownc*/
          START               /* Start Automatically               wnc*/
-INCLUDE DSNAME=SYS1.BES2.PARMLIB(JES2NJE),VOLSER=BES2W1
+INCLUDE DSNAME=SYS1.SYSB.PARMLIB(JES2NJE),VOLSER=SYSBW1
 ##MEMBER JES2NJE
 /*              *--------------------------------------*
                 |    NETWORK SERVER DEFINITIONS        |
@@ -33,6 +33,6 @@ INCLUDE DSNAME=SYS1.BES2.PARMLIB(JES2NJE),VOLSER=BES2W1
 NETSRV(1)  SOCKET=LOCAL
 NODE(1)    NAME=SYSP,PATHMGR=NO,NETSRV=1
 /*                                                                   */
-SOCKET(SYSP) IPADDR=SYSP.BMC.COM,
+SOCKET(SYSP) IPADDR=SYSP.EXAMPLE.COM,
              PORT=175,
              NODE=1

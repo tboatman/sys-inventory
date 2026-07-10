@@ -16,9 +16,9 @@ confirmed:
     OMVS     0010 ACTIVE             OMVS=(00,BN)
     TYPENAME   DEVICE ----------STATUS----------- MODE  MOUNTED    LATCHES
     ZFS           117 ACTIVE                      RDWR  07/01/2026  L=77
-      NAME=USSHOME.BMCTYB                               12.05.52    Q=0
-      PATH=/home/bmctyb
-      OWNER=BES2     AUTOMOVE=Y CLIENT=N
+      NAME=USSHOME.XYZTYB                               12.05.52    Q=0
+      PATH=/home/xyztyb
+      OWNER=SYSB     AUTOMOVE=Y CLIENT=N
 
 One notable difference from the originally-guessed shape: NAME= and PATH=
 land on *separate* continuation lines here, each with extra trailing

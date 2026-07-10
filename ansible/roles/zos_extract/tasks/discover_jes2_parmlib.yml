@@ -16,9 +16,9 @@
 #        $HASP825 INITINFO  --- Command used to start JES2
 #        $HASP825           S JES2,PARM='WARM,NOREQ'
 #        $HASP825           --- HASPPARM data sets read
-#        $HASP825           DSN=SYS1.BES2.PARMLIB(JES2PABN),
-#        $HASP825           VOLSER=BES2W1,CARDS=886,
-#        $HASP825           DSN=SYS1.BES2.PARMLIB(JES2NJE),VOLSER=BES2W1,
+#        $HASP825           DSN=SYS1.SYSB.PARMLIB(JES2PABN),
+#        $HASP825           VOLSER=SYSBW1,CARDS=886,
+#        $HASP825           DSN=SYS1.SYSB.PARMLIB(JES2NJE),VOLSER=SYSBW1,
 #        $HASP825           CARDS=350
 #      Still matched generically ('\$HASP\d+', not a hardcoded '825') the
 #      same way this file always did, in case the real message ID varies
@@ -33,7 +33,7 @@
 #      two JES2 messages genuinely use different field names). Treating
 #      this the original way (dump every member of the whole PARMLIB
 #      dataset, same as proclib.yml's "everything, unfiltered" approach)
-#      would be actively wrong here: SYS1.BES2.PARMLIB above is a
+#      would be actively wrong here: SYS1.SYSB.PARMLIB above is a
 #      site-wide shared PARMLIB likely holding many unrelated members
 #      (IEASYSxx, IEFSSNxx, ...), not just JES2's own -- dumping all of it
 #      would be noisy and wasteful. So this now extracts the specific

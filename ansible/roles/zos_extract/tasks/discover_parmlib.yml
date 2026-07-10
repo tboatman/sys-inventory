@@ -10,7 +10,7 @@
 # do (ENTRY FLAGS VOLUME DATA SET), confirmed against a real reply:
 #   ENTRY  FLAGS  VOLUME  DATA SET
 #     1      S    HCD000  SYS1.COMMON.PARMLIB
-#     2      S    BES2W1  SYS3.BES2.PARMLIB
+#     2      S    SYSBW1  SYS3.SYSB.PARMLIB
 # so this reuses the same select/regex_replace idiom lnklst.yml uses.
 # ENTRY order is PARMLIB search order (lowest = searched first), matching
 # this project's NN-prefix convention (zos-extract/README.md), so

@@ -651,7 +651,7 @@ prompted by the user needing full traceability from started task -> PROCLIB
 member -> program -> SMP/E holding CSI. Found that the started-task ->
 lineage join doesn't exist anywhere in code, and the CSI itself isn't
 modeled at all despite this site having (at least) four real CSIs --
-`ansible/output/bes2/smpe_csi_candidates.txt` shows separate CPWR, IOA,
+`ansible/output/sysb/smpe_csi_candidates.txt` shows separate CPWR, IOA,
 OPSDATAI, and ACOM100 GLOBAL CSIs, each presumably with its own
 target/dlib zones. Seven items below, in the priority order the user
 picked; implementation proceeds 8a+8b, then 8c+8d, then 8e, then 8f, then

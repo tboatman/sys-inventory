@@ -10,8 +10,8 @@
 # gets wrapped across several console lines, each re-prefixed with the
 # message ID, e.g.:
 #   $HASP319 PROCLIB(PROC00)    DD(1)=(DSNAME=SYS1.PROCLIB,
-#   $HASP319                    VOLSER=BES25A,UNIT=SYSALLDA),
-#   $HASP319                    DD(2)=(DSNAME=SYS2.BES2.PROCLIB, ...
+#   $HASP319                    VOLSER=SYSB5A,UNIT=SYSALLDA),
+#   $HASP319                    DD(2)=(DSNAME=SYS2.SYSB.PROCLIB, ...
 # so this strips the $HASP319 prefix from every line, rejoins them into
 # one string, and pulls out every DSNAME=... occurrence in order (DD(1),
 # DD(2), ... = PROCLIB search order).

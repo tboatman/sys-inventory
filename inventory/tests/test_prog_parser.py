@@ -54,7 +54,7 @@ def test_inline_comment_on_lnklst_add_does_not_leak_into_operands():
     statements = load_statements()
     strobe = next(s for s in statements if s.stmt == "LNKLST" and "SSTRAUTH" in s.operands)
     assert "STROBE" not in strobe.operands
-    assert strobe.operands == "ADD NAME(LNKLSTBN) DSNAME(CSGI.CW.&GAMNTSB..SBR21.SSTRAUTH) VOLSER(BESHR1)"
+    assert strobe.operands == "ADD NAME(LNKLSTBN) DSNAME(CSGI.CW.&GAMNTSB..SBR21.SSTRAUTH) VOLSER(ABCHR1)"
 
 
 def test_source_member_set_for_every_statement():

@@ -4,17 +4,17 @@ TYPENAME   DEVICE ----------STATUS----------- MODE  MOUNTED    LATCHES
 ZFS           117 ACTIVE                      RDWR  07/01/2026  L=77
   NAME=OMVS.ROOT.ZFS                                12.05.52    Q=0
   PATH=/
-  OWNER=BES2     AUTOMOVE=Y CLIENT=N
+  OWNER=SYSB     AUTOMOVE=Y CLIENT=N
 ZFS           116 ACTIVE                      RDWR  06/23/2026  L=69
   NAME=OMVS.ETC.ZFS                                 10.15.33    Q=0
   PATH=/etc
-  OWNER=BES2     AUTOMOVE=Y CLIENT=N
+  OWNER=SYSB     AUTOMOVE=Y CLIENT=N
 HFS           115 ACTIVE                      READ  06/23/2026  L=70
   NAME=OMVS.LEGACY.HFS                              10.15.32    Q=0
   PATH=/legacy
-  OWNER=BES2     AUTOMOVE=Y CLIENT=N
+  OWNER=SYSB     AUTOMOVE=Y CLIENT=N
 TFS            85 ACTIVE                      RDWR  06/20/2026  L=30
-  NAME=USS.BES1.TMP                                 00.20.47    Q=30
+  NAME=USS.SYSA.TMP                                 00.20.47    Q=30
   PATH=/tmp
   MOUNT PARM=-s 4000
-  OWNER=BES1     AUTOMOVE=U CLIENT=Y
+  OWNER=SYSA     AUTOMOVE=U CLIENT=Y

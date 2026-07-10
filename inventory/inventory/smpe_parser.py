@@ -21,7 +21,7 @@ of GIMSMP's own report text. A file with no `##CSI` line (e.g. one
 captured before this was added) simply leaves `Zone.csi` as `""` --
 nothing here requires the sentinel to be present. See `doc/TODO.md`
 ("8a. Zone.csi field") for why this exists: this site alone has at least
-four separate real CSIs (`ansible/output/bes2/smpe_csi_candidates.txt`),
+four separate real CSIs (`ansible/output/sysb/smpe_csi_candidates.txt`),
 and without this, merging zones from more than one of them loses which
 CSI each zone actually belongs to.
 

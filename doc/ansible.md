@@ -677,7 +677,7 @@ RACF was. **Both are now confirmed against real replies.** Specifically:
   pair) instead of reusing `_member_dump.yml`'s "list and dump every
   member of the whole dataset" approach `proclib.yml`/`ssn_commnd.yml`
   use -- that broader approach would have been actively wrong here: the
-  real reply's owning dataset (`SYS1.BES2.PARMLIB` at the site that
+  real reply's owning dataset (`SYS1.SYS2.PARMLIB` at the site that
   confirmed this) is a site-wide shared PARMLIB holding many unrelated
   members, not just JES2's own. `zos_extract_jes2_parmlibs` was renamed
   to `zos_extract_jes2_init_members` (a list of `{dsn, member}` pairs,
@@ -685,7 +685,7 @@ RACF was. **Both are now confirmed against real replies.** Specifically:
 
 The command/discovery mechanism above is confirmed, and so now is the
 *content* of a real JES2 init-deck member -- two real members
-(`SYS1.BES2.PARMLIB(JES2PARM)` and the `JES2NJE` member it pulls in via
+(`SYS1.SYS2.PARMLIB(JES2PARM)` and the `JES2NJE` member it pulls in via
 an `INCLUDE` statement) were checked against `jes2parm_parser.py` on
 2026-07-02, and needed a real fix, not just re-flagging: the real
 member turned out to be a site copy of IBM's own HASPPARM-derived

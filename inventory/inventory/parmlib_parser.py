@@ -8,7 +8,7 @@ against a real reply):
 
     ENTRY  FLAGS  VOLUME  DATA SET
       1      S    HCD000  SYS1.COMMON.PARMLIB
-      2      S    BES2W1  SYS3.BES2.PARMLIB
+      2      S    SYSBW1  SYS3.SYSB.PARMLIB
 
 so this is a straight Python port of the same select/regex_replace idiom
 lnklst.yml/discover_parmlib.yml already use in Jinja, just kept as its

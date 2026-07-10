@@ -26,7 +26,7 @@ per group:
    share one header run) followed by data rows:
 
        STORGRP  TYPE    SYSTEM= 1 2
-       BESCLD   POOL            + +
+       ABCCLD   POOL            + +
          SPACE INFORMATION:
          TOTAL SPACE = 53110MB USAGE% = 0 ALERT% = 0
          TRACK-MANAGED SPACE = 53110MB USAGE% = 0 ALERT% = 0
@@ -54,8 +54,8 @@ per group:
    indented continuation lines under each group as originally guessed:
 
        VOLUME UNIT MVS  SYSTEM= 1 2                             STORGRP NAME
-       BESCS1 A335 ONRW         + +                               BESCLD
-       BESCS2                   + +                               BESCLD
+       ABCCS1 A335 ONRW         + +                               ABCCLD
+       ABCCS2                   + +                               ABCCLD
        ...
        LISTVOL IS IGNORED FOR OBJECT, OBJECT BACKUP, AND TAPE STORAGE GROUPS
        ***************************** LEGEND *****************************

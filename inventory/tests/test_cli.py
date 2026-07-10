@@ -163,7 +163,7 @@ def test_ingest_parmlib_snapshot_glob_excludes_from_member_dumps(tmp_path):
     (input_dir / "parmlib_snapshot.txt").write_text(
         "  ENTRY  FLAGS  VOLUME  DATA SET\n"
         "    1      S    HCD000  SYS1.COMMON.PARMLIB\n"
-        "    2      S    BES2W1  SYS3.BES2.PARMLIB\n"
+        "    2      S    SYSBW1  SYS3.SYSB.PARMLIB\n"
     )
 
     db_path = tmp_path / "demo.db"
